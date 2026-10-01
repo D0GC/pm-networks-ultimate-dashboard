@@ -49,6 +49,9 @@
   }
   function statusZeile() {
     const teile = [];
+    const dringend = (PS.meldungen || []).length + (PS.popups || []).length;
+    const anzahl = dringend + (PS.karten || []).filter((k) => k.art === "hinweis").length;
+    teile.push(`<button class="pille glocke${dringend ? " neu" : ""}" data-modul="hinweise" aria-label="Hinweise">${PS.ic(anzahl ? "bell-badge-outline" : "bell-outline")}${anzahl ? `<span class="tabular">${anzahl}</span>` : ""}</button>`);
     const al = PS.opt.alarm_entitaet;
     if (al && PS.z[al]) {
       const s = PS.s(al), kl = s === "triggered" ? "krit" : s === "pending" || s === "arming" ? "warn" : s.startsWith("armed") ? "gut" : "";
@@ -65,13 +68,14 @@
 
   // ------------------------------------------------------------ Karussell
   const KARTE = {
-    eil: ["alert-decagram", "var(--krit)"], warnung: ["alert", "var(--warn)"], termin: ["calendar-clock", "#c99bf0"],
+    eil: ["alert-decagram-outline", "var(--krit)"], warnung: ["alert-outline", "var(--warn)"], termin: ["calendar-clock-outline", "#c99bf0"],
     arbeit: ["car-clock", "var(--gut)"], wetter: ["weather-partly-cloudy", "var(--info)"], muell: ["trash-can-outline", "#d9a7ff"],
     fertig: ["check-circle-outline", "var(--gut)"], offen: ["door-open", "var(--warn)"], lueften: ["window-open-variant", "var(--warn)"],
-    pollen: ["flower-pollen", "#f6d36b"], eigen: ["information-outline", "var(--lavender)"], neutral: ["information-outline", "var(--lavender)"],
+    pollen: ["flower-pollen-outline", "#f6d36b"], eigen: ["information-outline", "var(--lavender)"], neutral: ["information-outline", "var(--lavender)"],
     dusche: ["shower-head", "var(--info)"], spa: ["hot-tub", "var(--akzent)"], kohle: ["fire", "#ff9a5c"], waesche: ["washing-machine", "var(--info)"],
-    spueler: ["dishwasher", "var(--info)"], robo: ["robot-vacuum", "var(--gut)"], ruhig: ["leaf", "var(--gut)"],
+    meldung: ["bell-ring-outline", "var(--warn)"], spueler: ["dishwasher", "var(--info)"], robo: ["robot-vacuum", "var(--gut)"], musik: ["music-note-outline", "#c99bf0"], ruhig: ["leaf", "var(--gut)"],
   };
+  PS.kartenIcon = (k) => (KARTE[k] || KARTE.neutral)[0];
   const LEER = { id: "leer", art: "hinweis", schluessel: "ruhig", titel: "Hinweise", wert: "Alles ruhig", hinweis: "Keine Hinweise und keine laufenden Geräte.", ring: null };
   let aktuell = 0, liste = [], wechselZeit = 0;
   const elemente = new Map();
@@ -79,12 +83,12 @@
   function karteInhalt(k) {
     const [ic, farbe] = KARTE[k.schluessel] || KARTE.neutral;
     const akt = k.art === "aktivitaet";
-    const kopf = akt ? "Aktivität" : k.schluessel === "eil" ? `Eilmeldung · ${k.titel}` : k.titel || "Hinweis";
+    const kopf = k.art === "meldung" ? "Meldung · antippen" : k.schluessel === "musik" ? "Musik" : akt ? "Aktivität" : k.schluessel === "eil" ? `Eilmeldung · ${k.titel}` : k.titel || "Hinweis";
     const innen = akt
       ? `<b class="wert-txt">${PS.esc(k.wert)}</b><small>${PS.esc(k.hinweis)}</small>`
       : PS.ic(ic);
     const h2 = akt ? k.titel : k.schluessel === "eil" ? k.hinweis : k.wert;
-    const p = akt ? (k.ende ? `fertig gegen ${PS.uhrzeit(new Date(k.ende))}` : "") : k.schluessel === "eil" ? "" : k.hinweis;
+    const p = k.unter ? k.unter : akt ? (k.ende ? `fertig gegen ${PS.uhrzeit(new Date(k.ende))}` : "") : k.schluessel === "eil" ? "" : k.hinweis;
     return { farbe, html: `<div class="kopf">${PS.ic(ic)}<span>${PS.esc(kopf)}</span></div><div class="ring">${PS.ringSVG(akt ? k.ring : 1)}<div class="innen">${innen}</div></div><h2>${PS.esc(h2)}</h2><p>${PS.esc(p)}</p>` };
   }
   function kartenSetzen(karten) {
@@ -98,7 +102,7 @@
       const inhalt = karteInhalt(k);
       if (!el) {
         el = document.createElement("div"); el.className = "karte"; el.dataset.id = k.id;
-        el.addEventListener("click", () => { weiter(); });
+        el.addEventListener("click", () => { const kk = el._karte; if (kk && kk.art === "meldung") PS.popupZeigen(kk.id); else weiter(); });
         box.appendChild(el); elemente.set(k.id, el);
         el.innerHTML = inhalt.html;
       } else if (el._html !== inhalt.html) {
@@ -164,7 +168,7 @@
     let temp = sensor("temperature") ? PS.s(sensor("temperature")) : klima ? PS.a(klima).current_temperature : null;
     if (klima && PS.a(klima).current_temperature != null) temp = PS.a(klima).current_temperature;
     const feuchte = sensor("humidity") ? PS.s(sensor("humidity")) : klima ? PS.a(klima).current_humidity : null;
-    const lichter = ent.filter((e) => e.startsWith("light.") && !PS.a(e).entity_id);
+    const lichter = PS.lichtAuswahl(ent, PS.bereichName(bereich)).sichtbar;
     return { ent, temp, feuchte, klima, lichterAn: lichter.filter((e) => PS.s(e) === "on").length, lichter: lichter.length };
   };
   function raeumeKurz() {
@@ -209,20 +213,24 @@
   PS.unterseite = (titel, render) => { stapel.push({ modul: stapel[0] && stapel[0].modul, titel, render }); zeichnen(); };
   PS.schliessen = () => {
     document.body.classList.remove("offen"); stapel.length = 0; markieren();
+    $("#sheet-inhalt").querySelectorAll("img").forEach(PS.kameraStoppen); PS.emit("seite");
     setTimeout(() => { if (!stapel.length) $("#sheet-inhalt").innerHTML = ""; }, 700);
   };
   function zurueck() { if (stapel.length > 1) { stapel.pop(); zeichnen(); } else PS.schliessen(); }
-  function zeichnen() {
+  function zeichnen(still) {
     const seite = stapel[stapel.length - 1]; if (!seite) return;
     $("#sheet-titel").textContent = seite.titel;
     $("#sheet-zurueck").hidden = stapel.length < 2;
     $("#sheet-tabs").innerHTML = "";
     const inhalt = $("#sheet-inhalt");
+    inhalt.querySelectorAll("img").forEach(PS.kameraStoppen);
+    PS.emit("seite");
+    inhalt.classList.toggle("still", !!still);
     inhalt.innerHTML = ""; inhalt.scrollTop = 0;
     seite.render(inhalt);
     PS.kachelnBinden(inhalt);
   }
-  PS.neuZeichnen = () => { if (stapel.length) { const y = $("#sheet-inhalt").scrollTop; zeichnen(); $("#sheet-inhalt").scrollTop = y; } };
+  PS.neuZeichnen = () => { if (stapel.length) { const y = $("#sheet-inhalt").scrollTop; zeichnen(true); $("#sheet-inhalt").scrollTop = y; } };
   PS.tabs = (eintraege, aktiv, beiWahl) => {
     const box = $("#sheet-tabs");
     box.innerHTML = eintraege.map(([k, t]) => `<button data-k="${PS.esc(k)}" class="${k === aktiv ? "aktiv" : ""}">${PS.esc(t)}</button>`).join("");
@@ -232,17 +240,14 @@
   };
 
   // ------------------------------------------------------------ Ereignis (Tür)
-  let kameraTimer = null;
   function ereignis(e) {
     const an = !!(e && e.aktiv);
     document.body.classList.toggle("ereignis-an", an);
-    clearInterval(kameraTimer);
-    if (!an) return;
+    const img = $("#ereignis-bild");
+    if (!an) { PS.kameraStoppen(img); return; }
     document.body.classList.remove("ruhe");
     $("#ereignis-titel").textContent = e.titel || "Tür";
-    const img = $("#ereignis-bild");
-    const laden = () => { if (e.kamera) img.src = PS.bildUrl(`/api/camera_proxy/${e.kamera}`); };
-    laden(); kameraTimer = setInterval(laden, 1000);
+    if (e.kamera) PS.kameraStarten(img, e.kamera);
     $("#ereignis-oeffnen").hidden = !e.tueroeffner;
   }
 
@@ -251,7 +256,14 @@
     uhr(); wetter(); personen(); statusZeile(); schnellzugriff(); raeumeKurz(); dock();
   }
   PS.on("init", () => { alles(); vorhersageLaden(); if (stapel.length) PS.neuZeichnen(); });
-  PS.on("karten", kartenSetzen);
+  PS.on("karten", (k) => { kartenSetzen(k); statusZeile(); });
+  PS.on("popups", (neu) => {
+    statusZeile();
+    if (stapel.length && stapel[0].modul === "hinweise") PS.neuZeichnen();
+    // Wie früher das Popup: sofort zeigen, wenn jemand am Panel ist
+    if (neu && PS.modus === "wach" && !document.body.classList.contains("ereignis-an")) PS.popupZeigen(neu);
+  });
+  PS.on("meldungen", () => { statusZeile(); if (stapel.length && stapel[0].modul === "hinweise") PS.neuZeichnen(); });
   PS.on("ereignis", ereignis);
   PS.on("einstellungen", () => { schnellzugriff(); raeumeKurz(); dock(); zeigen(false); });
   PS.on("registry", () => { raeumeKurz(); });

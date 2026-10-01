@@ -80,3 +80,20 @@ def test_fmt_rest():
     assert kt.fmt_rest(59) == "0:59"
     assert kt.fmt_rest(3700) == "1:01 h"
     assert kt.fmt_rest(None) == "–"
+
+
+def test_musik_karte_gruppen_einmal():
+    a = {
+        "media_title": "Song",
+        "media_artist": "Band",
+        "media_duration": 200,
+        "media_position": 50,
+        "media_position_updated_at": JETZT.isoformat(),
+        "friendly_name": "Wohnung",
+    }
+    states = {"media_player.a": st("playing", **a), "media_player.b": st("playing", **a), "media_player.c": st("idle")}
+    (k,) = kt.akt_musik(states, JETZT, ["media_player.a", "media_player.b", "media_player.c"])
+    assert k["titel"] == "Song"
+    assert k["wert"] == "2:30"
+    assert k["unter"] == "Band · Wohnung"
+    assert abs(k["ring"] - 0.75) < 0.01

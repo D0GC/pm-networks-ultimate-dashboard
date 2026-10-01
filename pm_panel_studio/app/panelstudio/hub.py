@@ -16,6 +16,7 @@ import asyncio
 import contextlib
 import json
 import logging
+import re
 import time
 from datetime import UTC, datetime
 from typing import Any
@@ -25,6 +26,7 @@ from aiohttp import web
 from . import karten as kt
 from .config import Einstellungen, EinstellungsSpeicher, Options
 from .ha_client import HAClient, HAError
+from .popups import PopupSpeicher
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -75,6 +77,13 @@ def kompakt(st: dict[str, Any]) -> dict[str, Any]:
     return {"s": st.get("state"), "a": attrs, "lc": st.get("last_changed")}
 
 
+def _slug(text: str) -> str:
+    t = text.lower()
+    for a, b in (("ä", "a"), ("ö", "o"), ("ü", "u"), ("ß", "ss")):
+        t = t.replace(a, b)
+    return re.sub(r"[^a-z0-9]+", "_", t).strip("_")
+
+
 def dienst_erlaubt(domain: str, service: str) -> bool:
     if domain in DOMAINS_GESPERRT:
         return False
@@ -107,6 +116,10 @@ class Hub:
         self.letzte_bewegung = time.monotonic()
         self.letzte_beruehrung = 0.0
         self.modus = "wach"
+        # Music-Assistant-Player (für das Karussell) und HA-Benachrichtigungen (Glocke)
+        self.musik: list[str] = []
+        self.meldungen: dict[str, dict[str, Any]] = {}
+        self.popups = PopupSpeicher()
         # Ereignis
         self.ereignis: dict[str, Any] | None = None
         self._ereignis_bis = 0.0
@@ -162,6 +175,14 @@ class Hub:
         await self.client.subscribe({"type": "subscribe_events", "event_type": "state_changed"}, self._on_state_changed)
         for ev in ("entity_registry_updated", "area_registry_updated", "device_registry_updated"):
             await self.client.subscribe({"type": "subscribe_events", "event_type": ev}, lambda _e: self._registry_neu.set())
+        try:
+            await self.client.subscribe({"type": "subscribe_events", "event_type": "call_service"}, self._on_dienst)
+        except HAError as err:
+            _LOGGER.warning("Dienstaufrufe nicht abonniert (keine Browser-Mod-Popups): %s", err)
+        try:
+            await self.client.subscribe({"type": "persistent_notification/subscribe"}, self._on_meldung)
+        except HAError as err:
+            _LOGGER.warning("Benachrichtigungen nicht abonniert: %s", err)
         states = await self.client.get_states()
         self.states = {s["entity_id"]: s for s in states if isinstance(s, dict) and "entity_id" in s}
         with contextlib.suppress(HAError):
@@ -205,8 +226,54 @@ class Hub:
                 "n": e.get("name"),
                 "i": e.get("icon"),
                 "l": e.get("labels") or [],
+                "p": e.get("platform"),
             }
+        self._klima_zuordnen(reg)
         self.registry = reg
+        self.musik = sorted(eid for eid, r in reg.items() if r.get("p") == "music_assistant" and eid.startswith("media_player."))
+        self._relevant = kt.relevante_entitaeten(self.opts.hinweise_entitaet) | set(self.musik)
+
+    def _klima_zuordnen(self, reg: dict[str, dict[str, Any]]) -> None:
+        """PM-Klima-Thermostate ohne Bereich über ihren Namen zuordnen (climate.pm_kuche -> Bereich kuche)."""
+        praefix = self.opts.klima_praefix
+        if not praefix:
+            return
+        nach_slug: dict[str, str] = {}
+        for b in self.bereiche:
+            nach_slug[str(b["id"])] = b["id"]
+            nach_slug[_slug(str(b.get("name") or ""))] = b["id"]
+        for eid, r in reg.items():
+            if eid.startswith(praefix) and not r.get("b"):
+                r["b"] = nach_slug.get(eid[len(praefix) :])
+
+    def _on_dienst(self, event: dict[str, Any]) -> None:
+        data = event.get("data") or {}
+        if data.get("domain") != "browser_mod":
+            return
+        vorher = {m["id"] for m in self.popups.liste()}
+        if self.popups.verarbeiten("browser_mod", str(data.get("service")), data.get("service_data") or {}):
+            neu = [m for m in self.popups.liste() if m["id"] not in vorher]
+            self._popups_senden(neu[0]["id"] if neu else None)
+
+    def _popups_senden(self, neu_id: str | None = None) -> None:
+        self.spawn(self.senden_alle({"typ": "popups", "liste": self.popups.liste(), "neu": neu_id}))
+        self._karten_json = ""
+        self._karten_neu()
+
+    def _on_meldung(self, event: dict[str, Any]) -> None:
+        typ = event.get("type")
+        eintraege = event.get("notifications") or {}
+        if typ == "current":
+            self.meldungen = dict(eintraege)
+        elif typ == "removed":
+            for nid in eintraege:
+                self.meldungen.pop(nid, None)
+        else:
+            self.meldungen.update(eintraege)
+        self.spawn(self.senden_alle({"typ": "meldungen", "liste": self.meldungen_liste()}))
+
+    def meldungen_liste(self) -> list[dict[str, Any]]:
+        return sorted(self.meldungen.values(), key=lambda m: str(m.get("created_at") or ""), reverse=True)
 
     async def _registry_loop(self) -> None:
         while True:
@@ -254,7 +321,11 @@ class Hub:
             await self.senden_alle({"typ": "diff", "zustaende": diff})
 
     def _karten_neu(self, senden: bool = True) -> None:
-        karten = kt.berechne(self.states, self.opts.hinweise_entitaet, datetime.now(UTC), self.einstellungen.karten_aus)
+        karten = kt.berechne(
+            self.states, self.opts.hinweise_entitaet, datetime.now(UTC), self.einstellungen.karten_aus, self.musik
+        )
+        if "meldung" not in self.einstellungen.karten_aus:
+            karten = self.popups.karten() + karten
         roh = json.dumps(karten, ensure_ascii=False, sort_keys=True)
         if roh == self._karten_json:
             return
@@ -318,6 +389,8 @@ class Hub:
             self._modus_pruefen()
             if self.ereignis and time.monotonic() > self._ereignis_bis:
                 self.ereignis_beenden()
+            if self.popups.aufraeumen():
+                self._popups_senden()
             if zaehler % 15 == 0 and self.verbunden:
                 self._karten_neu()  # Restzeiten ohne Zustandsänderung (Timer) nachführen
 
@@ -332,6 +405,8 @@ class Hub:
             "einstellungen": self.einstellungen.to_dict(),
             "optionen": self.opts.public(),
             "karten": self.karten,
+            "meldungen": self.meldungen_liste(),
+            "popups": self.popups.liste(),
             "ereignis": self.ereignis or {"aktiv": False},
             "ha": {
                 "standort": self.ha_config.get("location_name"),
@@ -391,6 +466,10 @@ class Hub:
             eid = str(msg.get("entity_id", ""))
             st = self.states.get(eid)
             return (st or {}).get("attributes") or {}
+        if typ == "popup_schliessen":
+            if self.popups.entfernen(str(msg.get("popup", ""))):
+                self._popups_senden()
+            return True
         if typ == "ereignis_ende":
             self.ereignis_beenden()
             return True

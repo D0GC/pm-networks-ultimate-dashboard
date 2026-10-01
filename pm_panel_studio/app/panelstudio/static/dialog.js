@@ -47,9 +47,40 @@
   };
 
   // ------------------------------------------------------------ Dialog
-  function schliessen() { $("#dialog-grund").classList.remove("offen"); offenFuer = null; }
+  function schliessen() {
+    $("#dialog-grund").classList.remove("offen"); offenFuer = null;
+    document.querySelectorAll("#dialog img").forEach(PS.kameraStoppen);
+  }
   PS.dialogSchliessen = schliessen;
-  PS.mehrInfos = (eid) => { offenFuer = eid; zeichnen(true); $("#dialog-grund").classList.add("offen"); };
+  // Browser-Mod-Popup als Dialog: Titel, Markdown, Kamera, Knöpfe wie im Original
+  PS.popupZeigen = (id) => {
+    const m = (PS.popups || []).find((x) => x.id === id); if (!m) return;
+    offenFuer = null;
+    const dlg = $("#dialog");
+    dlg.querySelectorAll("img").forEach(PS.kameraStoppen);
+    dlg.innerHTML = `<div class="kopf">${PS.ic("bell-ring-outline", "gr")}<h2>${PS.esc(m.titel)}<small>${PS.esc("seit " + PS.zeitRelativ(new Date(m.seit * 1000).toISOString()).replace("vor ", ""))}</small></h2><button class="zu" aria-label="Schließen">${PS.ic("close")}</button></div><div class="md">${PS.markdown(m.text)}</div>`;
+    dlg.querySelector(".zu").addEventListener("click", schliessen);
+    if (m.kamera) { const k = document.createElement("div"); k.className = "kamera"; const img = document.createElement("img"); k.appendChild(img); dlg.appendChild(k); PS.kameraStarten(img, m.kamera); }
+    const r = reihe();
+    const verwerfen = () => PS.anfrage({ typ: "popup_schliessen", popup: m.id }).catch(() => {}).then(schliessen);
+    r.appendChild(knopf("Verwerfen", "close", verwerfen));
+    m.knoepfe.forEach((b) => {
+      r.appendChild(knopf(b.text, null, () => {
+        if (b.domain === "browser_mod" || !b.domain) { verwerfen(); return; }
+        PS.dienst(b.domain, b.service, b.data || {}).then(() => { PS.toast(`${b.text} ausgeführt`); verwerfen(); });
+      }, b.art === "haupt" ? "primaer" : ""));
+    });
+    dlg.appendChild(r);
+    $("#dialog-grund").classList.add("offen");
+    dlg.dataset.popup = m.id;
+  };
+  PS.on("popups", () => {
+    const dlg = $("#dialog"), id = dlg.dataset.popup;
+    if (id && $("#dialog-grund").classList.contains("offen") && !(PS.popups || []).some((x) => x.id === id)) schliessen();
+  });
+
+  PS.mehrInfos = (eid) => {
+    delete $("#dialog").dataset.popup; offenFuer = eid; zeichnen(true); $("#dialog-grund").classList.add("offen"); };
   PS.on("diff", (ids) => { if (offenFuer && ids.has(offenFuer)) zeichnen(false); });
 
   function knopf(text, icon, fn, klasse = "") {
@@ -64,8 +95,9 @@
   function zeichnen(neu) {
     const eid = offenFuer, st = PS.z[eid]; const dlg = $("#dialog");
     if (!st) { schliessen(); return; }
-    // Bei laufender Bedienung (Schieber) nur Kopf aktualisieren
-    if (!neu && dlg.querySelector(".schieber.zieht")) return;
+    // Bei laufender Bedienung (Schieber) nicht neu aufbauen; Kameras laufen weiter
+    if (!neu && (dlg.querySelector(".schieber.zieht") || PS.domain(eid) === "camera" || PS.domain(eid) === "climate" || Date.now() - PS.letzteBeruehrung < 2500)) return;
+    dlg.querySelectorAll("img").forEach(PS.kameraStoppen);
     const a = st.a || {}, d = PS.domain(eid), bereich = PS.bereichVon(eid);
     dlg.innerHTML = `<div class="kopf">${PS.icon(eid, "gr")}<h2>${PS.esc(PS.name(eid))}<small>${PS.esc([bereich && PS.bereichName(bereich), PS.text(eid), st.lc && "seit " + PS.zeitRelativ(st.lc).replace("vor ", "")].filter(Boolean).join(" · "))}</small></h2><button class="zu" aria-label="Schließen">${PS.ic("close")}</button></div>`;
     dlg.querySelector(".zu").addEventListener("click", schliessen);
@@ -90,6 +122,12 @@
             b.addEventListener("click", () => PS.dienst("light", "turn_on", { ...E, hs_color: [h, s] })); f.appendChild(b);
           });
           box.appendChild(f);
+        }
+        if (Array.isArray(a.entity_id) && a.entity_id.length) {
+          const r = document.createElement("div"); r.className = "raster";
+          r.innerHTML = a.entity_id.filter((m) => PS.z[m]).map((m, i) => PS.kachelHTML(m, { i, bereich: PS.bereichName(PS.bereichVon(m)) })).join("");
+          const t = document.createElement("div"); t.className = "leer"; t.style.padding = "0"; t.textContent = "Einzeln steuern";
+          box.append(t, r);
         }
         if (a.effect_list && a.effect_list.length) box.appendChild(reihe(...a.effect_list.slice(0, 12).map((ef) => knopf(ef, null, svc("light", "turn_on", { ...E, effect: ef }), a.effect === ef ? "aktiv" : ""))));
         break;
@@ -125,8 +163,7 @@
       }
       case "camera": {
         const k = document.createElement("div"); k.className = "kamera"; const img = document.createElement("img"); k.appendChild(img); box.appendChild(k);
-        const laden = () => { if (offenFuer !== eid) return clearInterval(t); img.src = PS.bildUrl(`/api/camera_proxy/${eid}`); };
-        const t = setInterval(laden, 1500); laden(); break;
+        PS.kameraStarten(img, eid); break;
       }
       case "number": case "input_number": {
         const min = Number(a.min ?? 0), max = Number(a.max ?? 100), step = Number(a.step ?? 1);
@@ -186,7 +223,7 @@
   PS.klimaSteuerung = (eid) => {
     const st = PS.z[eid], a = st.a || {}, E = { entity_id: eid };
     const istPM = eid.startsWith("climate.pm_");
-    const el = document.createElement("div"); el.className = "gross";
+    const el = document.createElement("div"); el.className = "gross"; el.dataset.klima = eid;
     const soll = a.temperature, ist = a.current_temperature;
     const lo = a.min_temp ?? 5, hi = a.max_temp ?? 30, schritt = a.target_temp_step || 0.5;
     const anteil = ist != null ? (ist - lo) / (hi - lo) : null;
@@ -201,7 +238,7 @@
       if (istPM) PS.dienst("pm_heizung", "set_overlay", { ...E, temperatur: wunsch, dauer: 120 }).then(() => PS.toast(`${PS.zahl(wunsch, 1)}° für 2 Stunden`));
       else PS.dienst("climate", "set_temperature", { ...E, temperature: wunsch });
     };
-    const aendern = (delta) => { if (wunsch == null) return; wunsch = Math.max(lo, Math.min(hi, Math.round((wunsch + delta) / schritt) * schritt)); anzeigen(); clearTimeout(timer); timer = setTimeout(senden, 1500); };
+    const aendern = (delta) => { if (wunsch == null) return; wunsch = Math.max(lo, Math.min(hi, Math.round((wunsch + delta) / schritt) * schritt)); anzeigen(); clearTimeout(timer); timer = setTimeout(() => { timer = null; senden(); }, 1500); };
     const minus = knopf("", "minus", () => aendern(-schritt), "rund"), plus = knopf("", "plus", () => aendern(schritt), "rund");
     const b = document.createElement("b"); sollEl.append(minus, b, plus); anzeigen();
     const modi = el.querySelector(".modi");
@@ -210,13 +247,23 @@
     }
     (a.preset_modes || []).forEach((m) => modi.appendChild(knopf(m, null, svc("climate", "set_preset_mode", { ...E, preset_mode: m }), a.preset_mode === m ? "aktiv" : "")));
     if (!istPM && (a.hvac_modes || []).length > 1) (a.hvac_modes || []).forEach((m) => modi.appendChild(knopf(PS.text(eid, m), null, svc("climate", "set_hvac_mode", { ...E, hvac_mode: m }), st.s === m ? "aktiv" : "")));
-    if (PS.opt.klima_studio_url) { const k = knopf("Heizplan", "calendar-week", () => { location.href = PS.opt.klima_studio_url; }); modi.appendChild(k); }
+    // Aktualisierung an Ort und Stelle (kein Neuaufbau, laufende Eingaben bleiben)
+    el.aktualisieren = () => {
+      const n = PS.z[eid]; if (!n) return; const na = n.a || {};
+      el.querySelector(".titel small").textContent = `${na.hvac_action === "heating" ? "heizt" : na.hvac_action === "idle" ? "bereit" : PS.text(eid, n.s)}${na.preset_mode ? " · " + na.preset_mode : ""}`;
+      el.querySelector(".thermo .innen b").textContent = na.current_temperature != null ? PS.zahl(na.current_temperature, 1) + "°" : "–";
+      el.querySelector(".thermo .ring").classList.toggle("kalt", na.hvac_action !== "heating");
+      PS.ringSetzen(el.querySelector(".thermo .ring svg"), na.current_temperature != null ? (na.current_temperature - lo) / (hi - lo) : null);
+      if (!timer) { wunsch = na.temperature; anzeigen(); }
+      modi.querySelectorAll("[data-preset]").forEach((b) => b.classList.toggle("aktiv", b.dataset.preset === na.preset_mode));
+    };
+    modi.querySelectorAll(".knopf").forEach((b) => { const t = b.textContent.trim(); if ((a.preset_modes || []).includes(t)) b.dataset.preset = t; });
     return el;
   };
 
   PS.medienSteuerung = (eid, gross) => {
     const st = PS.z[eid], a = st.a || {}, E = { entity_id: eid };
-    const el = document.createElement("div"); el.className = "gross";
+    const el = document.createElement("div"); el.className = "gross"; el.dataset.medien = eid; el.dataset.gross = gross ? "1" : "";
     const bild = a.entity_picture ? `style="background-image:url('${PS.esc(PS.bildUrl(a.entity_picture).replace(/&t=\d+/, ""))}')"` : "";
     el.innerHTML = `<div class="titel">${PS.icon(eid)}<span>${PS.esc(PS.name(eid))}</span><small>${PS.esc(PS.text(eid, st.s))}</small></div>
       ${gross || a.media_title ? `<div class="medien-bild" ${bild}>${bild ? "" : PS.ic("music-note")}</div>` : ""}
@@ -234,9 +281,10 @@
 
   PS.alarmSteuerung = (eid) => {
     const st = PS.z[eid], a = st.a || {}, E = { entity_id: eid };
-    const el = document.createElement("div"); el.className = "gross";
+    const el = document.createElement("div"); el.className = "gross"; el.dataset.alarm = eid;
     el.innerHTML = `<div class="titel">${PS.icon(eid)}<span>${PS.esc(PS.name(eid))}</span><small>${PS.esc(PS.text(eid))}</small></div>`;
     let code = "";
+    el.codeAktiv = () => code.length > 0;
     const brauchtCode = !!a.code_format;
     const anzeige = document.createElement("div"); anzeige.className = "gross-wert"; anzeige.style.fontSize = "2.2rem";
     const zeig = () => { anzeige.textContent = brauchtCode ? (code ? "•".repeat(code.length) : "Code eingeben") : ""; };
@@ -261,6 +309,19 @@
     el.appendChild(r);
     return el;
   };
+
+  // Große Karten (Klima, Medien, Alarm) gezielt nachführen statt ganze Seiten neu aufzubauen
+  PS.on("diff", (ids) => {
+    document.querySelectorAll("[data-klima]").forEach((el) => { if (ids.has(el.dataset.klima) && el.aktualisieren) el.aktualisieren(); });
+    document.querySelectorAll("[data-medien]").forEach((el) => {
+      if (!ids.has(el.dataset.medien) || el.querySelector(".schieber.zieht") || !PS.z[el.dataset.medien]) return;
+      el.replaceWith(PS.medienSteuerung(el.dataset.medien, !!el.dataset.gross));
+    });
+    document.querySelectorAll("[data-alarm]").forEach((el) => {
+      if (!ids.has(el.dataset.alarm) || (el.codeAktiv && el.codeAktiv()) || !PS.z[el.dataset.alarm]) return;
+      el.replaceWith(PS.alarmSteuerung(el.dataset.alarm));
+    });
+  });
 
   document.addEventListener("DOMContentLoaded", () => {
     $("#dialog-grund").addEventListener("click", (ev) => { if (ev.target.id === "dialog-grund") schliessen(); });

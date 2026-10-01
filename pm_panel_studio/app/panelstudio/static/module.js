@@ -6,7 +6,6 @@
   const E = (html) => { const t = document.createElement("template"); t.innerHTML = html.trim(); return t.content.firstElementChild; };
   const alle = () => Object.keys(PS.z);
   const imBereich = (b) => alle().filter((e) => PS.bereichVon(e) === b && PS.sichtbar(e));
-  const istGruppe = (e) => Array.isArray(PS.a(e).entity_id) && PS.a(e).entity_id.length > 0;
   const dom = (d) => (e) => PS.domain(e) === d;
   const bereicheSortiert = () => {
     const ordnung = PS.einst.bereiche_reihenfolge || [], aus = new Set(PS.einst.bereiche_ausblenden || []);
@@ -31,22 +30,21 @@
     if (fn) b.addEventListener("click", fn); return b;
   }
   const sortName = (bn) => (x, y) => PS.kurzname(x, bn).localeCompare(PS.kurzname(y, bn), "de");
-  // Zahl der Einträge in einer Unteransicht neu zeichnen, wenn sich dort etwas ändert (gedrosselt)
-  let neuTimer = null, beobachtet = null;
+  // Übersichten (Räume, Medien, Energie …) bei Änderungen höchstens alle 5 s still neu aufbauen.
+  // Große Karten (Klima, Medien, Alarm) und Kacheln aktualisieren sich selbst an Ort und Stelle.
+  let neuTimer = null, beobachtet = null, letzterAufbau = 0;
   PS.on("diff", (ids) => {
-    if (!beobachtet || !document.body.classList.contains("offen")) return;
+    if (!beobachtet || neuTimer || !document.body.classList.contains("offen")) return;
     if (![...ids].some(beobachtet)) return;
-    clearTimeout(neuTimer);
     const versuch = () => {
-      // Während der Bedienung (letzte Berührung < 3 s) nicht neu aufbauen
-      if (Date.now() - letzteBeruehrung < 3000) { neuTimer = setTimeout(versuch, 1000); return; }
-      PS.neuZeichnen();
+      const warten = Math.max(5000 - (Date.now() - letzterAufbau), 3000 - (Date.now() - PS.letzteBeruehrung));
+      if (warten > 0) { neuTimer = setTimeout(versuch, warten); return; }
+      neuTimer = null; letzterAufbau = Date.now(); PS.neuZeichnen();
     };
-    neuTimer = setTimeout(versuch, 700);
+    neuTimer = setTimeout(versuch, 800);
   });
-  let letzteBeruehrung = 0;
-  PS.on("beruehrt", () => { letzteBeruehrung = Date.now(); });
-  const beobachten = (fn) => { beobachtet = fn; };
+  const beobachten = (fn) => { beobachtet = fn; letzterAufbau = Date.now(); };
+  PS.on("seite", () => { beobachtet = null; clearTimeout(neuTimer); neuTimer = null; });
 
   // ------------------------------------------------------------ Räume
   const ABSCHNITTE = [
@@ -65,21 +63,25 @@
     const ids = imBereich(b);
     const klima = ids.filter(dom("climate"));
     if (klima.length) { const r = E('<div class="raster breit"></div>'); klima.forEach((k) => r.appendChild(PS.klimaSteuerung(k))); el.appendChild(gruppe("Heizung", r)); }
-    const lichter = ids.filter(dom("light")).filter((e) => !istGruppe(e));
+    const licht = PS.lichtAuswahl(ids, name);
     for (const [titel, filter] of ABSCHNITTE) {
-      let teil = ids.filter(filter).filter((e) => !(titel === "Licht" && istGruppe(e)) && !(titel === "Klima" && dom("climate")(e)));
-      if (!teil.length) continue;
+      let teil = ids.filter(filter).filter((e) => !(titel === "Licht" && !licht.sichtbar.includes(e)) && !(titel === "Klima" && dom("climate")(e)));
+      if (!teil.length && !(titel === "Licht" && licht.raum)) continue;
       teil.sort(sortName(name));
+      if (titel === "Licht" && licht.raum) {
+        const r = E(`<div class="raster">${PS.kachelHTML(licht.raum, { bereich: name, titel: "Alle Lichter" })}${teil.map((e, i) => PS.kachelHTML(e, { i: i + 1, bereich: name })).join("")}</div>`);
+        el.appendChild(gruppe(titel, r));
+        continue;
+      }
       if (titel === "Kameras") {
         const r = E('<div class="raster breit"></div>');
-        teil.forEach((c) => { const k = E(`<div class="kamera"><img alt=""><span>${PS.esc(PS.kurzname(c, name))}</span></div>`); k.addEventListener("click", () => PS.mehrInfos(c)); k.querySelector("img").src = PS.bildUrl(`/api/camera_proxy/${c}`); r.appendChild(k); });
+        teil.forEach((c) => { const k = E(`<div class="kamera"><img alt=""><span>${PS.esc(PS.kurzname(c, name))}</span></div>`); k.addEventListener("click", () => PS.mehrInfos(c)); r.appendChild(k); setTimeout(() => PS.kameraStarten(k.querySelector("img"), c), 50); });
         el.appendChild(gruppe(titel, r)); continue;
       }
-      const aktion = titel === "Licht" && lichter.length > 1 ? knopf("Alle aus", "lightbulb-group-off-outline", () => PS.dienst("light", "turn_off", { entity_id: lichter })) : null;
+      const aktion = titel === "Licht" && teil.length > 1 ? knopf("Alle aus", "lightbulb-group-off-outline", () => PS.dienst("light", "turn_off", { entity_id: teil })) : null;
       el.appendChild(gruppe(titel, kachelRaster(teil, name), aktion));
     }
     if (!ids.length) el.appendChild(E('<div class="leer">Diesem Bereich sind keine Geräte zugeordnet.</div>'));
-    beobachten((e) => PS.bereichVon(e) === b && dom("climate")(e));
   }
   function raumKarte(b, i) {
     const w = PS.raumWerte(b.id);
@@ -107,8 +109,6 @@
         const r = E('<div class="raster"></div>');
         bereicheSortiert().forEach((b, i) => r.appendChild(raumKarte(b, i)));
         el.appendChild(r);
-        const ohne = alle().filter((e) => !PS.bereichVon(e) && PS.sichtbar(e) && ["light", "switch", "cover", "climate", "media_player", "fan", "lock"].includes(PS.domain(e)));
-        if (ohne.length) el.appendChild(gruppe("Ohne Bereich", kachelRaster(ohne.sort(sortName()))));
         beobachten((e) => ["light", "climate", "binary_sensor", "media_player", "sensor"].includes(PS.domain(e)));
       },
       unterseite(b) { PS.unterseite(PS.bereichName(b), (el) => raumAnsicht(el, b)); },
@@ -120,6 +120,8 @@
         const thermo = alle().filter(dom("climate")).filter((e) => PS.sichtbar(e) && !PS.nichtDa(e));
         const r = E('<div class="raster breit"></div>'); thermo.sort(sortName()).forEach((t) => r.appendChild(PS.klimaSteuerung(t)));
         if (thermo.length) el.appendChild(gruppe("Heizung", r));
+        const pmSchalter = alle().filter((e) => e.startsWith("switch.pm_") && PS.sichtbar(e));
+        if (pmSchalter.length) el.appendChild(gruppe("PM Klima", kachelRaster(pmSchalter.sort(sortName()))));
         const empf = alle().find((e) => e === "sensor.pm_klima_empfehlung");
         if (empf) el.appendChild(gruppe("Empfehlung", kachelRaster([empf], undefined, true)));
         // Raumklima je Bereich
@@ -132,28 +134,27 @@
         if (luft.length) el.appendChild(gruppe("Luftqualität", kachelRaster(luft.sort(sortName()))));
         const sonst = alle().filter((e) => (dom("fan")(e) || dom("humidifier")(e)) && PS.sichtbar(e));
         if (sonst.length) el.appendChild(gruppe("Lüfter und Luftreiniger", kachelRaster(sonst.sort(sortName()))));
-        if (PS.opt.klima_studio_url) el.appendChild(gruppe("Heizpläne", knopf("Klima Studio öffnen", "calendar-week", () => { location.href = PS.opt.klima_studio_url; }, "primaer")));
-        beobachten(dom("climate"));
+        if (PS.klimaStudio) el.appendChild(gruppe("Heizpläne und Auswertungen", knopf("PM Klima Studio öffnen", "thermometer-lines", PS.klimaStudio, "primaer")));
       },
     },
 
     licht: {
       titel: "Licht", icon: "lightbulb-group",
       render(el) {
-        const lichter = alle().filter(dom("light")).filter((e) => PS.sichtbar(e) && !istGruppe(e));
+        const auswahl = new Map(bereicheSortiert().map((b) => [b.id, PS.lichtAuswahl(alle().filter((e) => PS.bereichVon(e) === b.id && PS.sichtbar(e)), b.name)]));
+        const lichter = [...auswahl.values()].flatMap((x) => x.sichtbar);
         const an = lichter.filter((e) => PS.s(e) === "on");
         const allesAus = knopf(`Alle aus (${an.length})`, "lightbulb-group-off", null, "gefahr");
         PS.halten(allesAus, 1200, () => PS.dienst("light", "turn_off", { entity_id: an }).then(() => PS.toast("Alle Lichter aus")), () => an.length > 3);
         if (an.length) el.appendChild(gruppe("Gerade an", kachelRaster(an.sort(sortName())), allesAus));
         for (const b of bereicheSortiert()) {
-          const teil = lichter.filter((e) => PS.bereichVon(e) === b.id).sort(sortName(b.name));
-          if (!teil.length) continue;
-          const szenen = alle().filter((e) => dom("scene")(e) && PS.bereichVon(e) === b.id && PS.sichtbar(e));
-          const g = gruppe(b.name, kachelRaster([...teil, ...szenen], b.name), teil.length > 1 ? knopf("Aus", "lightbulb-off-outline", () => PS.dienst("light", "turn_off", { entity_id: teil })) : null);
-          el.appendChild(g);
+          const { raum, sichtbar } = auswahl.get(b.id);
+          const teil = [...sichtbar].sort(sortName(b.name));
+          if (!teil.length && !raum) continue;
+          const szenen = alle().filter((e) => dom("scene")(e) && PS.bereichVon(e) === b.id && PS.sichtbar(e)).sort(sortName(b.name));
+          const r = E(`<div class="raster">${raum ? PS.kachelHTML(raum, { bereich: b.name, titel: "Alle Lichter" }) : ""}${[...teil, ...szenen].map((e, i) => PS.kachelHTML(e, { i: i + 1, bereich: b.name })).join("")}</div>`);
+          el.appendChild(gruppe(b.name, r, !raum && teil.length > 1 ? knopf("Aus", "lightbulb-off-outline", () => PS.dienst("light", "turn_off", { entity_id: teil })) : null));
         }
-        const ohne = lichter.filter((e) => !PS.bereichVon(e));
-        if (ohne.length) el.appendChild(gruppe("Ohne Bereich", kachelRaster(ohne.sort(sortName()))));
       },
     },
 
@@ -174,16 +175,13 @@
         const kameras = alle().filter(dom("camera")).filter((e) => PS.sichtbar(e) && !PS.nichtDa(e));
         if (kameras.length) {
           const r = E('<div class="raster breit"></div>');
-          const imgs = kameras.map((c) => { const k = E(`<div class="kamera"><img alt=""><span>${PS.esc(PS.name(c))}</span></div>`); k.addEventListener("click", () => PS.mehrInfos(c)); r.appendChild(k); return [c, k.querySelector("img")]; });
-          const laden = () => { if (!r.isConnected) return clearInterval(t); imgs.forEach(([c, img]) => { img.src = PS.bildUrl(`/api/camera_proxy/${c}`); }); };
-          const t = setInterval(laden, 4000); laden();
+          kameras.forEach((c) => { const k = E(`<div class="kamera"><img alt=""><span>${PS.esc(PS.name(c))}</span></div>`); k.addEventListener("click", () => PS.mehrInfos(c)); r.appendChild(k); setTimeout(() => PS.kameraStarten(k.querySelector("img"), c), 50); });
           el.appendChild(gruppe("Kameras", r));
         }
         const aufnahme = alle().filter((e) => e.startsWith("switch.") && /aufzeichn|aufnahme|record|privacy|voralarm|sirene/i.test(e) && PS.sichtbar(e));
         if (aufnahme.length) el.appendChild(gruppe("Kamera-Einstellungen", kachelRaster(aufnahme.sort(sortName()))));
         const bewegung = bs(["motion", "occupancy", "presence"]).sort((x, y) => (PS.s(y) === "on") - (PS.s(x) === "on") || sortName()(x, y));
         if (bewegung.length) el.appendChild(gruppe("Bewegung", kachelRaster(bewegung)));
-        beobachten((e) => dom("alarm_control_panel")(e));
       },
     },
 
@@ -242,6 +240,35 @@
         const box = E("<div></div>"); el.appendChild(box);
         const wahl = (k) => { box.innerHTML = ""; ({ uebersicht, batterien, erreichbar, protokoll, automationen })[k](box); PS.kachelnBinden(box); };
         PS.tabs(tabs, "uebersicht", wahl); wahl("uebersicht");
+      },
+    },
+
+    hinweise: {
+      titel: "Hinweise", icon: "bell-outline", versteckt: true,
+      render(el) {
+        const pops = PS.popups || [];
+        if (pops.length) {
+          const pl = E('<div class="liste"></div>');
+          pops.forEach((x) => {
+            const z = E(`<div class="zeile">${PS.ic("bell-ring-outline")}<span class="n">${PS.esc(x.titel)}<small>${PS.esc(PS.zeitRelativ(new Date(x.seit * 1000).toISOString()))}</small></span></div>`);
+            z.addEventListener("click", () => PS.popupZeigen(x.id));
+            pl.appendChild(z);
+          });
+          el.appendChild(gruppe(`Meldungen · ${pops.length}`, pl));
+        }
+        const m = PS.meldungen || [];
+        const liste = E('<div class="liste"></div>');
+        m.forEach((n) => {
+          const z = E(`<div class="zeile">${PS.ic("bell-ring-outline")}<span class="n">${PS.esc(n.title || "Benachrichtigung")}<small>${PS.esc(String(n.message || "").replace(/[*_#`]/g, "").slice(0, 240))}</small></span></div>`);
+          z.appendChild(knopf("", "close", () => PS.dienst("persistent_notification", "dismiss", { notification_id: n.notification_id }), "rund"));
+          liste.appendChild(z);
+        });
+        el.appendChild(gruppe(m.length ? `Benachrichtigungen · ${m.length}` : "Benachrichtigungen", m.length ? liste : E('<div class="leer">Keine offenen Benachrichtigungen.</div>'),
+          m.length > 1 ? knopf("Alle verwerfen", "notification-clear-all", () => Promise.all(m.map((n) => PS.dienst("persistent_notification", "dismiss", { notification_id: n.notification_id })))) : null));
+        const karten = (PS.karten || []).filter((k) => k.id !== "leer" && k.art !== "meldung");
+        const kl = E(`<div class="liste">${karten.map((k) => `<div class="zeile">${PS.ic(PS.kartenIcon(k.schluessel))}<span class="n">${PS.esc(k.art === "aktivitaet" ? k.titel : k.titel + " · " + k.wert)}<small>${PS.esc(k.art === "aktivitaet" ? [k.wert, k.hinweis, k.unter].filter(Boolean).join(" · ") : k.hinweis)}</small></span></div>`).join("")}</div>`);
+        el.appendChild(gruppe("Hinweise und Aktivitäten", karten.length ? kl : E('<div class="leer">Alles ruhig.</div>')));
+        beobachten(() => false);
       },
     },
 

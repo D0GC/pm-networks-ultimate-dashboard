@@ -12,6 +12,7 @@ import ipaddress
 import json
 import logging
 import os
+import re
 import secrets
 from pathlib import Path
 from typing import Any
@@ -176,6 +177,33 @@ async def bild(request: web.Request) -> web.Response:
     return web.Response(body=daten, content_type=ctype, headers={"Cache-Control": "no-store"})
 
 
+KAMERA_RE = re.compile(r"^camera\.[a-z0-9_]+$")
+
+
+async def kamera(request: web.Request) -> web.StreamResponse:
+    """MJPEG-Livebild einer Kamera (camera_proxy_stream), durchgereicht bis das Panel die Verbindung schließt."""
+    hub = request.app[K_HUB]
+    eid = request.query.get("eid", "")
+    if not KAMERA_RE.match(eid):
+        raise web.HTTPBadRequest(text="Kamera ungültig")
+    try:
+        quelle = await hub.client.stream_oeffnen(f"camera_proxy_stream/{eid}")
+    except HAError as err:
+        raise web.HTTPBadGateway(text=str(err)) from err
+    try:
+        ziel = web.StreamResponse(
+            headers={"Content-Type": quelle.headers.get("Content-Type", "multipart/x-mixed-replace"), "Cache-Control": "no-store"}
+        )
+        await ziel.prepare(request)
+        async for block in quelle.content.iter_chunked(64 * 1024):
+            await ziel.write(block)
+    except (ConnectionResetError, aiohttp.ClientError, asyncio.CancelledError):
+        pass
+    finally:
+        quelle.release()
+    return ziel
+
+
 async def einstellungen_get(request: web.Request) -> web.Response:
     hub = request.app[K_HUB]
     return web.json_response(
@@ -227,6 +255,7 @@ def _gemeinsam(app: web.Application) -> None:
     app.router.add_get("/api/health", health)
     app.router.add_get("/api/ws", ws_handler)
     app.router.add_get("/api/bild", bild)
+    app.router.add_get("/api/kamera", kamera)
     app.router.add_static("/static/", STATIC_DIR, show_index=False)
 
 

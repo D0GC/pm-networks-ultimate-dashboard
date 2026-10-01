@@ -239,6 +239,46 @@ def akt_robo(states: States, jetzt: datetime) -> dict | None:
 
 
 AKTIVITAETEN = (akt_dusche_spa, akt_kohle, akt_waesche, akt_spueler, akt_robo)
+MAX_MUSIK = 2
+
+
+def akt_musik(states: States, jetzt: datetime, player: list[str]) -> list[dict]:
+    """Laufende Wiedergabe der Music-Assistant-Player; gleiche Titel (Gruppen) nur einmal."""
+    out: list[dict] = []
+    gesehen: set[tuple] = set()
+    for eid in player:
+        st = states.get(eid) or {}
+        if st.get("state") != "playing":
+            continue
+        a = st.get("attributes") or {}
+        titel = a.get("media_title") or "Wiedergabe"
+        schluessel = (titel, a.get("media_artist"))
+        if schluessel in gesehen:
+            continue
+        gesehen.add(schluessel)
+        dauer, pos = _num(a.get("media_duration")), _num(a.get("media_position"))
+        stand = _parse_zeit(a.get("media_position_updated_at"))
+        ende = None
+        if dauer and pos is not None and stand:
+            ende = stand + timedelta(seconds=max(0.0, dauer - pos))
+        rest = (ende - jetzt).total_seconds() if ende else None
+        out.append(
+            {
+                "id": f"akt:musik:{eid}",
+                "art": "aktivitaet",
+                "schluessel": "musik",
+                "titel": str(titel),
+                "wert": fmt_rest(rest) if rest is not None else "♪",
+                "hinweis": "noch" if rest is not None else "spielt",
+                "unter": " · ".join(str(x) for x in (a.get("media_artist"), a.get("friendly_name")) if x),
+                "ring": max(0.0, min(1.0, rest / dauer)) if (rest is not None and dauer) else None,
+                "ende": ende.isoformat() if ende else None,
+                "dauer_s": dauer if ende else None,
+            }
+        )
+        if len(out) >= MAX_MUSIK:
+            break
+    return out
 
 
 def parse_hinweise(zeilen: Any) -> list[dict]:
@@ -274,11 +314,13 @@ def parse_hinweise(zeilen: Any) -> list[dict]:
     return out
 
 
-def berechne(states: States, hinweise_entitaet: str, jetzt: datetime, aus: list[str] | None = None) -> list[dict]:
+def berechne(
+    states: States, hinweise_entitaet: str, jetzt: datetime, aus: list[str] | None = None, musik: list[str] | None = None
+) -> list[dict]:
     """Alle Karten in Anzeigereihenfolge: Eilmeldung und Warnung, dann Aktivitäten, dann übrige Hinweise."""
     aus = aus or []
     hinweise = parse_hinweise(_attr(states, hinweise_entitaet, "zeilen")) if hinweise_entitaet else []
-    akt = [k for fn in AKTIVITAETEN if (k := fn(states, jetzt))]
+    akt = [k for fn in AKTIVITAETEN if (k := fn(states, jetzt))] + akt_musik(states, jetzt, musik or [])
     vorn = [k for k in hinweise if k["schluessel"] in VORRANG]
     rest = [k for k in hinweise if k["schluessel"] not in VORRANG]
     return [k for k in (*vorn, *akt, *rest) if k["schluessel"] not in aus]

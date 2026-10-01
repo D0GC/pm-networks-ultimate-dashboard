@@ -26,9 +26,9 @@ configuration:
   tueroeffner:
     name: Türöffner
     description: button- oder lock-Entität für „Tür öffnen“. Auslösen nur nach 2 Sekunden Halten.
-  klima_studio_url:
-    name: Adresse Klima Studio
-    description: Optional. Adresse, unter der das Panel Klima Studio öffnet (Knopf „Heizplan“). Leer = Knopf ausgeblendet.
+  klima_praefix:
+    name: Präfix PM Klima
+    description: Nur Thermostate mit diesem Präfix werden gezeigt (Standard climate.pm_). Thermostate ohne Bereich werden über den Namen einem Bereich zugeordnet.
   log_level:
     name: Protokollstufe
     description: debug, info, warning oder error.
