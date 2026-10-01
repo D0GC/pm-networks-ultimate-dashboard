@@ -58,7 +58,116 @@
     ["Kameras", (e) => dom("camera")(e)],
     ["Sensoren", (e) => dom("sensor")(e) || dom("binary_sensor")(e) || dom("event")(e)],
   ];
-  function raumAnsicht(el, b) {
+  // ------------------------------------------------------------ Raumansicht (drei Spalten, ein Bildschirm)
+  const szenenPunkte = (e, stunde) => {
+    const st = ((PS.szenen || {}).stat || {})[e]; if (!st) return 0;
+    let p = st.n;
+    for (let d = -2; d <= 2; d++) p += (st.h[(stunde + d + 24) % 24] || 0) * (d === 0 ? 3 : 2);
+    return p;
+  };
+  // Häufigste Szenen zuerst, gewichtet nach Tageszeit; angeheftete stehen immer vorn
+  PS.lieblingsSzenen = (b) => {
+    const aus = new Set(PS.einst.szenen_aus || []);
+    const szenen = alle().filter((e) => dom("scene")(e) && PS.bereichVon(e) === b && PS.sichtbar(e) && !aus.has(e) && PS.s(e) !== "unavailable");
+    const fest = (PS.einst.szenen_angeheftet || []).filter((e) => szenen.includes(e));
+    const h = new Date().getHours();
+    const rest = szenen.filter((e) => !fest.includes(e)).sort((x, y) => szenenPunkte(y, h) - szenenPunkte(x, h) || sortName()(x, y));
+    return [...fest, ...rest];
+  };
+  const SZENE_NEUTRAL = ["#443171", "#262252"];
+  function szeneKnopf(e, bereichName, aktiv) {
+    const f = ((PS.szenen || {}).farben || {})[e] || [];
+    const [c1, c2] = f.length ? [f[0], f[1] || "#262252"] : SZENE_NEUTRAL;
+    const st = ((PS.szenen || {}).stat || {})[e];
+    const unter = aktiv ? "aktiv" : st && st.n ? `${st.n}× in 30 Tagen` : "";
+    const k = E(`<button class="szene${aktiv ? " aktiv" : ""}" data-szene="${PS.esc(e)}" style="--c1:${PS.esc(c1)};--c2:${PS.esc(c2)}"><b>${PS.esc(PS.kurzname(e, bereichName))}</b><small>${PS.esc(unter)}</small></button>`);
+    PS.tippen(k, (ev) => { PS.welle(k, ev); PS.dienst("scene", "turn_on", { entity_id: e }).then(() => PS.toast(`${PS.kurzname(e, bereichName)} aktiviert`)); }, () => PS.mehrInfos(e));
+    return k;
+  }
+  function szenenBox(b, name) {
+    const box = E(`<section class="r-box"><h3><span>Szenen</span><small>nach Häufigkeit</small></h3><div class="szenen"></div></section>`);
+    box.aktualisieren = () => {
+      const liste = PS.lieblingsSzenen(b);
+      const zeit = (e) => Date.parse(PS.s(e)) || 0;
+      const zuletzt = liste.reduce((m, e) => (zeit(e) > zeit(m || "") ? e : m), null);
+      const aktiv = zuletzt && Date.now() - zeit(zuletzt) < 12 * 3600e3 ? zuletzt : null;
+      const raster = box.querySelector(".szenen"); raster.innerHTML = "";
+      liste.slice(0, 6).forEach((e) => raster.appendChild(szeneKnopf(e, name, e === aktiv)));
+      box.querySelector(".mehr-szenen")?.remove();
+      const oben = new Set(liste.slice(0, 6));
+      const weitere = alle().filter((e) => dom("scene")(e) && PS.bereichVon(e) === b && PS.sichtbar(e) && !oben.has(e)).sort(sortName(name));
+      if (weitere.length) box.appendChild(knopf(`Weitere Szenen (${weitere.length})`, "palette-outline", () => PS.unterseite(`${name} · Szenen`, (el) => { el.appendChild(kachelRaster(weitere, name)); }), "mehr-szenen"));
+      if (!liste.length) raster.innerHTML = '<div class="leer">Keine Szenen in diesem Raum.</div>';
+    };
+    box.dataset.raumSzenen = b;
+    box.aktualisieren();
+    return box;
+  }
+  PS.on("szenen", () => document.querySelectorAll("[data-raum-szenen]").forEach((x) => x.aktualisieren && x.aktualisieren()));
+  PS.on("diff", (ids) => {
+    if (![...ids].some((e) => e.startsWith("scene."))) return;
+    document.querySelectorAll("[data-raum-szenen]").forEach((x) => x.aktualisieren && x.aktualisieren());
+  });
+
+  function lichtBox(ids, name) {
+    const { raum, sichtbar } = PS.lichtAuswahl(ids, name);
+    const box = E(`<section class="r-box"><h3><span>Licht</span></h3></section>`);
+    if (!raum && !sichtbar.length) { box.appendChild(E('<div class="leer">Keine Lampen in diesem Raum.</div>')); return box; }
+    const ziel = raum ? [raum] : sichtbar;
+    const hell = () => {
+      const an = ziel.flatMap((e) => (Array.isArray(PS.a(e).entity_id) ? [e] : [e])).filter((e) => PS.s(e) === "on");
+      if (!an.length) return 0;
+      return Math.round(an.reduce((s, e) => s + (PS.a(e).brightness ?? 255), 0) / an.length / 2.55);
+    };
+    const kopf = E(`<div class="r-master"></div>`);
+    if (raum) kopf.insertAdjacentHTML("beforeend", PS.kachelHTML(raum, { bereich: name, titel: "Alle Lichter" }));
+    else {
+      const alleAn = sichtbar.some((e) => PS.s(e) === "on");
+      kopf.appendChild(knopf(alleAn ? "Alle aus" : "Alle an", "lightbulb-group", () => PS.dienst("light", sichtbar.some((e) => PS.s(e) === "on") ? "turn_off" : "turn_on", { entity_id: sichtbar }), "r-alle"));
+    }
+    const regler = PS.schieber({ label: "Helligkeit", min: 1, max: 100, schritt: 1, wert: hell(), text: (v) => v + " %", beiEnde: (v) => PS.dienst("light", "turn_on", { entity_id: ziel, brightness_pct: v }) });
+    kopf.appendChild(regler);
+    box.appendChild(kopf);
+    box.dataset.lichtZiel = ziel.join(",");
+    box.aktualisieren = () => { if (!regler.classList.contains("zieht")) regler.setzen(hell() || 1); };
+    if (sichtbar.length) {
+      box.appendChild(E('<h3 class="unter"><span>Einzeln</span></h3>'));
+      box.appendChild(E(`<div class="raster r-lichter">${[...sichtbar].sort(sortName(name)).map((e, i) => PS.kachelHTML(e, { i, bereich: name })).join("")}</div>`));
+    }
+    return box;
+  }
+  PS.on("diff", (ids) => {
+    document.querySelectorAll("[data-licht-ziel]").forEach((x) => { if (x.dataset.lichtZiel.split(",").some((e) => ids.has(e)) && x.aktualisieren) x.aktualisieren(); });
+  });
+
+  function raumTabs(b) {
+    const liste = bereicheSortiert();
+    PS.tabs(liste.map((x) => [x.id, x.name]), b, (k) => PS.seiteErsetzen(PS.bereichName(k), (el) => raumKompakt(el, k)));
+  }
+  function raumKompakt(el, b) {
+    const name = PS.bereichName(b), ids = imBereich(b);
+    el.classList.add("raumseite");
+    raumTabs(b);
+    const g = E('<div class="raum-ansicht"><div class="r-spalte"></div><div class="r-spalte"></div><div class="r-spalte"></div></div>');
+    const [links, mitte, rechts] = g.children;
+    // Links: Klima und Szenen
+    ids.filter(dom("climate")).forEach((k) => { const c = PS.klimaSteuerung(k); c.classList.add("kompakt"); links.appendChild(c); });
+    links.appendChild(szenenBox(b, name));
+    // Mitte: Licht
+    mitte.appendChild(lichtBox(ids, name));
+    // Rechts: Medien, Zustand, Geräte
+    const medien = ids.filter(dom("media_player")).filter((e) => ["playing", "paused", "on", "idle", "buffering"].includes(PS.s(e)));
+    medien.slice(0, 1).forEach((m) => rechts.appendChild(PS.medienSteuerung(m, false)));
+    const zustand = ids.filter((e) => (e.startsWith("binary_sensor.") && ["door", "window", "opening", "motion", "occupancy", "presence", "moisture", "smoke"].includes(PS.a(e).device_class))
+      || (e.startsWith("sensor.") && ["carbon_dioxide", "pm25", "volatile_organic_compounds", "aqi"].includes(PS.a(e).device_class)));
+    if (zustand.length) { const z = E('<section class="r-box"><h3><span>Zustand</span></h3></section>'); z.appendChild(kachelRaster(zustand.slice(0, 6).sort(sortName(name)), name)); z.lastElementChild.classList.add("mini"); rechts.appendChild(z); }
+    const geraete = ids.filter((e) => ["switch", "input_boolean", "fan", "cover", "lock", "vacuum", "humidifier", "valve"].includes(PS.domain(e)) && !PS.nichtDa(e));
+    if (geraete.length) { const z = E('<section class="r-box"><h3><span>Geräte</span></h3></section>'); z.appendChild(kachelRaster(geraete.slice(0, 6).sort(sortName(name)), name)); z.lastElementChild.classList.add("mini"); rechts.appendChild(z); }
+    rechts.appendChild(knopf(`Alle Geräte im Raum`, "view-grid-outline", () => PS.unterseite(`${name} · alle Geräte`, (x) => raumAlles(x, b)), "r-alles"));
+    el.appendChild(g);
+  }
+
+  function raumAlles(el, b) {
     const name = PS.bereichName(b);
     const ids = imBereich(b);
     const klima = ids.filter(dom("climate"));
@@ -97,7 +206,7 @@
     const k = E(`<div class="raum" style="--i:${i}"><div class="oben">${PS.ic(b.icon || "texture-box")}<b>${PS.esc(b.name)}</b></div>
       <div class="werte">${w.temp != null ? `<span>${PS.ic("thermometer")} ${PS.zahl(w.temp, 1)}°</span>` : ""}${w.feuchte != null ? `<span>${PS.ic("water-percent")} ${PS.zahl(w.feuchte, 0)} %</span>` : ""}</div>
       <div class="chips">${chips.join("")}</div></div>`);
-    k.addEventListener("click", () => PS.unterseite(b.name, (el) => raumAnsicht(el, b.id)));
+    k.addEventListener("click", () => PS.unterseite(b.name, (el) => raumKompakt(el, b.id)));
     return k;
   }
 
@@ -111,7 +220,7 @@
         el.appendChild(r);
         beobachten((e) => ["light", "climate", "binary_sensor", "media_player", "sensor"].includes(PS.domain(e)));
       },
-      unterseite(b) { PS.unterseite(PS.bereichName(b), (el) => raumAnsicht(el, b)); },
+      unterseite(b) { PS.unterseite(PS.bereichName(b), (el) => raumKompakt(el, b)); },
     },
 
     klima: {

@@ -118,6 +118,8 @@ class Einstellungen:
     bereiche_ausblenden: list[str] = field(default_factory=list)
     start_raeume: list[str] = field(default_factory=lambda: ["wohnzimmer", "badezimmer", "schlafzimmer"])
     karten_aus: list[str] = field(default_factory=list)  # Kartenschlüssel, die der Flur nicht zeigt
+    szenen_angeheftet: list[str] = field(default_factory=list)  # stehen in der Raumansicht immer vorn
+    szenen_aus: list[str] = field(default_factory=list)  # erscheinen nicht unter den Lieblingsszenen
     animationen: bool = True
 
     GRENZEN = {  # noqa: RUF012
@@ -147,6 +149,8 @@ class Einstellungen:
                     abgewiesen.append(key)
                     continue
                 setattr(self, key, max(lo, min(hi, num)))
+            elif key in ("szenen_angeheftet", "szenen_aus"):
+                setattr(self, key, [e for e in _entities(val) if e.startswith("scene.")][:60])
             elif key == "schnellzugriff":
                 self.schnellzugriff = _entities(val)[:8]
             elif key == "module":

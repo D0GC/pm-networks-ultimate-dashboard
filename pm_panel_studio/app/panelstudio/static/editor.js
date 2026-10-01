@@ -31,6 +31,8 @@
     ZAHLEN.forEach((k) => { $("#" + k).value = e[k]; });
     $("#animationen").checked = e.animationen !== false;
     $("#schnellzugriff").value = (e.schnellzugriff || []).join("\n");
+    $("#szenen_angeheftet").value = (e.szenen_angeheftet || []).join("\n");
+    $("#szenen_aus").value = (e.szenen_aus || []).join("\n");
     moduleReihe = [...e.module, ...Object.keys(MODULE).filter((m) => !e.module.includes(m))].map((m) => ({ m, an: e.module.includes(m) }));
     modulListe();
     haken("#karten_aus", Object.entries(KARTEN), (k) => !(e.karten_aus || []).includes(k), "karte");
@@ -63,6 +65,8 @@
     ZAHLEN.forEach((k) => { neu[k] = Number($("#" + k).value); });
     neu.animationen = $("#animationen").checked;
     neu.schnellzugriff = $("#schnellzugriff").value.split(/\s+/).map((s) => s.trim()).filter(Boolean);
+    neu.szenen_angeheftet = $("#szenen_angeheftet").value.split(/\s+/).map((x) => x.trim()).filter(Boolean);
+    neu.szenen_aus = $("#szenen_aus").value.split(/\s+/).map((x) => x.trim()).filter(Boolean);
     neu.module = moduleReihe.filter((x) => x.an).map((x) => x.m);
     neu.karten_aus = Object.keys(KARTEN).filter((k) => !gewaehlt("#karten_aus").includes(k));
     if (bereiche.length) { neu.start_raeume = gewaehlt("#start_raeume"); neu.bereiche_ausblenden = gewaehlt("#bereiche_ausblenden"); }

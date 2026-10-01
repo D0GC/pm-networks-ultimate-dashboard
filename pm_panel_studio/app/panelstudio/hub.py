@@ -18,12 +18,14 @@ import json
 import logging
 import re
 import time
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from aiohttp import web
 
 from . import karten as kt
+from . import szenen as sz
 from .config import Einstellungen, EinstellungsSpeicher, Options
 from .ha_client import HAClient, HAError
 from .popups import PopupSpeicher, text_aus_inhalt
@@ -120,6 +122,8 @@ class Hub:
         self.musik: list[str] = []
         self.meldungen: dict[str, dict[str, Any]] = {}
         self.popups = PopupSpeicher()
+        self.szenen_stat: dict[str, dict[str, Any]] = {}
+        self.szenen_farben: dict[str, list[str]] = {}
         # Ereignis
         self.ereignis: dict[str, Any] | None = None
         self._ereignis_bis = 0.0
@@ -191,6 +195,7 @@ class Hub:
         self.verbunden = True
         _LOGGER.info("Mit Home Assistant verbunden (%d Entitäten, %d Bereiche)", len(self.states), len(self.bereiche))
         self._karten_neu(senden=False)
+        self.spawn(self._szenen_laden())
         for ws in list(self.clients):
             await self.init_senden(ws)
 
@@ -402,6 +407,39 @@ class Hub:
         self.ereignis = None
         self.spawn(self.senden_alle({"typ": "ereignis", "aktiv": False}))
 
+    async def _szenen_laden(self) -> None:
+        """Nutzung (30 Tage) und Farben aller Szenen; danach alle 30 Minuten erneut (Stand im Takt)."""
+        szenen = sorted(e for e in self.states if e.startswith("scene."))
+        if not szenen:
+            return
+        jetzt = datetime.now(UTC)
+        start = jetzt - timedelta(days=sz.TAGE)
+        try:
+            tz = ZoneInfo(self.ha_config.get("time_zone") or "Europe/Berlin")
+        except (ZoneInfoNotFoundError, ValueError):
+            tz = ZoneInfo("UTC")
+        try:
+            verlauf = await self.client.history_during_period(
+                szenen, start, jetzt, minimal_response=True, no_attributes=True, significant_changes_only=False
+            )
+            self.szenen_stat = sz.statistik_aus_verlauf(verlauf, start, tz)
+        except HAError as err:
+            _LOGGER.warning("Szenen-Verlauf nicht geladen: %s", err)
+        farben: dict[str, list[str]] = {}
+        for eid in szenen:
+            sid = ((self.states.get(eid) or {}).get("attributes") or {}).get("id")
+            if not sid:
+                continue
+            try:
+                konfig = await self.client.rest("GET", f"config/scene/config/{sid}")
+            except HAError:
+                continue
+            if isinstance(konfig, dict) and (f := sz.farben_aus_konfig(konfig)):
+                farben[eid] = f
+        self.szenen_farben = farben
+        self._szenen_stand = time.monotonic()
+        await self.senden_alle({"typ": "szenen", "stat": self.szenen_stat, "farben": self.szenen_farben})
+
     async def _takt_loop(self) -> None:
         zaehler = 0
         while True:
@@ -412,6 +450,9 @@ class Hub:
                 self.ereignis_beenden()
             if self.popups.aufraeumen():
                 self._popups_senden()
+            if self.verbunden and time.monotonic() - getattr(self, "_szenen_stand", time.monotonic()) > 1800:
+                self._szenen_stand = time.monotonic()
+                self.spawn(self._szenen_laden())
             if zaehler % 15 == 0 and self.verbunden:
                 self._karten_neu()  # Restzeiten ohne Zustandsänderung (Timer) nachführen
 
@@ -428,6 +469,7 @@ class Hub:
             "karten": self.karten,
             "meldungen": self.meldungen_liste(),
             "popups": self.popups.liste(),
+            "szenen": {"stat": self.szenen_stat, "farben": self.szenen_farben},
             "ereignis": self.ereignis or {"aktiv": False},
             "ha": {
                 "standort": self.ha_config.get("location_name"),
