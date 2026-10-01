@@ -1,0 +1,11 @@
+#!/command/with-contenv bashio
+# shellcheck shell=bash
+# ==============================================================================
+# PM Panel Studio starten (Ingress-Port 8099, Panel-Port 8098, Daten in /data)
+# ==============================================================================
+bashio::log.info "PM Panel Studio startet ..."
+export PMPS_DATA_DIR=/data
+export PMPS_PORT=8099
+export PMPS_PANEL_PORT=8098
+cd /opt/pm_panel_studio || bashio::exit.nok "Programmverzeichnis fehlt"
+exec python3 -m panelstudio

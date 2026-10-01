@@ -1,0 +1,36 @@
+configuration:
+  hinweise_entitaet:
+    name: Hinweis-Sensor
+    description: Sensor mit dem Attribut zeilen wie bei den Panels Bad und Büro (Standard sensor.panel_bad_hinweise). Leer = keine Hinweiskarten.
+  bewegung:
+    name: Bewegungsmelder Flur
+    description: Bewegung weckt das Panel aus dem Ruhezustand.
+  personen:
+    name: Personen
+    description: Personen mit Anwesenheit auf der Startseite.
+  wetter_entitaet:
+    name: Wetter
+    description: weather-Entität für aktuelle Lage und Vorschau.
+  aussentemperatur:
+    name: Außentemperatur
+    description: Sensor für die große Temperaturanzeige. Leer = Temperatur der Wetter-Entität.
+  alarm_entitaet:
+    name: Alarmanlage
+    description: alarm_control_panel für die Statuszeile.
+  ereignis_ausloeser:
+    name: Ereignis-Auslöser
+    description: Wechselt eine dieser Entitäten auf „an“, zeigt das Panel die Kamera im Vollbild (z. B. Person oder Klingel an der Tür).
+  ereignis_kamera:
+    name: Ereignis-Kamera
+    description: Kamera für das Overlay.
+  tueroeffner:
+    name: Türöffner
+    description: button- oder lock-Entität für „Tür öffnen“. Auslösen nur nach 2 Sekunden Halten.
+  klima_studio_url:
+    name: Adresse Klima Studio
+    description: Optional. Adresse, unter der das Panel Klima Studio öffnet (Knopf „Heizplan“). Leer = Knopf ausgeblendet.
+  log_level:
+    name: Protokollstufe
+    description: debug, info, warning oder error.
+network:
+  8098/tcp: Wandpanel im lokalen Netz
