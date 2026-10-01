@@ -86,43 +86,100 @@
   let aktuell = 0, liste = [], wechselZeit = 0;
   const elemente = new Map();
 
-  // Lüften wie im Konzept: Ring mit der Luftfeuchte, „Bad lüften“, Luftfeuchte und Empfehlung darunter
-  function lueftenWert(k) {
-    if (k.schluessel !== "lueften") return null;
-    const m = `${k.hinweis} ${k.wert}`.match(/(\d{1,3})\s*%/);
-    return m ? Math.min(100, Number(m[1])) : null;
-  }
-  // Ringanteil einer Karte (Aktivität: Fortschritt, Lüften: Feuchte, sonst voller Ring)
-  function ringAnteil(k) {
-    if (k.art === "aktivitaet") return k.ring;
-    const f = lueftenWert(k);
-    return f != null ? f / 100 : 1;
-  }
-  PS.ringAnteil = ringAnteil;
+  // ------------------------------------------------------------ Kartenmodell 1:1 nach dem Konzept
+  // Jede Karte: Kopf mit Punkt, Ring mit Zahl und Einheit (oder Symbol), Überschrift, eine Textzeile.
+  const zahlAus = (t) => { const m = String(t || "").match(/(-?\d+(?:[.,]\d+)?)/); return m ? Number(m[1].replace(",", ".")) : null; };
   function raumDerHinweise() {
     const e = PS.opt.hinweise_entitaet || "";
     return e.includes("bad") ? "Bad" : e.includes("buero") ? "Büro" : e.includes("flur") ? "Flur" : "";
   }
-  function karteInhalt(k) {
-    const feuchte = lueftenWert(k);
-    if (feuchte != null) {
-      const [ic, farbe] = KARTE.lueften;
-      const raum = raumDerHinweise();
-      // Bad-Regel: „lueften|Lüften|71 %|Fenster öffnen“ -> „Luftfeuchte 71 % · Fenster 10 Minuten öffnen“
-      const text = [k.hinweis, k.wert].find((t) => t && !/\d\s*%/.test(t)) || "";
-      const rat = /fenster öffnen|empf/i.test(`${k.hinweis} ${k.wert}`) ? "Fenster 10 Minuten öffnen" : text;
-      return { farbe, html: `<div class="kopf"><i class="punkt"></i><span>Lüften</span></div><div class="ring">${PS.ringSVG(feuchte / 100)}<div class="innen"><b class="tabular stark">${feuchte}</b><small>% rF</small></div></div><h2 class="stark">${PS.esc(raum ? `${raum} lüften` : "Lüften empfohlen")}</h2><p>${PS.esc(`Luftfeuchte ${feuchte} %${rat ? " · " + rat : ""}`)}</p>` };
+  function restText(sek) {
+    if (sek == null) return null;
+    const min = Math.ceil(Math.max(0, sek) / 60);
+    return min >= 60 ? { zahl: `${Math.floor(min / 60)}:${String(min % 60).padStart(2, "0")}`, einheit: "h" } : { zahl: String(min), einheit: "min" };
+  }
+  const AKT_KOPF = { waesche: "Gerät läuft", spueler: "Gerät läuft", kohle: "Kohle", dusche: "Duschmodus", spa: "Spa", robo: "Roborock", musik: "Musik" };
+  function modell(k) {
+    let [icon, farbe] = KARTE[k.schluessel] || KARTE.neutral;
+    const m = { kopf: k.titel || "Hinweis", farbe, anteil: 1, zahl: null, einheit: "", icon, h2: k.wert, p: k.hinweis };
+    if (k.art === "aktivitaet") {
+      m.kopf = AKT_KOPF[k.schluessel] || "Aktivität"; m.h2 = k.titel; m.anteil = k.ring;
+      const sek = k.ende ? (new Date(k.ende).getTime() - Date.now()) / 1000 : null;
+      const hm = String(k.wert).match(/^(\d+):(\d\d)( h)?$/);
+      const r = sek != null ? restText(sek) : hm ? (hm[3] ? { zahl: `${hm[1]}:${hm[2]}`, einheit: "h" } : restText(Number(hm[1]) * 60 + Number(hm[2]))) : null;
+      const pct = /%/.test(k.wert) ? zahlAus(k.wert) : null;
+      if (r) { m.zahl = r.zahl; m.einheit = r.einheit; } else if (pct != null) { m.zahl = String(pct); m.einheit = "%"; } else if (k.wert && k.wert !== "–") { m.zahl = k.wert; m.einheit = ""; }
+      // Fertigzeit wie im Konzept („Waschen 35 % · fertig gegen 17:24“), aus Ende oder Restzeit
+      const restMin = sek != null ? sek / 60 : hm ? (hm[3] ? Number(hm[1]) * 60 + Number(hm[2]) : Number(hm[1]) + Number(hm[2]) / 60) : null;
+      const fertig = restMin != null && restMin > 0 ? `fertig gegen ${PS.uhrzeit(new Date(Date.now() + restMin * 60e3))}` : null;
+      m.p = k.unter || [k.ende ? null : k.hinweis, fertig].filter(Boolean).join(" · ");
+      if (k.schluessel === "musik" && m.zahl === "♪") { m.zahl = null; }
+      return m;
     }
-    let [ic, farbe] = KARTE[k.schluessel] || KARTE.neutral;
-    if (k.art === "meldung") { ic = PS.meldungIcon(k.icon); farbe = PS.meldungFarbe(k.prio); }
-    const akt = k.art === "aktivitaet";
-    const kopf = k.art === "meldung" ? (k.prio === "high" ? "Meldung · wichtig" : "Meldung") : k.schluessel === "musik" ? "Musik" : akt ? "Aktivität" : k.schluessel === "eil" ? `Eilmeldung · ${k.titel}` : k.titel || "Hinweis";
-    const innen = akt
-      ? `<b class="wert-txt">${PS.esc(k.wert)}</b><small>${PS.esc(k.hinweis)}</small>`
-      : PS.ic(ic);
-    const h2 = akt ? k.titel : k.schluessel === "eil" ? k.hinweis : k.wert;
-    const p = k.unter ? k.unter : akt ? (k.ende ? `fertig gegen ${PS.uhrzeit(new Date(k.ende))}` : "") : k.schluessel === "eil" ? "" : k.hinweis;
-    return { farbe, html: `<div class="kopf">${PS.ic(ic)}<span>${PS.esc(kopf)}</span></div><div class="ring">${PS.ringSVG(akt ? k.ring : 1)}<div class="innen">${innen}</div></div><h2>${PS.esc(h2)}</h2><p>${PS.esc(p)}</p>` };
+    if (k.art === "meldung") {
+      return { ...m, kopf: k.prio === "high" ? "Meldung · wichtig" : "Meldung", farbe: PS.meldungFarbe(k.prio), icon: PS.meldungIcon(k.icon), h2: k.titel, p: k.hinweis };
+    }
+    switch (k.schluessel) {
+      case "lueften": {
+        const f = /%/.test(`${k.wert}${k.hinweis}`) ? zahlAus(/%/.test(k.wert) ? k.wert : k.hinweis) : null;
+        if (f == null) break;
+        const raum = raumDerHinweise();
+        const rat = /fenster öffnen|empf/i.test(`${k.hinweis} ${k.wert}`) ? "Fenster 10 Minuten öffnen" : "";
+        return { ...m, kopf: "Lüften", anteil: f / 100, zahl: String(f), einheit: "% rF", h2: raum ? `${raum} lüften` : "Lüften empfohlen", p: `Luftfeuchte ${f} %${rat ? " · " + rat : ""}` };
+      }
+      case "muell": {
+        const ziel = new Date(); ziel.setHours(6, 0, 0, 0);
+        if (/morgen/i.test(k.wert)) ziel.setDate(ziel.getDate() + 1);
+        const std = (ziel - Date.now()) / 3600e3;
+        const morgen = /morgen/i.test(k.wert);
+        return { ...m, kopf: "Müll", h2: k.hinweis || "Müllabfuhr", p: morgen ? "Morgen früh · bitte heute Abend rausstellen" : "Heute · Abholung",
+          ...(std > 0 ? { zahl: String(Math.ceil(std)), einheit: "h bis", anteil: Math.min(1, std / 24) } : {}) };
+      }
+      case "termin": {
+        const min = /in\s+\d+/i.test(k.wert) ? zahlAus(k.wert) : /jetzt/i.test(k.wert) ? 0 : null;
+        return { ...m, kopf: "Termin", h2: k.hinweis || "Termin", p: min == null ? "heute, ganztägig" : min ? `in ${min} Minuten` : "jetzt",
+          ...(min != null ? { zahl: String(min), einheit: "min bis", anteil: Math.max(0.02, 1 - min / 60) } : {}) };
+      }
+      case "arbeit": {
+        const min = zahlAus(k.wert);
+        return { ...m, kopf: "Fahrt", h2: k.titel || "Fahrt", p: k.hinweis || "im Verkehr", ...(min != null ? { zahl: String(min), einheit: "min", anteil: Math.min(1, min / 60) } : {}) };
+      }
+      case "wetter": {
+        const regen = /% Regen/i.test(k.hinweis) ? zahlAus(k.hinweis) : null;
+        if (regen != null) return { ...m, kopf: "Wetter", zahl: String(regen), einheit: "% Regen", anteil: regen / 100, h2: regen >= 50 ? "Regen erwartet" : "Regen möglich", p: k.wert };
+        const temps = String(k.wert).match(/-?\d+/g) || [];
+        const hoch = temps.length ? Number(temps[temps.length - 1]) : null;
+        const zustand = k.hinweis ? k.hinweis.charAt(0).toUpperCase() + k.hinweis.slice(1) : "Wetter";
+        return { ...m, kopf: "Wetter", h2: zustand, p: k.wert, ...(hoch != null ? { zahl: `${hoch}°`, einheit: "max", anteil: Math.max(0.05, Math.min(1, (hoch + 10) / 45)) } : {}) };
+      }
+      case "offen": {
+        const liste = /^\d+\s+offen/i.test(k.wert);
+        const n = liste ? zahlAus(k.wert) : 1;
+        return { ...m, kopf: "Offen", zahl: String(n || 1), einheit: "offen", h2: liste ? k.hinweis : k.wert, p: n > 1 ? "Fenster und Türen prüfen" : "steht offen" };
+      }
+      case "fertig": return { ...m, kopf: "Fertig", h2: `${k.wert} fertig`, p: k.hinweis };
+      case "pollen": return { ...m, kopf: "Pollen", h2: `Pollen ${k.wert}`, p: k.hinweis, anteil: { "mäßig": 0.34, hoch: 0.67, "sehr hoch": 1 }[k.wert] ?? 1 };
+      case "eil": return { ...m, kopf: `Eilmeldung · ${k.titel}`, h2: k.hinweis, p: "" };
+      case "ruhig": return { ...m, kopf: "Hinweise", h2: "Alles ruhig", p: k.hinweis };
+    }
+    return m;
+  }
+  function ringAnteil(k) { return modell(k).anteil; }
+  PS.ringAnteil = ringAnteil;
+  function karteInhalt(k) {
+    const m = modell(k);
+    const innen = m.zahl != null
+      ? `<b class="wert-txt tabular" data-zahl="${/^\d+$/.test(m.zahl) ? m.zahl : ""}">${PS.esc(m.zahl)}</b><small class="einheit">${PS.esc(m.einheit)}</small>`
+      : PS.ic(m.icon);
+    return { farbe: m.farbe, html: `<div class="kopf"><i class="punkt"></i><span>${PS.esc(m.kopf)}</span></div><div class="ring">${PS.ringSVG(m.anteil)}<div class="innen">${innen}</div></div><h2>${PS.esc(m.h2 || "")}</h2><p>${PS.esc(m.p || "")}</p>` };
+  }
+  // Zahl im Ring hochzählen (wie im Konzept), nur bei ganzen Zahlen
+  function hochzaehlen(b) {
+    const ziel = Number(b && b.dataset.zahl);
+    if (!b || !b.dataset.zahl || !isFinite(ziel) || document.body.classList.contains("ohne-animation")) return;
+    const t0 = performance.now();
+    const schritt = (t) => { const p = Math.min(1, (t - t0) / 1400), e = 1 - Math.pow(1 - p, 3); b.textContent = String(Math.round(ziel * e)); if (p < 1) requestAnimationFrame(schritt); };
+    requestAnimationFrame(schritt);
   }
   function kartenSetzen(karten) {
     const alt = liste[aktuell] && liste[aktuell].id;
@@ -164,7 +221,11 @@
     if (neuStart) {
       wechselZeit = Date.now();
       const k = liste[aktuell]; const el = k && elemente.get(k.id);
-      if (el && (k.art === "aktivitaet" || lueftenWert(k) != null)) { const svg = el.querySelector(".ring svg"); PS.ringSetzen(svg, 0); requestAnimationFrame(() => requestAnimationFrame(() => PS.ringSetzen(svg, ringAnteil(k)))); }
+      if (el) {
+        const svg = el.querySelector(".ring svg"); PS.ringSetzen(svg, 0);
+        requestAnimationFrame(() => requestAnimationFrame(() => PS.ringSetzen(svg, ringAnteil(k))));
+        hochzaehlen(el.querySelector(".wert-txt"));
+      }
     }
     const pk = $("#punkte");
     pk.style.setProperty("--verweil", (PS.einst.verweildauer_s || 8) + "s");
@@ -178,14 +239,12 @@
       if (!k.ende) continue;
       const el = elemente.get(k.id); if (!el) continue;
       const rest = Math.max(0, (new Date(k.ende).getTime() - Date.now()) / 1000);
-      const t = el.querySelector(".wert-txt"); if (t) t.textContent = fmtRest(rest);
+      const t = el.querySelector(".wert-txt"), r = restText(rest);
+      if (t && r && !t._zaehlt) { t.textContent = r.zahl; const e = el.querySelector(".einheit"); if (e) e.textContent = r.einheit; }
       if (k.dauer_s) PS.ringSetzen(el.querySelector(".ring svg"), rest / k.dauer_s);
     }
   }
-  function fmtRest(sek) {
-    sek = Math.round(sek); const h = Math.floor(sek / 3600), m = Math.floor((sek % 3600) / 60), s = sek % 60;
-    return h ? `${h}:${String(m).padStart(2, "0")} h` : `${m}:${String(s).padStart(2, "0")}`;
-  }
+
 
   // ------------------------------------------------------------ Schnellzugriff und Räume
   function schnellzugriff() {

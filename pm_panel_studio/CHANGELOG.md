@@ -1,5 +1,13 @@
 # Änderungen
 
+## 0.1.9 – 2026-10-01
+
+- Karussell 1:1 nach dem Konzept: Kopf mit Punkt und Kategorie, Ring mit Zahl und Einheit (Stärke, Größe und
+  Schrift wie im Konzept), Überschrift und eine Textzeile, Einblendung mit leichter Drehung, Zahl zählt hoch.
+- Ringe mit Bedeutung je Karte: Müll (Stunden bis zur Abholung), Termin (Minuten bis), Fahrt (Minuten), Wetter
+  (Regenwahrscheinlichkeit bzw. Höchsttemperatur), Offen (Anzahl), Lüften (Luftfeuchte), Geräte (Restzeit mit
+  „fertig gegen …“), Musik (Restzeit des Titels).
+
 ## 0.1.8 – 2026-10-01
 
 - Lüften-Karte wie im Konzept: Ring mit der Luftfeuchte („71 % rF“), Überschrift „Bad lüften“, darunter

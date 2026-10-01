@@ -261,7 +261,7 @@ def default_states(jetzt: datetime) -> list[dict[str, Any]]:
             "3",
             None,
             friendly_name="Panel Bad Hinweise",
-            zeilen="lueften|Lüften|71 %|Fenster öffnen\noffen|Offen|1 offen|Büro Balkontür\nmuell|Müll|morgen|Biotonne, Gelber Sack\nwetter|Wetter|12–18°|Regen ab 17 Uhr",
+            zeilen="termin|Termin|in 45 min|Zahnarzt\narbeit|Arbeitsweg|26 min|+4 min Verkehr\nlueften|Lüften|71 %|Fenster öffnen\noffen|Offen|1 offen|Büro Balkontür\nmuell|Müll|morgen|Biotonne, Gelber Sack\nwetter|Wetter|12–18°|70 % Regen",
         ),
         s(
             "timer.kohle_timer",
