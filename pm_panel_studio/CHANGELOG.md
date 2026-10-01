@@ -1,5 +1,12 @@
 # Änderungen
 
+## 0.1.2 – 2026-10-01
+
+- Browser-Mod-Popups erscheinen im Panel: Die App hört `browser_mod.popup` und `browser_mod.close_popup` mit.
+  Jedes Popup wird zur Karte vorn im Karussell und zum Eintrag unter der Glocke; antippen zeigt Text (Markdown),
+  Kamera und die Knöpfe des Popups. Ist das Panel wach, öffnet es sich sofort. Ablauf über `timeout`, spätestens
+  nach 4 Stunden. Abwählbar im Editor („Popups (Browser Mod)“).
+
 ## 0.1.1 – 2026-10-01
 
 - Klima: nur noch PM-Klima-Thermostate (`klima_praefix`); Thermostate ohne Bereich werden über den Namen zugeordnet.

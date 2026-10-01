@@ -271,3 +271,9 @@ body.ohne-animation *,body.ohne-animation *::before,body.ohne-animation *::after
   .uhr{font-size:7rem}
   .karussell{min-height:28rem}
 }
+
+.dialog .md{font-size:1.25rem;line-height:1.55;color:var(--cloud);-webkit-user-select:text;user-select:text}
+.dialog .md p{margin:0 0 .8rem}
+.dialog .md h4{margin:.4rem 0 .6rem;font-size:1.35rem;font-weight:600}
+.dialog .md ul{margin:0 0 .8rem;padding-left:1.4rem}
+.dialog .md b{font-weight:600;color:#fff}

@@ -49,8 +49,9 @@
   }
   function statusZeile() {
     const teile = [];
-    const anzahl = (PS.meldungen || []).length + (PS.karten || []).filter((k) => k.art === "hinweis").length;
-    teile.push(`<button class="pille glocke${(PS.meldungen || []).length ? " neu" : ""}" data-modul="hinweise" aria-label="Hinweise">${PS.ic(anzahl ? "bell-badge-outline" : "bell-outline")}${anzahl ? `<span class="tabular">${anzahl}</span>` : ""}</button>`);
+    const dringend = (PS.meldungen || []).length + (PS.popups || []).length;
+    const anzahl = dringend + (PS.karten || []).filter((k) => k.art === "hinweis").length;
+    teile.push(`<button class="pille glocke${dringend ? " neu" : ""}" data-modul="hinweise" aria-label="Hinweise">${PS.ic(anzahl ? "bell-badge-outline" : "bell-outline")}${anzahl ? `<span class="tabular">${anzahl}</span>` : ""}</button>`);
     const al = PS.opt.alarm_entitaet;
     if (al && PS.z[al]) {
       const s = PS.s(al), kl = s === "triggered" ? "krit" : s === "pending" || s === "arming" ? "warn" : s.startsWith("armed") ? "gut" : "";
@@ -72,7 +73,7 @@
     fertig: ["check-circle-outline", "var(--gut)"], offen: ["door-open", "var(--warn)"], lueften: ["window-open-variant", "var(--warn)"],
     pollen: ["flower-pollen-outline", "#f6d36b"], eigen: ["information-outline", "var(--lavender)"], neutral: ["information-outline", "var(--lavender)"],
     dusche: ["shower-head", "var(--info)"], spa: ["hot-tub", "var(--akzent)"], kohle: ["fire", "#ff9a5c"], waesche: ["washing-machine", "var(--info)"],
-    spueler: ["dishwasher", "var(--info)"], robo: ["robot-vacuum", "var(--gut)"], musik: ["music-note-outline", "#c99bf0"], ruhig: ["leaf", "var(--gut)"],
+    meldung: ["bell-ring-outline", "var(--warn)"], spueler: ["dishwasher", "var(--info)"], robo: ["robot-vacuum", "var(--gut)"], musik: ["music-note-outline", "#c99bf0"], ruhig: ["leaf", "var(--gut)"],
   };
   PS.kartenIcon = (k) => (KARTE[k] || KARTE.neutral)[0];
   const LEER = { id: "leer", art: "hinweis", schluessel: "ruhig", titel: "Hinweise", wert: "Alles ruhig", hinweis: "Keine Hinweise und keine laufenden Geräte.", ring: null };
@@ -82,7 +83,7 @@
   function karteInhalt(k) {
     const [ic, farbe] = KARTE[k.schluessel] || KARTE.neutral;
     const akt = k.art === "aktivitaet";
-    const kopf = k.schluessel === "musik" ? "Musik" : akt ? "Aktivität" : k.schluessel === "eil" ? `Eilmeldung · ${k.titel}` : k.titel || "Hinweis";
+    const kopf = k.art === "meldung" ? "Meldung · antippen" : k.schluessel === "musik" ? "Musik" : akt ? "Aktivität" : k.schluessel === "eil" ? `Eilmeldung · ${k.titel}` : k.titel || "Hinweis";
     const innen = akt
       ? `<b class="wert-txt">${PS.esc(k.wert)}</b><small>${PS.esc(k.hinweis)}</small>`
       : PS.ic(ic);
@@ -101,7 +102,7 @@
       const inhalt = karteInhalt(k);
       if (!el) {
         el = document.createElement("div"); el.className = "karte"; el.dataset.id = k.id;
-        el.addEventListener("click", () => { weiter(); });
+        el.addEventListener("click", () => { const kk = el._karte; if (kk && kk.art === "meldung") PS.popupZeigen(kk.id); else weiter(); });
         box.appendChild(el); elemente.set(k.id, el);
         el.innerHTML = inhalt.html;
       } else if (el._html !== inhalt.html) {
@@ -256,6 +257,12 @@
   }
   PS.on("init", () => { alles(); vorhersageLaden(); if (stapel.length) PS.neuZeichnen(); });
   PS.on("karten", (k) => { kartenSetzen(k); statusZeile(); });
+  PS.on("popups", (neu) => {
+    statusZeile();
+    if (stapel.length && stapel[0].modul === "hinweise") PS.neuZeichnen();
+    // Wie früher das Popup: sofort zeigen, wenn jemand am Panel ist
+    if (neu && PS.modus === "wach" && !document.body.classList.contains("ereignis-an")) PS.popupZeigen(neu);
+  });
   PS.on("meldungen", () => { statusZeile(); if (stapel.length && stapel[0].modul === "hinweise") PS.neuZeichnen(); });
   PS.on("ereignis", ereignis);
   PS.on("einstellungen", () => { schnellzugriff(); raeumeKurz(); dock(); zeigen(false); });

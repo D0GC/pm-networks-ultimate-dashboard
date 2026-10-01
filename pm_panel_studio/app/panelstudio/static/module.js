@@ -246,6 +246,16 @@
     hinweise: {
       titel: "Hinweise", icon: "bell-outline", versteckt: true,
       render(el) {
+        const pops = PS.popups || [];
+        if (pops.length) {
+          const pl = E('<div class="liste"></div>');
+          pops.forEach((x) => {
+            const z = E(`<div class="zeile">${PS.ic("bell-ring-outline")}<span class="n">${PS.esc(x.titel)}<small>${PS.esc(PS.zeitRelativ(new Date(x.seit * 1000).toISOString()))}</small></span></div>`);
+            z.addEventListener("click", () => PS.popupZeigen(x.id));
+            pl.appendChild(z);
+          });
+          el.appendChild(gruppe(`Meldungen · ${pops.length}`, pl));
+        }
         const m = PS.meldungen || [];
         const liste = E('<div class="liste"></div>');
         m.forEach((n) => {
@@ -255,7 +265,7 @@
         });
         el.appendChild(gruppe(m.length ? `Benachrichtigungen · ${m.length}` : "Benachrichtigungen", m.length ? liste : E('<div class="leer">Keine offenen Benachrichtigungen.</div>'),
           m.length > 1 ? knopf("Alle verwerfen", "notification-clear-all", () => Promise.all(m.map((n) => PS.dienst("persistent_notification", "dismiss", { notification_id: n.notification_id })))) : null));
-        const karten = (PS.karten || []).filter((k) => k.id !== "leer");
+        const karten = (PS.karten || []).filter((k) => k.id !== "leer" && k.art !== "meldung");
         const kl = E(`<div class="liste">${karten.map((k) => `<div class="zeile">${PS.ic(PS.kartenIcon(k.schluessel))}<span class="n">${PS.esc(k.art === "aktivitaet" ? k.titel : k.titel + " · " + k.wert)}<small>${PS.esc(k.art === "aktivitaet" ? [k.wert, k.hinweis, k.unter].filter(Boolean).join(" · ") : k.hinweis)}</small></span></div>`).join("")}</div>`);
         el.appendChild(gruppe("Hinweise und Aktivitäten", karten.length ? kl : E('<div class="leer">Alles ruhig.</div>')));
         beobachten(() => false);

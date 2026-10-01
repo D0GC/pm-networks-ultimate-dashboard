@@ -52,7 +52,35 @@
     document.querySelectorAll("#dialog img").forEach(PS.kameraStoppen);
   }
   PS.dialogSchliessen = schliessen;
-  PS.mehrInfos = (eid) => { offenFuer = eid; zeichnen(true); $("#dialog-grund").classList.add("offen"); };
+  // Browser-Mod-Popup als Dialog: Titel, Markdown, Kamera, Knöpfe wie im Original
+  PS.popupZeigen = (id) => {
+    const m = (PS.popups || []).find((x) => x.id === id); if (!m) return;
+    offenFuer = null;
+    const dlg = $("#dialog");
+    dlg.querySelectorAll("img").forEach(PS.kameraStoppen);
+    dlg.innerHTML = `<div class="kopf">${PS.ic("bell-ring-outline", "gr")}<h2>${PS.esc(m.titel)}<small>${PS.esc("seit " + PS.zeitRelativ(new Date(m.seit * 1000).toISOString()).replace("vor ", ""))}</small></h2><button class="zu" aria-label="Schließen">${PS.ic("close")}</button></div><div class="md">${PS.markdown(m.text)}</div>`;
+    dlg.querySelector(".zu").addEventListener("click", schliessen);
+    if (m.kamera) { const k = document.createElement("div"); k.className = "kamera"; const img = document.createElement("img"); k.appendChild(img); dlg.appendChild(k); PS.kameraStarten(img, m.kamera); }
+    const r = reihe();
+    const verwerfen = () => PS.anfrage({ typ: "popup_schliessen", popup: m.id }).catch(() => {}).then(schliessen);
+    r.appendChild(knopf("Verwerfen", "close", verwerfen));
+    m.knoepfe.forEach((b) => {
+      r.appendChild(knopf(b.text, null, () => {
+        if (b.domain === "browser_mod" || !b.domain) { verwerfen(); return; }
+        PS.dienst(b.domain, b.service, b.data || {}).then(() => { PS.toast(`${b.text} ausgeführt`); verwerfen(); });
+      }, b.art === "haupt" ? "primaer" : ""));
+    });
+    dlg.appendChild(r);
+    $("#dialog-grund").classList.add("offen");
+    dlg.dataset.popup = m.id;
+  };
+  PS.on("popups", () => {
+    const dlg = $("#dialog"), id = dlg.dataset.popup;
+    if (id && $("#dialog-grund").classList.contains("offen") && !(PS.popups || []).some((x) => x.id === id)) schliessen();
+  });
+
+  PS.mehrInfos = (eid) => {
+    delete $("#dialog").dataset.popup; offenFuer = eid; zeichnen(true); $("#dialog-grund").classList.add("offen"); };
   PS.on("diff", (ids) => { if (offenFuer && ids.has(offenFuer)) zeichnen(false); });
 
   function knopf(text, icon, fn, klasse = "") {

@@ -132,3 +132,16 @@ async def test_kamera_stream(ingress):
     assert b"--frame" in await r.read()
     r = await ingress.get("/api/kamera", params={"eid": "light.flur"})
     assert r.status == 400
+
+
+async def test_browser_mod_popup_kommt_im_panel_an(ingress, fake):
+    ws = await ingress.ws_connect("/api/ws")
+    await _init(ws)
+    fake.service("browser_mod", "popup", {"title": "Kohle fertig", "content": "Fertig.", "tag": "kohle_fertig"})
+    m = await _warte_auf(ws, "popups")
+    assert m["neu"] == "pop:kohle_fertig"
+    k = await _warte_auf(ws, "karten", lambda m: m["karten"][0]["art"] == "meldung")
+    assert k["karten"][0]["titel"] == "Kohle fertig"
+    fake.service("browser_mod", "close_popup", {"tag": "kohle_fertig"})
+    m = await _warte_auf(ws, "popups", lambda m: not m["liste"])
+    await ws.close()

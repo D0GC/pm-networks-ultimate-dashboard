@@ -38,6 +38,7 @@
         PS.einst = m.einstellungen || {}; PS.opt = m.optionen || {}; PS.karten = m.karten || []; PS.ha = m.ha || {};
         PS.ereignis = m.ereignis || { aktiv: false };
         PS.meldungen = m.meldungen || [];
+        PS.popups = m.popups || [];
         modusSetzen(m);
         document.body.classList.toggle("ohne-animation", PS.einst.animationen === false);
         PS.emit("init");
@@ -59,6 +60,7 @@
         document.body.classList.toggle("ohne-animation", PS.einst.animationen === false);
         PS.emit("einstellungen"); modusSetzen({ modus: PS.modus, nacht: PS.nacht, verbunden: PS.verbunden });
         break;
+      case "popups": PS.popups = m.liste || []; PS.emit("popups", m.neu); break;
       case "meldungen": PS.meldungen = m.liste || []; PS.emit("meldungen"); break;
       case "registry": PS.bereiche = m.bereiche || []; PS.reg = m.registry || {}; PS.emit("registry"); break;
       case "antwort": {
@@ -406,6 +408,18 @@
     c.style.strokeDashoffset = (U * (1 - a)).toFixed(1);
   };
 
+  // Kleines, sicheres Markdown (Text wird zuerst maskiert): Überschriften, fett, kursiv, Listen, Absätze
+  PS.markdown = (md) => {
+    const inline = (t) => PS.esc(t).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>").replace(/(^|[^*])\*([^*\n]+)\*/g, "$1<i>$2</i>").replace(/\b_([^_\n]+)_\b/g, "<i>$1</i>").replace(/\[([^\]]+)\]\([^)]*\)/g, "$1");
+    const bloecke = String(md || "").replace(/\r/g, "").split(/\n{2,}/);
+    return bloecke.map((b) => {
+      const h = b.match(/^(#{1,4})\s+(.*)$/);
+      if (h && !b.includes("\n")) return `<h4>${inline(h[2])}</h4>`;
+      const zeilen = b.split("\n");
+      if (zeilen.every((z) => /^\s*[-*·]\s+/.test(z))) return `<ul>${zeilen.map((z) => `<li>${inline(z.replace(/^\s*[-*·]\s+/, ""))}</li>`).join("")}</ul>`;
+      return `<p>${zeilen.map(inline).join("<br>")}</p>`;
+    }).join("");
+  };
   PS.kameraUrl = (eid) => "api/kamera?eid=" + encodeURIComponent(eid) + "&t=" + Date.now();
   // Livebild (MJPEG); fällt bei Fehlern auf Einzelbilder zurück, die nacheinander (nie überlappend) geladen werden.
   PS.kameraStarten = (img, eid) => {

@@ -26,6 +26,7 @@ from aiohttp import web
 from . import karten as kt
 from .config import Einstellungen, EinstellungsSpeicher, Options
 from .ha_client import HAClient, HAError
+from .popups import PopupSpeicher
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -118,6 +119,7 @@ class Hub:
         # Music-Assistant-Player (für das Karussell) und HA-Benachrichtigungen (Glocke)
         self.musik: list[str] = []
         self.meldungen: dict[str, dict[str, Any]] = {}
+        self.popups = PopupSpeicher()
         # Ereignis
         self.ereignis: dict[str, Any] | None = None
         self._ereignis_bis = 0.0
@@ -173,6 +175,10 @@ class Hub:
         await self.client.subscribe({"type": "subscribe_events", "event_type": "state_changed"}, self._on_state_changed)
         for ev in ("entity_registry_updated", "area_registry_updated", "device_registry_updated"):
             await self.client.subscribe({"type": "subscribe_events", "event_type": ev}, lambda _e: self._registry_neu.set())
+        try:
+            await self.client.subscribe({"type": "subscribe_events", "event_type": "call_service"}, self._on_dienst)
+        except HAError as err:
+            _LOGGER.warning("Dienstaufrufe nicht abonniert (keine Browser-Mod-Popups): %s", err)
         try:
             await self.client.subscribe({"type": "persistent_notification/subscribe"}, self._on_meldung)
         except HAError as err:
@@ -240,6 +246,20 @@ class Hub:
             if eid.startswith(praefix) and not r.get("b"):
                 r["b"] = nach_slug.get(eid[len(praefix) :])
 
+    def _on_dienst(self, event: dict[str, Any]) -> None:
+        data = event.get("data") or {}
+        if data.get("domain") != "browser_mod":
+            return
+        vorher = {m["id"] for m in self.popups.liste()}
+        if self.popups.verarbeiten("browser_mod", str(data.get("service")), data.get("service_data") or {}):
+            neu = [m for m in self.popups.liste() if m["id"] not in vorher]
+            self._popups_senden(neu[0]["id"] if neu else None)
+
+    def _popups_senden(self, neu_id: str | None = None) -> None:
+        self.spawn(self.senden_alle({"typ": "popups", "liste": self.popups.liste(), "neu": neu_id}))
+        self._karten_json = ""
+        self._karten_neu()
+
     def _on_meldung(self, event: dict[str, Any]) -> None:
         typ = event.get("type")
         eintraege = event.get("notifications") or {}
@@ -304,6 +324,8 @@ class Hub:
         karten = kt.berechne(
             self.states, self.opts.hinweise_entitaet, datetime.now(UTC), self.einstellungen.karten_aus, self.musik
         )
+        if "meldung" not in self.einstellungen.karten_aus:
+            karten = self.popups.karten() + karten
         roh = json.dumps(karten, ensure_ascii=False, sort_keys=True)
         if roh == self._karten_json:
             return
@@ -367,6 +389,8 @@ class Hub:
             self._modus_pruefen()
             if self.ereignis and time.monotonic() > self._ereignis_bis:
                 self.ereignis_beenden()
+            if self.popups.aufraeumen():
+                self._popups_senden()
             if zaehler % 15 == 0 and self.verbunden:
                 self._karten_neu()  # Restzeiten ohne Zustandsänderung (Timer) nachführen
 
@@ -382,6 +406,7 @@ class Hub:
             "optionen": self.opts.public(),
             "karten": self.karten,
             "meldungen": self.meldungen_liste(),
+            "popups": self.popups.liste(),
             "ereignis": self.ereignis or {"aktiv": False},
             "ha": {
                 "standort": self.ha_config.get("location_name"),
@@ -441,6 +466,10 @@ class Hub:
             eid = str(msg.get("entity_id", ""))
             st = self.states.get(eid)
             return (st or {}).get("attributes") or {}
+        if typ == "popup_schliessen":
+            if self.popups.entfernen(str(msg.get("popup", ""))):
+                self._popups_senden()
+            return True
         if typ == "ereignis_ende":
             self.ereignis_beenden()
             return True

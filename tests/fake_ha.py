@@ -397,6 +397,10 @@ class FakeHA:
 
     def service(self, domain: str, service: str, data: dict) -> Any:
         self.calls.append((domain, service, data))
+        event = {"event_type": "call_service", "data": {"domain": domain, "service": service, "service_data": data}}
+        for ws, sid, typ in list(self.subs):
+            if typ == "call_service" and not ws.closed:
+                self._tasks.add(asyncio.ensure_future(ws.send_json({"id": sid, "type": "event", "event": event})))
         ids = data.get("entity_id") or []
         ids = [ids] if isinstance(ids, str) else ids
         for eid in ids:
