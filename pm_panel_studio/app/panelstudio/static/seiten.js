@@ -1,0 +1,319 @@
+/* PM Panel Studio – Modulseiten im Drei-Spalten-Muster (wie die Raumansicht): links der Gesamtzustand, Mitte die
+   häufigste Bedienung, rechts Ergänzendes. Die bisherigen vollständigen Listen bleiben unter „Alle …“ erreichbar. */
+(function () {
+  "use strict";
+  const PS = window.PS;
+  const E = (html) => { const t = document.createElement("template"); t.innerHTML = html.trim(); return t.content.firstElementChild; };
+  const alle = () => Object.keys(PS.z);
+  const dom = (d) => (e) => PS.domain(e) === d;
+  const nameSort = (x, y) => PS.name(x).localeCompare(PS.name(y), "de");
+  const num = (e) => Number(PS.s(e));
+
+  // ------------------------------------------------------------ Bausteine
+  const box = (titel, klein) => E(`<section class="r-box"><h3><span>${PS.esc(titel)}</span>${klein ? `<small>${PS.esc(klein)}</small>` : ""}</h3></section>`);
+  const raster = (ids, klasse = "mini", bereichName) => {
+    const r = E(`<div class="raster ${klasse}">${ids.map((e, i) => PS.kachelHTML(e, { i, bereich: bereichName })).join("")}</div>`);
+    return r;
+  };
+  // Ring immer quadratisch (aspect-ratio), damit er im echten Render nicht gestaucht wird
+  const ring = (anteil, farbe, wert, unter) => E(`<div class="ring r-ring" style="--farbe:${farbe}">${PS.ringSVG(anteil)}<div class="innen"><b class="tabular">${PS.esc(wert)}</b>${unter ? `<small>${PS.esc(unter)}</small>` : ""}</div></div>`);
+  const knopf = (text, icon, fn, klasse = "") => { const b = E(`<button class="knopf ${klasse}">${icon ? PS.ic(icon) : ""}<span>${PS.esc(text)}</span></button>`); if (fn) b.addEventListener("click", fn); return b; };
+  const balken = (name, wert, anteil, farbe, eid) => {
+    const z = E(`<div class="balken-zeile"${eid ? ` data-eid="${PS.esc(eid)}"` : ""}><span>${PS.esc(name)}</span><span class="w">${PS.esc(wert)}</span><div class="bar"><i style="width:${Math.max(1, Math.min(100, anteil * 100))}%${farbe ? `;background:${farbe}` : ""}"></i></div></div>`);
+    if (eid) z.addEventListener("click", () => PS.mehrInfos(eid));
+    return z;
+  };
+  const alleKnopf = (text, modul) => knopf(text, "view-grid-outline", () => PS.unterseite(`${PS.module[modul].titel} · alle`, (el) => PS.module[modul]._alle(el)), "r-alles");
+  function seite(el, modul) {
+    el.classList.add("raumseite");
+    // Reiter wie bei den Räumen; die Modulleiste unten bleibt zusätzlich
+    const mods = (PS.einst.module || []).filter((m) => PS.module[m] && m !== "suche");
+    PS.tabs(mods.map((m) => [m, PS.module[m].titel]), modul, (k) => PS.oeffnen(k));
+    const g = E('<div class="raum-ansicht"><div class="r-spalte"></div><div class="r-spalte"></div><div class="r-spalte"></div></div>');
+    el.appendChild(g);
+    return g.children;
+  }
+
+  // ------------------------------------------------------------ Klima
+  function klima(el) {
+    const [l, m, r] = seite(el, "klima");
+    m.parentElement.classList.add("breit-mitte");
+    const thermo = alle().filter(dom("climate")).filter((e) => PS.sichtbar(e) && !PS.nichtDa(e)).sort(nameSort);
+    const ist = thermo.map((e) => PS.a(e).current_temperature).filter((v) => v != null);
+    const innen = ist.length ? ist.reduce((a, b) => a + b, 0) / ist.length : null;
+    const w = PS.opt.wetter_entitaet, aussen = PS.opt.aussentemperatur && PS.z[PS.opt.aussentemperatur] ? num(PS.opt.aussentemperatur) : PS.a(w).temperature;
+    const b1 = box("Zuhause", PS.s("input_boolean.pm_heizperiode") === "on" ? "Heizperiode" : "Sommerbetrieb");
+    const kopf = E('<div class="r-zustand"></div>');
+    kopf.append(ring(innen != null ? (innen - 15) / 10 : null, "var(--warn)", innen != null ? PS.zahl(innen, 1) + "°" : "–", "innen"),
+      E(`<div><div class="r-zahl tabular">${aussen != null ? PS.zahl(aussen, 1) + "°" : "–"}<small> außen</small></div><div class="r-unter">${PS.esc(PS.z[w] ? PS.text(w) : "")}</div></div>`));
+    b1.appendChild(kopf);
+    const schalter = ["input_boolean.pm_heizperiode", ...alle().filter((e) => e.startsWith("switch.pm_") && PS.sichtbar(e)).sort(nameSort)].filter((e) => PS.z[e]);
+    if (schalter.length) b1.appendChild(raster(schalter));
+    l.appendChild(b1);
+    if (PS.z["sensor.pm_klima_empfehlung"]) {
+      const b2 = box("Empfehlung", "PM Klima");
+      b2.appendChild(E(`<div class="r-text">${PS.esc(PS.text("sensor.pm_klima_empfehlung"))}</div>`));
+      l.appendChild(b2);
+    }
+    const b3 = box("Heizung", `${thermo.length} Räume`);
+    const g = E('<div class="r-thermos"></div>');
+    thermo.forEach((t) => { const c = PS.klimaSteuerung(t); c.classList.add("kompakt"); g.appendChild(c); });
+    b3.appendChild(g);
+    const pm = thermo.filter((t) => t.startsWith("climate.pm_"));
+    if (pm.length) b3.appendChild(E('<div class="reihe"></div>')).append(
+      knopf("Alle: Zurück zum Plan", "calendar-sync", () => PS.dienst("pm_heizung", "clear_overlay", { entity_id: pm }).then(() => PS.toast("Alle Räume wieder nach Plan"))));
+    m.appendChild(b3);
+    const luft = alle().filter((e) => e.startsWith("sensor.") && PS.sichtbar(e) && !PS.nichtDa(e) && ["carbon_dioxide", "pm25", "humidity"].includes(PS.a(e).device_class));
+    const b4 = box("Luft");
+    const grenze = { carbon_dioxide: 1400, pm25: 50, humidity: 100 };
+    luft.sort((x, y) => num(y) / grenze[PS.a(y).device_class] - num(x) / grenze[PS.a(x).device_class]).slice(0, 6)
+      .forEach((e) => { const dc = PS.a(e).device_class, a = num(e) / grenze[dc]; b4.appendChild(balken(PS.name(e), PS.text(e), a, a > 0.7 ? "var(--warn)" : "var(--gut)", e)); });
+    if (luft.length) r.appendChild(b4);
+    const ger = alle().filter((e) => (dom("fan")(e) || dom("humidifier")(e)) && PS.sichtbar(e));
+    if (ger.length) { const b5 = box("Geräte"); b5.appendChild(raster(ger.sort(nameSort))); r.appendChild(b5); }
+    r.appendChild(alleKnopf("Alle Klimawerte", "klima"));
+  }
+
+  // ------------------------------------------------------------ Licht
+  function licht(el) {
+    const [l, m, r] = seite(el, "licht");
+    const bereiche = PS.bereiche.filter((b) => !(PS.einst.bereiche_ausblenden || []).includes(b.id));
+    const je = bereiche.map((b) => ({ b, a: PS.lichtAuswahl(alle().filter((e) => PS.bereichVon(e) === b.id && PS.sichtbar(e)), b.name) })).filter((x) => x.a.raum || x.a.sichtbar.length);
+    const einzel = je.flatMap((x) => x.a.sichtbar);
+    const an = einzel.filter((e) => PS.s(e) === "on");
+    const b1 = box("Gerade an");
+    const kopf = E('<div class="r-zustand"></div>');
+    kopf.append(ring(einzel.length ? an.length / einzel.length : 0, "#ffd58a", String(an.length), `von ${einzel.length}`),
+      E(`<div class="r-unter">${PS.esc(je.filter((x) => x.a.sichtbar.some((e) => PS.s(e) === "on")).map((x) => `${x.b.name} ${x.a.sichtbar.filter((e) => PS.s(e) === "on").length}`).join(" · ") || "Alles aus")}</div>`));
+    b1.appendChild(kopf);
+    const aus = knopf(`Alle aus (halten)`, "lightbulb-group-off", null, "gefahr");
+    PS.halten(aus, 1200, () => PS.dienst("light", "turn_off", { entity_id: an }).then(() => PS.toast("Alle Lichter aus")));
+    if (an.length) b1.appendChild(aus);
+    l.appendChild(b1);
+    // Häufigste Szenen im ganzen Haus
+    const stat = (PS.szenen || {}).stat || {}, h = new Date().getHours();
+    const punkte = (e) => { const s = stat[e]; if (!s) return 0; let p = s.n; for (let d = -2; d <= 2; d++) p += (s.h[(h + d + 24) % 24] || 0) * (d === 0 ? 3 : 2); return p; };
+    const szenen = alle().filter((e) => dom("scene")(e) && PS.sichtbar(e) && PS.s(e) !== "unavailable").sort((x, y) => punkte(y) - punkte(x)).slice(0, 6);
+    if (szenen.length) { const b2 = box("Szenen", "am häufigsten"); b2.appendChild(raster(szenen)); l.appendChild(b2); }
+    // Mitte: je Raum eine Kachel (Raumgruppe, sonst die einzige Lampe bzw. Untergruppe)
+    const b3 = box("Räume", "Raumgruppen");
+    const r3 = E('<div class="raster r-lichter"></div>');
+    je.forEach(({ b, a }) => {
+      const eid = a.raum || (a.sichtbar.length === 1 ? a.sichtbar[0] : null);
+      if (eid) { r3.insertAdjacentHTML("beforeend", PS.kachelHTML(eid, { titel: b.name })); return; }
+      const k = E(`<button class="kachel"><i class="mdi">${""}</i><b>${PS.esc(b.name)}</b><small>${a.sichtbar.filter((e) => PS.s(e) === "on").length} von ${a.sichtbar.length} an</small></button>`);
+      k.querySelector(".mdi").outerHTML = PS.ic("lightbulb-group-outline");
+      k.addEventListener("click", () => PS.module.raeume.unterseite(b.id));
+      r3.appendChild(k);
+    });
+    b3.appendChild(r3);
+    m.appendChild(b3);
+    const auto = alle().filter((e) => dom("automation")(e) && PS.sichtbar(e) && /licht|lamp|light/i.test(e + " " + PS.name(e))).sort(nameSort).slice(0, 6);
+    if (auto.length) { const b4 = box("Automatik"); b4.appendChild(raster(auto)); r.appendChild(b4); }
+    r.appendChild(alleKnopf("Alle Lampen", "licht"));
+  }
+
+  // ------------------------------------------------------------ Sicherheit
+  function sicherheit(el) {
+    const [l, m, r] = seite(el, "sicherheit");
+    const alarm = alle().filter(dom("alarm_control_panel")).filter(PS.sichtbar);
+    alarm.slice(0, 1).forEach((a) => l.appendChild(PS.alarmSteuerung(a)));
+    const zugang = [...alle().filter(dom("lock")), ...(PS.opt.tueroeffner && PS.z[PS.opt.tueroeffner] ? [PS.opt.tueroeffner] : [])].filter(PS.sichtbar);
+    if (zugang.length) { const b = box("Zugang"); b.appendChild(raster(zugang)); l.appendChild(b); }
+    const bs = (k) => alle().filter((e) => e.startsWith("binary_sensor.") && PS.sichtbar(e) && !PS.nichtDa(e) && k.includes(PS.a(e).device_class));
+    const kontakte = bs(["door", "window", "opening", "garage_door"]).sort((x, y) => (PS.s(y) === "on") - (PS.s(x) === "on") || nameSort(x, y));
+    const offen = kontakte.filter((e) => PS.s(e) === "on").length;
+    const b2 = box("Türen und Fenster", offen ? `${offen} offen` : "alles zu");
+    b2.appendChild(raster(kontakte.slice(0, 9), "mini r3"));
+    const bew = bs(["motion", "occupancy", "presence"]).sort((x, y) => (PS.s(y) === "on") - (PS.s(x) === "on") || (Date.parse(PS.st(y).lc) || 0) - (Date.parse(PS.st(x).lc) || 0));
+    b2.appendChild(E('<h3 class="unter"><span>Bewegung</span></h3>'));
+    b2.appendChild(raster(bew.slice(0, 6), "mini r3"));
+    m.appendChild(b2);
+    const kam = PS.opt.ereignis_kamera && PS.z[PS.opt.ereignis_kamera] ? PS.opt.ereignis_kamera : alle().find((e) => dom("camera")(e) && PS.sichtbar(e));
+    if (kam) {
+      const b3 = box(PS.name(kam), "antippen für Live");
+      const k = E(`<div class="kamera"><img alt=""><span>${PS.esc(PS.name(kam))}</span></div>`);
+      k.addEventListener("click", () => PS.mehrInfos(kam));
+      b3.appendChild(k); r.appendChild(b3);
+      setTimeout(() => PS.kameraVorschau(k.querySelector("img"), kam), 50);
+    }
+    const b4 = box("Letzte Ereignisse");
+    const liste = E('<div class="liste"><div class="leer">Wird geladen …</div></div>');
+    b4.appendChild(liste); r.appendChild(b4);
+    const relevant = new Set([...kontakte, ...bew, ...zugang, ...alarm, ...(PS.opt.ereignis_ausloeser || [])]);
+    PS.anfrage({ typ: "rest", pfad: `logbook/${new Date(Date.now() - 12 * 3600e3).toISOString()}` }).then((res) => {
+      const ev = (res || []).filter((x) => relevant.has(x.entity_id)).slice(-6).reverse();
+      liste.innerHTML = ev.map((x) => `<div class="zeile">${PS.z[x.entity_id] ? PS.icon(x.entity_id) : PS.ic("history")}<span class="n">${PS.esc(x.name || x.entity_id)}<small>${PS.esc(x.message || PS.text(x.entity_id, x.state))}</small></span><span class="w">${PS.uhrzeit(new Date(x.when))}</span></div>`).join("") || '<div class="leer">Keine Ereignisse in den letzten 12 Stunden.</div>';
+    }).catch(() => { liste.innerHTML = '<div class="leer">Protokoll nicht verfügbar.</div>'; });
+    r.appendChild(alleKnopf("Alle Melder und Kameras", "sicherheit"));
+  }
+
+  // ------------------------------------------------------------ Energie (nach dem eingebauten Energie-Dashboard)
+  const FARBEN = ["#b07fd0", "#8fb4ff", "#5fd3a0", "#f0b44c", "#ef6a7a", "#d9a7ff", "#7fd3e8", "#C5C0D3"];
+  const ZEITRAUM = { heute: "Heute", gestern: "Gestern", woche: "Woche", monat: "Monat" };
+  let zeitraum = "heute";
+  function grenzen(z) {
+    const t = new Date(); t.setHours(0, 0, 0, 0);
+    if (z === "gestern") { const s = new Date(t.getTime() - 86400e3); return [s, t, "hour"]; }
+    if (z === "woche") { const s = new Date(t); s.setDate(t.getDate() - ((t.getDay() + 6) % 7)); return [s, new Date(s.getTime() + 7 * 86400e3), "day"]; }
+    if (z === "monat") { const s = new Date(t.getFullYear(), t.getMonth(), 1); return [s, new Date(t.getFullYear(), t.getMonth() + 1, 1), "day"]; }
+    return [t, new Date(t.getTime() + 86400e3), "hour"];
+  }
+  async function energie(el) {
+    const [l, m, r] = seite(el, "energie");
+    let prefs;
+    try { prefs = await PS.anfrage({ typ: "ws", befehl: { type: "energy/get_prefs" } }); } catch { prefs = null; }
+    const geraete = (prefs && prefs.device_consumption) || [];
+    const wasser = ((prefs && prefs.energy_sources) || []).filter((s) => s.type === "water");
+    const gas = ((prefs && prefs.energy_sources) || []).filter((s) => s.type === "gas");
+    const netz = ((prefs && prefs.energy_sources) || []).filter((s) => s.type === "grid");
+    if (!geraete.length && !netz.length) {
+      l.appendChild(E('<div class="leer">Im Energie-Dashboard von Home Assistant sind keine Geräte oder Zähler eingerichtet. Angezeigt wird nur die Leistung.</div>'));
+    }
+    // Links: Zeitraum, Summe, Wasser/Gas
+    const b1 = box("Verbrauch");
+    const chips = E(`<div class="tabs r-chips">${Object.entries(ZEITRAUM).map(([k, t]) => `<button data-k="${k}" class="${k === zeitraum ? "aktiv" : ""}">${t}</button>`).join("")}</div>`);
+    chips.querySelectorAll("button").forEach((b) => b.addEventListener("click", () => { zeitraum = b.dataset.k; PS.neuZeichnen(); }));
+    const summeEl = E('<div class="r-zahl tabular">…</div>');
+    b1.append(chips, summeEl, E('<div class="r-unter">Summe der Geräte aus dem Energie-Dashboard</div>'));
+    l.appendChild(b1);
+    const wEl = wasser.length || gas.length ? box(wasser.length ? "Wasser" : "Gas") : null;
+    if (wEl) l.appendChild(wEl);
+    // Mitte: Diagramm
+    const b2 = box("Verlauf", ZEITRAUM[zeitraum]);
+    const dia = E('<div class="r-diagramm"><div class="leer">Wird geladen …</div></div>');
+    const legende = E('<div class="r-legende"></div>');
+    b2.append(dia, legende);
+    m.appendChild(b2);
+    // Rechts: Geräte mit Verbrauch und Leistung (Hierarchie wie im Energie-Dashboard)
+    const b3 = box("Geräte", "Verbrauch · Leistung");
+    r.appendChild(b3);
+    r.appendChild(alleKnopf("Alle Zähler und Leistungen", "energie"));
+
+    const [start, ende, periode] = grenzen(zeitraum);
+    const ids = [...geraete.map((g) => g.stat_consumption), ...wasser.map((w) => w.stat_energy_from), ...gas.map((g) => g.stat_energy_from)];
+    let stats = {};
+    try {
+      stats = (await PS.anfrage({ typ: "ws", befehl: { type: "recorder/statistics_during_period", start_time: start.toISOString(), end_time: ende.toISOString(), statistic_ids: ids, period: periode, types: ["change"] } })) || {};
+    } catch { stats = {}; }
+    const summe = (id) => (stats[id] || []).reduce((s, p) => s + (p.change || 0), 0);
+    const oben = geraete.filter((g) => !g.included_in_stat);
+    const gesamt = oben.reduce((s, g) => s + summe(g.stat_consumption), 0);
+    summeEl.innerHTML = `${PS.zahl(gesamt, gesamt < 10 ? 2 : 1)}<small> kWh</small>`;
+    if (wEl) {
+      [...wasser, ...gas].forEach((w) => {
+        const v = summe(w.stat_energy_from), e = w.stat_energy_from;
+        const einheit = PS.z[e] ? PS.a(e).unit_of_measurement || "" : "m³";
+        wEl.appendChild(balken(PS.z[e] ? PS.name(e) : e.split(":").pop().replace(/_/g, " "), `${PS.zahl(v, 2)} ${einheit}`, 1, "var(--info)", PS.z[e] ? e : null));
+      });
+    }
+    // Geräte-Liste: Oberste Ebene, darunter enthaltene Geräte eingerückt
+    const name = (g) => g.name || (PS.z[g.stat_consumption] ? PS.name(g.stat_consumption) : g.stat_consumption);
+    const max = Math.max(0.001, ...geraete.map((g) => summe(g.stat_consumption)));
+    const farbe = new Map(oben.map((g, i) => [g.stat_consumption, FARBEN[i % FARBEN.length]]));
+    const zeile = (g, ein) => {
+      const leistung = g.stat_rate && PS.z[g.stat_rate] ? ` · ${PS.text(g.stat_rate)}` : "";
+      const z = balken(name(g), `${PS.zahl(summe(g.stat_consumption), 2)} kWh${leistung}`, summe(g.stat_consumption) / max, farbe.get(g.stat_consumption) || "var(--leise)", PS.z[g.stat_consumption] ? g.stat_consumption : g.stat_rate);
+      if (ein) z.classList.add("eingerueckt");
+      return z;
+    };
+    oben.sort((x, y) => summe(y.stat_consumption) - summe(x.stat_consumption)).forEach((g) => {
+      b3.appendChild(zeile(g, false));
+      geraete.filter((k) => k.included_in_stat === g.stat_consumption).forEach((k) => b3.appendChild(zeile(k, true)));
+    });
+    // Gestapeltes Säulendiagramm je Stunde bzw. Tag (oberste Ebene, wie im Energie-Dashboard)
+    const zeiten = [...new Set(oben.flatMap((g) => (stats[g.stat_consumption] || []).map((p) => p.start)))].sort((a, b) => a - b);
+    if (!zeiten.length) { dia.innerHTML = '<div class="leer">Für diesen Zeitraum liegen keine Werte vor.</div>'; return; }
+    const werte = zeiten.map((t) => oben.map((g) => Math.max(0, ((stats[g.stat_consumption] || []).find((p) => p.start === t) || {}).change || 0)));
+    const hoch = Math.max(0.001, ...werte.map((w) => w.reduce((a, b) => a + b, 0)));
+    const W = 600, H = 220, B = W / zeiten.length;
+    let svg = "";
+    werte.forEach((w, i) => {
+      let y = H - 18;
+      w.forEach((v, j) => { const hh = (v / hoch) * (H - 34); y -= hh; if (hh > 0.3) svg += `<rect x="${(i * B + B * 0.15).toFixed(1)}" y="${y.toFixed(1)}" width="${(B * 0.7).toFixed(1)}" height="${hh.toFixed(1)}" rx="1.5" fill="${FARBEN[j % FARBEN.length]}"/>`; });
+    });
+    const label = (t) => (periode === "hour" ? `${new Date(t).getHours()}` : `${new Date(t).getDate()}.`);
+    const schritt = Math.ceil(zeiten.length / 8);
+    zeiten.forEach((t, i) => { if (i % schritt === 0) svg += `<text x="${(i * B + B / 2).toFixed(1)}" y="${H - 3}" text-anchor="middle">${label(t)}</text>`; });
+    svg += `<text x="2" y="11">${PS.zahl(hoch, 2)} kWh</text>`;
+    dia.innerHTML = `<svg class="diagramm saeulen" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">${svg}</svg>`;
+    legende.innerHTML = oben.map((g, j) => `<span><i style="background:${FARBEN[j % FARBEN.length]}"></i>${PS.esc(name(g))}</span>`).join("");
+  }
+
+  // ------------------------------------------------------------ Medien
+  function medien(el) {
+    const [l, m, r] = seite(el, "medien");
+    const player = alle().filter(dom("media_player")).filter((e) => PS.sichtbar(e) && PS.s(e) !== "unavailable");
+    const aktiv = player.filter((e) => PS.s(e) === "playing").concat(player.filter((e) => PS.s(e) === "paused"));
+    if (aktiv[0]) l.appendChild(PS.medienSteuerung(aktiv[0], true));
+    else { const b = box("Läuft gerade"); b.appendChild(E('<div class="leer">Gerade spielt nichts.</div>')); l.appendChild(b); }
+    const tv = player.filter((e) => /tv|fire|samsung|fernseh/i.test(e + PS.name(e)));
+    const lautsprecher = player.filter((e) => !tv.includes(e)).sort((x, y) => (PS.s(y) === "playing") - (PS.s(x) === "playing") || nameSort(x, y));
+    const b2 = box("Lautsprecher", `${lautsprecher.filter((e) => PS.s(e) === "playing").length} spielen`);
+    b2.appendChild(raster(lautsprecher.slice(0, 12), "mini r3"));
+    if (tv.length) { b2.appendChild(E('<h3 class="unter"><span>Fernseher</span></h3>')); b2.appendChild(raster(tv.slice(0, 3), "mini r3")); }
+    m.appendChild(b2);
+    aktiv.slice(1, 3).forEach((p) => r.appendChild(PS.medienSteuerung(p, false)));
+    const fern = alle().filter(dom("remote")).filter(PS.sichtbar);
+    if (fern.length) { const b = box("Fernbedienungen"); b.appendChild(raster(fern)); r.appendChild(b); }
+    r.appendChild(alleKnopf("Alle Player", "medien"));
+  }
+
+  // ------------------------------------------------------------ Listen
+  function listen(el) {
+    const [l, m, r] = seite(el, "listen");
+    const todos = alle().filter(dom("todo")).filter(PS.sichtbar).sort((x, y) => (/einkauf|shopping/.test(y) - /einkauf|shopping/.test(x)) || nameSort(x, y));
+    if (todos[0]) { const b = box(PS.name(todos[0]), `${PS.s(todos[0])} offen`); PS.baustein.todo(b, todos[0]); l.appendChild(b); }
+    const b2 = box("Termine", "nächste 7 Tage"); PS.baustein.kalender(b2); m.appendChild(b2);
+    const treffer = PS.z["sensor.pmn_angebote_treffer"];
+    if (treffer) {
+      const n = (PS.a("sensor.pmn_angebote_treffer").angebote || []).length, bring = (PS.a("sensor.pmn_angebote_treffer").bring || []).length;
+      const b3 = box("Angebote", "Wunschliste");
+      b3.appendChild(E(`<div class="r-zahl tabular">${n}<small> Treffer</small></div>`));
+      b3.appendChild(E(`<div class="r-unter">${bring} davon auf der Einkaufsliste</div>`));
+      r.appendChild(b3);
+    }
+    if (todos[1]) { const b4 = box(PS.name(todos[1]), `${PS.s(todos[1])} offen`); PS.baustein.todo(b4, todos[1]); r.appendChild(b4); }
+    r.appendChild(alleKnopf("Alle Listen", "listen"));
+  }
+
+  // ------------------------------------------------------------ Wartung
+  function wartung(el) {
+    const [l, m, r] = seite(el, "wartung");
+    const liste = (PS.einst.wartung_entitaeten || []).filter((e) => PS.z[e] || true);
+    const weg = liste.filter((e) => !PS.z[e] || ["unavailable", "unknown"].includes(PS.s(e)));
+    const ok = liste.length - weg.length;
+    const b1 = box("Systemzustand", "wie Jarvis");
+    const kopf = E('<div class="r-zustand"></div>');
+    kopf.append(ring(liste.length ? ok / liste.length : 1, weg.length ? "var(--warn)" : "var(--gut)", String(ok), `von ${liste.length}`),
+      E(`<div><div class="r-zahl klein">${weg.length ? `${weg.length} benötigen Aufmerksamkeit` : "Alles nominal"}</div><div class="r-unter">${weg.length ? "" : "Alle überwachten Entitäten antworten."}</div></div>`));
+    b1.appendChild(kopf);
+    if (weg.length) b1.appendChild(E(`<div class="liste">${weg.slice(0, 6).map((e) => `<div class="zeile"${PS.z[e] ? ` data-eid="${PS.esc(e)}"` : ""}>${PS.z[e] ? PS.icon(e) : PS.ic("help-circle-outline")}<span class="n">${PS.esc(PS.z[e] ? PS.name(e) : e)}<small>${PS.z[e] ? `${PS.text(e)} · ${PS.zeitRelativ(PS.st(e).lc)}` : "fehlt"}</small></span></div>`).join("")}</div>`));
+    b1.querySelectorAll("[data-eid]").forEach((z) => z.addEventListener("click", () => PS.mehrInfos(z.dataset.eid)));
+    l.appendChild(b1);
+    const upd = alle().filter((e) => e.startsWith("update.") && PS.s(e) === "on" && PS.sichtbar(e));
+    const b2 = box("Updates", upd.length ? String(upd.length) : "alles aktuell");
+    if (upd.length) b2.appendChild(raster(upd.slice(0, 6)));
+    m.appendChild(b2);
+    const batt = alle().filter((e) => e.startsWith("sensor.") && PS.a(e).device_class === "battery" && isFinite(num(e))).sort((x, y) => num(x) - num(y));
+    const b3 = box("Batterien", "schwächste zuerst");
+    batt.slice(0, 6).forEach((e) => b3.appendChild(balken(PS.name(e), `${PS.zahl(num(e), 0)} %`, num(e) / 100, num(e) < 20 ? "var(--krit)" : num(e) < 35 ? "var(--warn)" : null, e)));
+    m.appendChild(b3);
+    const mat = alle().filter((e) => e.startsWith("sensor.") && PS.sichtbar(e) && !PS.nichtDa(e) && /filter|burste|bürste|sensorzeit|reinigung|wartung/i.test(e + " " + PS.name(e)) && !["power", "energy", "temperature", "humidity"].includes(PS.a(e).device_class));
+    const b4 = box("Verbrauchsmaterial");
+    mat.sort((x, y) => num(x) - num(y)).slice(0, 7).forEach((e) => {
+      const v = num(e), pct = PS.a(e).unit_of_measurement === "%";
+      b4.appendChild(balken(PS.name(e), PS.text(e), pct ? v / 100 : 1, pct && v < 10 ? "var(--krit)" : pct && v < 25 ? "var(--warn)" : null, e));
+    });
+    if (mat.length) r.appendChild(b4);
+    r.appendChild(alleKnopf("Protokoll, Batterien und Automationen", "wartung"));
+  }
+
+  // ------------------------------------------------------------ Einhängen: neue Seite, alte Liste unter „Alle …“
+  const NEU = { klima, licht, sicherheit, energie, medien, listen, wartung };
+  Object.entries(NEU).forEach(([k, fn]) => {
+    const mod = PS.module[k]; if (!mod) return;
+    mod._alle = mod.render;
+    mod.render = (el, arg) => fn(el, arg);
+  });
+})();

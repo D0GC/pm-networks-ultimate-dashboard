@@ -5,7 +5,14 @@
   const PS = window.PS;
   const E = (html) => { const t = document.createElement("template"); t.innerHTML = html.trim(); return t.content.firstElementChild; };
   const alle = () => Object.keys(PS.z);
-  const imBereich = (b) => alle().filter((e) => PS.bereichVon(e) === b && PS.sichtbar(e));
+  // Bereich laut Registry plus zugeordnete Schalter aus dem Editor; ein zugeordneter Schalter erscheint nur dort
+  const raumSchalter = () => PS.einst.raum_schalter || {};
+  const zugeordnet = () => new Set(Object.values(raumSchalter()).flat());
+  const imBereich = (b) => {
+    const extra = (raumSchalter()[b] || []).filter((e) => PS.z[e]);
+    const fest = zugeordnet();
+    return [...new Set([...alle().filter((e) => PS.bereichVon(e) === b && PS.sichtbar(e) && !fest.has(e)), ...extra])];
+  };
   const dom = (d) => (e) => PS.domain(e) === d;
   const bereicheSortiert = () => {
     const ordnung = PS.einst.bereiche_reihenfolge || [], aus = new Set(PS.einst.bereiche_ausblenden || []);
@@ -155,13 +162,15 @@
     links.appendChild(szenenBox(b, name));
     // Mitte: Licht
     mitte.appendChild(lichtBox(ids, name));
-    // Rechts: Medien, Zustand, Geräte
+    // Rechts: Modi (zugeordnete Schalter), Medien, Zustand, Geräte
+    const modi = (raumSchalter()[b] || []).filter((e) => PS.z[e]);
+    if (modi.length) { const z = E('<section class="r-box"><h3><span>Modi</span></h3></section>'); z.appendChild(kachelRaster(modi, name)); z.lastElementChild.classList.add("mini"); rechts.appendChild(z); }
     const medien = ids.filter(dom("media_player")).filter((e) => ["playing", "paused", "on", "idle", "buffering"].includes(PS.s(e)));
     medien.slice(0, 1).forEach((m) => rechts.appendChild(PS.medienSteuerung(m, false)));
     const zustand = ids.filter((e) => (e.startsWith("binary_sensor.") && ["door", "window", "opening", "motion", "occupancy", "presence", "moisture", "smoke"].includes(PS.a(e).device_class))
       || (e.startsWith("sensor.") && ["carbon_dioxide", "pm25", "volatile_organic_compounds", "aqi"].includes(PS.a(e).device_class)));
     if (zustand.length) { const z = E('<section class="r-box"><h3><span>Zustand</span></h3></section>'); z.appendChild(kachelRaster(zustand.slice(0, 6).sort(sortName(name)), name)); z.lastElementChild.classList.add("mini"); rechts.appendChild(z); }
-    const geraete = ids.filter((e) => ["switch", "input_boolean", "fan", "cover", "lock", "vacuum", "humidifier", "valve"].includes(PS.domain(e)) && !PS.nichtDa(e));
+    const geraete = ids.filter((e) => ["switch", "input_boolean", "fan", "cover", "lock", "vacuum", "humidifier", "valve"].includes(PS.domain(e)) && !PS.nichtDa(e) && !modi.includes(e));
     if (geraete.length) { const z = E('<section class="r-box"><h3><span>Geräte</span></h3></section>'); z.appendChild(kachelRaster(geraete.slice(0, 6).sort(sortName(name)), name)); z.lastElementChild.classList.add("mini"); rechts.appendChild(z); }
     rechts.appendChild(knopf(`Alle Geräte im Raum`, "view-grid-outline", () => PS.unterseite(`${name} · alle Geräte`, (x) => raumAlles(x, b)), "r-alles"));
     el.appendChild(g);
@@ -406,6 +415,7 @@
   };
 
   // ------------------------------------------------------------ Listen
+  PS.baustein = { todo: (b, e) => todo(b, e), kalender: (b) => kalender(b), angebote: (b) => angebote(b), kachelRaster: (ids, bn, breit) => kachelRaster(ids, bn, breit), lieblingsSzenen: (b) => PS.lieblingsSzenen(b) };
   async function todo(box, eid) {
     const kopf = E(`<div class="reihe" style="margin-bottom:1rem"></div>`);
     const feld = E('<input class="feld" type="text" placeholder="Neuer Eintrag" style="flex:1;min-width:14rem">');

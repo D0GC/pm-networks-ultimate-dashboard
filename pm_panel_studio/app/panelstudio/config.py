@@ -102,6 +102,69 @@ STANDARD_SCHNELLZUGRIFF = [
 ]
 
 
+# Modus-Schalter und Helfer ohne Bereich, die in Räumen erscheinen sollen (Zuordnung nur in der App, nicht in der
+# HA-Registry, damit Sprachbefehle wie „alles im Wohnzimmer aus“ sie nicht mitschalten)
+STANDARD_RAUM_SCHALTER: dict[str, list[str]] = {
+    "wohnzimmer": ["input_boolean.gina_lernt", "input_boolean.kohle_stumm"],
+    "buro": ["input_boolean.kohle_stumm", "input_boolean.finn_ist_da"],
+    "badezimmer": [
+        "input_button.shower_mode",
+        "input_button.spa_modus",
+        "input_boolean.bewegungsmelder_badezimmer",
+        "input_boolean.bewegungslicht_bad_ubernahme",
+    ],
+    "schlafzimmer": ["input_button.schlafmodus"],
+    "kuche": ["input_button.geschirr_ausgeraumt"],
+    "flur": ["input_boolean.alles_stumm", "input_boolean.bewegungsmelder_gesamt"],
+    "balkon": ["input_boolean.bewegungslicht_balkon_ubernahme"],
+}
+
+
+# Überwachte Entitäten für den Systemzustand (gleiche Liste wie das Jarvis-Dashboard)
+STANDARD_WARTUNG = [
+    "binary_sensor.remote_ui",
+    "binary_sensor.wohnung_konnektivitat",
+    "binary_sensor.hub_schlafzimmer_konnektivitat",
+    "binary_sensor.hub_kuche_konnektivitat",
+    "binary_sensor.hub_wohnzimmer_konnektivitat",
+    "binary_sensor.tv_wohnzimmer_konnektivitat",
+    "binary_sensor.echo_dot_badezimmer_konnektivitat",
+    "binary_sensor.dot_konnektivitat",
+    "binary_sensor.wetterstation_konnektivitat",
+    "binary_sensor.wetter_outdoor_module_konnektivitat",
+    "sensor.dishwasher_bsh_common_status_operationstate",
+    "binary_sensor.ib0892493824_verbindungszustand",
+    "binary_sensor.heizung_kuche_verbindungszustand",
+    "binary_sensor.heizung_schlafzimmer_verbindungszustand",
+    "binary_sensor.heizung_wohnzimmer_verbindungszustand",
+    "binary_sensor.heizung_badezimmer_verbindungszustand",
+    "binary_sensor.bewegungsmelder_wohnung",
+    "binary_sensor.bewegungsmelder_flur_1_bewegung",
+    "binary_sensor.bewegungsmelder_flur_2_bewegung",
+    "binary_sensor.bewegungsmelder_schlafzimmer",
+    "binary_sensor.bewegungsmelder_buero",
+    "binary_sensor.bewegungsmelder_badezimmer_bewegung",
+    "binary_sensor.bewegungsmelder_balkon_bewegung",
+    "binary_sensor.tur_wohnung",
+    "binary_sensor.aqara_door_and_window_sensor_p2_tur_2",
+    "binary_sensor.fenster_kuche",
+    "lock.eingangstur",
+    "climate.wohnzimmer_lokal",
+    "climate.kuche_lokal",
+    "climate.badezimmer_lokal",
+    "climate.schlafzimmer_lokal",
+    "binary_sensor.karl_die_waschmaschine_fernstart",
+    "binary_sensor.roborock_s8_ladestatus",
+    "binary_sensor.echo_dot_badezimmer_bewegung",
+    "binary_sensor.rpi_power_status",
+    "binary_sensor.panel_tabeltop_nextion_display",
+    "climate.pm_wohnzimmer",
+    "climate.pm_kuche",
+    "climate.pm_badezimmer",
+    "climate.pm_schlafzimmer",
+]
+
+
 @dataclass
 class Einstellungen:
     """Im Editor einstellbar, wirkt sofort auf alle verbundenen Panels."""
@@ -121,6 +184,8 @@ class Einstellungen:
     szenen_angeheftet: list[str] = field(default_factory=list)  # stehen in der Raumansicht immer vorn
     szenen_aus: list[str] = field(default_factory=list)  # erscheinen nicht unter den Lieblingsszenen
     animationen: bool = True
+    raum_schalter: dict[str, list[str]] = field(default_factory=lambda: {k: list(v) for k, v in STANDARD_RAUM_SCHALTER.items()})
+    wartung_entitaeten: list[str] = field(default_factory=lambda: list(STANDARD_WARTUNG))
     ton_hoch: bool = True  # Hinweiston bei Meldungen mit Priorität hoch (Lautsprecher des Panels)
     ton_lautstaerke: int = 70
 
@@ -152,6 +217,17 @@ class Einstellungen:
                     abgewiesen.append(key)
                     continue
                 setattr(self, key, max(lo, min(hi, num)))
+            elif key == "raum_schalter":
+                if not isinstance(val, dict):
+                    abgewiesen.append(key)
+                    continue
+                self.raum_schalter = {
+                    str(b): _entities(ids)[:12]
+                    for b, ids in val.items()
+                    if re.match(r"^[a-z0-9_]{1,64}$", str(b)) and _entities(ids)
+                }
+            elif key == "wartung_entitaeten":
+                self.wartung_entitaeten = _entities(val)[:200]
             elif key in ("szenen_angeheftet", "szenen_aus"):
                 setattr(self, key, [e for e in _entities(val) if e.startswith("scene.")][:60])
             elif key == "schnellzugriff":

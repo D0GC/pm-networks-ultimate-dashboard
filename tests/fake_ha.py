@@ -496,6 +496,43 @@ class FakeHA:
             return ok(
                 {"url": f"/api/hls/tok123/master_playlist.m3u8?{req['entity_id']}"[: len("/api/hls/tok123/master_playlist.m3u8")]}
             )
+        if typ == "energy/get_prefs":
+            return ok(
+                {
+                    "energy_sources": [{"type": "water", "stat_energy_from": "sensor.warmwasser"}],
+                    "device_consumption": [
+                        {"stat_consumption": "sensor.buro_energie", "stat_rate": "sensor.buro_buro_leistung", "name": "Büro"},
+                        {
+                            "stat_consumption": "sensor.kohle_energie",
+                            "name": "Kohlegrill",
+                            "included_in_stat": "sensor.buro_energie",
+                        },
+                        {"stat_consumption": "sensor.flur_energie", "name": "Flur Deckenlampe"},
+                    ],
+                }
+            )
+        if typ == "recorder/statistics_during_period":
+            start = datetime.fromisoformat(req["start_time"]).timestamp() * 1000
+            schritt = 3600e3 if req.get("period") == "hour" else 86400e3
+            faktor = {
+                "sensor.buro_energie": 0.3,
+                "sensor.kohle_energie": 0.08,
+                "sensor.flur_energie": 0.02,
+                "sensor.warmwasser": 0.01,
+            }
+            return ok(
+                {
+                    sid: [
+                        {
+                            "start": start + i * schritt,
+                            "end": start + (i + 1) * schritt,
+                            "change": round(faktor.get(sid, 0.1) * (1 + math.sin(i / 3)), 3),
+                        }
+                        for i in range(17)
+                    ]
+                    for sid in req["statistic_ids"]
+                }
+            )
         if typ == "todo/item/list":
             return ok({"items": self.todo.get(req.get("entity_id"), [])})
         if typ == "history/history_during_period":
