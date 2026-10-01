@@ -436,6 +436,39 @@
     img.src = PS.kameraUrl(eid);
     img._stop = () => { aktiv = false; clearTimeout(img._t); img.onload = img.onerror = null; img.removeAttribute("src"); };
   };
+  // Livestream (HLS) für eine Kamera in einem Container: zuerst das letzte Standbild, dann das Video, sobald die
+  // Kamera wach ist. Ohne Stream (oder bei Fehlern) Einzelbilder. Akkukameras daher nur auf Antippen und im Overlay.
+  PS.kameraLive = (box, eid) => {
+    PS.kameraLiveStoppen(box.parentElement || box);
+    box.classList.add("kamera", "live"); box.classList.remove("laeuft");
+    box.innerHTML = `<img alt=""><video muted autoplay playsinline></video><span class="status">Kamera wird geweckt …</span>`;
+    const img = box.querySelector("img"), video = box.querySelector("video"), status = box.querySelector(".status");
+    img.src = PS.bildUrl(`/api/camera_proxy/${eid}`);
+    let hls = null, aus = false;
+    const ersatz = () => { if (aus) return; if (hls) { hls.destroy(); hls = null; } status.textContent = "Einzelbilder"; PS.kameraStarten(img, eid); };
+    video.addEventListener("playing", () => { box.classList.add("laeuft"); status.textContent = "Live"; });
+    PS.anfrage({ typ: "kamera_stream", entity_id: eid }).then((url) => {
+      if (aus) return;
+      if (window.Hls && window.Hls.isSupported()) {
+        hls = new window.Hls({ enableWorker: false, lowLatencyMode: true, liveSyncDurationCount: 2, maxBufferLength: 6 });
+        hls.on(window.Hls.Events.ERROR, (_e, d) => { if (d && d.fatal) ersatz(); });
+        hls.loadSource(url); hls.attachMedia(video);
+      } else if (video.canPlayType("application/vnd.apple.mpegurl")) video.src = url;
+      else ersatz();
+    }).catch(ersatz);
+    // Wacht die Kamera nicht binnen 25 s auf, bleibt es bei Einzelbildern
+    setTimeout(() => { if (!aus && !box.classList.contains("laeuft")) ersatz(); }, 25000);
+    box._stop = () => { aus = true; if (hls) hls.destroy(); video.removeAttribute("src"); try { video.load(); } catch { /* egal */ } PS.kameraStoppen(img); };
+  };
+  PS.kameraLiveStoppen = (root) => { if (root) root.querySelectorAll(".kamera.live").forEach((b) => { if (b._stop) { b._stop(); b._stop = null; } }); };
+  // Kacheln: nur ein Standbild, alle 30 s erneuert (weckt Akkukameras nicht dauernd)
+  PS.kameraVorschau = (img, eid) => {
+    PS.kameraStoppen(img);
+    let aktiv = true;
+    const laden = () => { if (!aktiv || !img.isConnected) return; img.onload = img.onerror = () => { if (aktiv) img._t = setTimeout(laden, 30000); }; img.src = PS.bildUrl(`/api/camera_proxy/${eid}`); };
+    laden();
+    img._stop = () => { aktiv = false; clearTimeout(img._t); img.onload = img.onerror = null; };
+  };
   PS.kameraStoppen = (img) => { if (img && img._stop) { img._stop(); img._stop = null; } };
   PS.bildUrl = (pfad) => "api/bild?pfad=" + encodeURIComponent(pfad) + "&t=" + Date.now();
   PS.verbinden = verbinden;

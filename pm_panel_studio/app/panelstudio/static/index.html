@@ -45,7 +45,7 @@
 
 <div class="ereignis" aria-live="assertive">
   <div class="bild">
-    <img id="ereignis-bild" alt="Kamerabild">
+    <div id="ereignis-kamera" class="kamera-voll"></div>
     <span class="lbl"><i></i><span id="ereignis-titel">Tür</span></span>
     <div class="akt">
       <button class="knopf" id="ereignis-ignorieren">Schließen</button>
@@ -58,6 +58,7 @@
 <div class="offline">Verbindung zu Home Assistant unterbrochen</div>
 <div class="laden"><img src="static/img/logo_horizontal_lavender.svg" alt="PM Networks"></div>
 
+<script src="static/hls.light.min.js"></script>
 <script src="static/mdi-map.js"></script>
 <script src="static/core.js"></script>
 <script src="static/dialog.js"></script>

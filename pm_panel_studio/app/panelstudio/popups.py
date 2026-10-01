@@ -29,12 +29,12 @@ KAMERA_RE = re.compile(r"^camera\.[a-z0-9_]+$")
 ENTITY_RE = re.compile(r"^[a-z_]+\.[a-z0-9_]+$")
 
 
-def _text_aus_inhalt(inhalt: Any) -> tuple[str, str | None]:
+def text_aus_inhalt(inhalt: Any) -> tuple[str, str | None]:
     """Markdown-Text und optionale Kamera aus ``content`` (Text oder Lovelace-Karte)."""
     if isinstance(inhalt, str):
         return inhalt, None
     if isinstance(inhalt, list):
-        teile = [_text_aus_inhalt(x) for x in inhalt]
+        teile = [text_aus_inhalt(x) for x in inhalt]
         return "\n\n".join(t for t, _ in teile if t), next((k for _, k in teile if k), None)
     if not isinstance(inhalt, dict):
         return "", None
@@ -47,7 +47,7 @@ def _text_aus_inhalt(inhalt: Any) -> tuple[str, str | None]:
         return str(inhalt.get("content") or ""), kamera
     for key in ("cards", "card"):
         if isinstance(inhalt.get(key), (list, dict)):
-            text, k2 = _text_aus_inhalt(inhalt[key])
+            text, k2 = text_aus_inhalt(inhalt[key])
             return text, kamera or k2
     return str(inhalt.get("content") or ""), kamera
 
@@ -161,7 +161,7 @@ class PopupSpeicher:
     def _popup(self, d: dict[str, Any], jetzt: float) -> str:
         tag = str(d.get("tag") or "") or None
         m = self._eintrag(tag, jetzt)
-        details, kamera = _text_aus_inhalt(d.get("content"))
+        details, kamera = text_aus_inhalt(d.get("content"))
         knoepfe = []
         for seite, art in (("left", "neben"), ("right", "haupt")):
             if d.get(f"{seite}_button"):

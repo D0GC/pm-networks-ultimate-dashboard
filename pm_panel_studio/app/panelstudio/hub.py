@@ -26,7 +26,7 @@ from aiohttp import web
 from . import karten as kt
 from .config import Einstellungen, EinstellungsSpeicher, Options
 from .ha_client import HAClient, HAError
-from .popups import PopupSpeicher
+from .popups import PopupSpeicher, text_aus_inhalt
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -250,7 +250,20 @@ class Hub:
         data = event.get("data") or {}
         if data.get("domain") not in ("browser_mod", "script"):
             return
-        ergebnis = self.popups.verarbeiten(str(data.get("domain")), str(data.get("service")), data.get("service_data") or {})
+        sd = data.get("service_data") or {}
+        # Kamera-Popup (z. B. „Wohnungstür Personenerkennung Popup“) -> Vollbild-Overlay statt Meldung, wie früher
+        if data.get("domain") == "browser_mod" and data.get("service") == "popup":
+            _text, kamera = text_aus_inhalt(sd.get("content"))
+            if kamera:
+                self.ereignis_starten(
+                    "browser_mod.popup", str(sd.get("title") or "") or None, kamera, str(sd.get("tag") or "") or None
+                )
+                return
+        if data.get("domain") == "browser_mod" and data.get("service") == "close_popup" and self.ereignis:
+            tag = sd.get("tag")
+            if not tag or tag == self.ereignis.get("tag"):
+                self.ereignis_beenden()
+        ergebnis = self.popups.verarbeiten(str(data.get("domain")), str(data.get("service")), sd)
         if ergebnis is None:
             return
         m = self.popups.meldungen.get(ergebnis) if ergebnis else None
@@ -363,16 +376,20 @@ class Hub:
         self.letzte_beruehrung = time.monotonic()
         self._modus_pruefen()
 
-    def ereignis_starten(self, ausloeser: str) -> None:
+    def ereignis_starten(
+        self, ausloeser: str, titel: str | None = None, kamera: str | None = None, tag: str | None = None
+    ) -> None:
         st = self.states.get(ausloeser) or {}
-        name = (st.get("attributes") or {}).get("friendly_name") or ausloeser
+        name = titel or (st.get("attributes") or {}).get("friendly_name") or ausloeser
+        alt = self.ereignis or {}
         self.ereignis = {
             "aktiv": True,
             "ausloeser": ausloeser,
             "titel": name,
-            "kamera": self.opts.ereignis_kamera or None,
+            "kamera": kamera or alt.get("kamera") or self.opts.ereignis_kamera or None,
             "tueroeffner": self.opts.tueroeffner or None,
-            "seit": datetime.now(UTC).isoformat(),
+            "tag": tag or alt.get("tag"),
+            "seit": alt.get("seit") or datetime.now(UTC).isoformat(),
         }
         self._ereignis_bis = time.monotonic() + self.einstellungen.ereignis_dauer_s
         self.letzte_bewegung = time.monotonic()
@@ -470,6 +487,16 @@ class Hub:
             eid = str(msg.get("entity_id", ""))
             st = self.states.get(eid)
             return (st or {}).get("attributes") or {}
+        if typ == "kamera_stream":
+            # Livestream (HLS) anfordern; Ergebnis ist ein Pfad, den das Panel über /api/hls/… lädt
+            eid = str(msg.get("entity_id", ""))
+            if not re.match(r"^camera\.[a-z0-9_]+$", eid):
+                raise ValueError("Kamera ungültig")
+            res = await self.client.ws_command({"type": "camera/stream", "entity_id": eid, "format": "hls"}, timeout=40)
+            url = str((res or {}).get("url") or "")
+            if not url.startswith("/api/hls/"):
+                raise ValueError("Kein Livestream verfügbar")
+            return url.removeprefix("/")
         if typ == "popup_schliessen":
             if self.popups.entfernen(str(msg.get("popup", ""))):
                 self._popups_senden()

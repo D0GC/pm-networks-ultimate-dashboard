@@ -50,6 +50,7 @@
   function schliessen() {
     $("#dialog-grund").classList.remove("offen"); offenFuer = null;
     document.querySelectorAll("#dialog img").forEach(PS.kameraStoppen);
+    PS.kameraLiveStoppen($("#dialog"));
   }
   PS.dialogSchliessen = schliessen;
   // Panel-Meldung wie an den Panels Büro und Bad: Symbol, Titel, Text, Zeit und Priorität, Bestätigen/Später bzw. OK.
@@ -65,6 +66,7 @@
     offenFuer = null;
     const dlg = $("#dialog");
     dlg.querySelectorAll("img").forEach(PS.kameraStoppen);
+    PS.kameraLiveStoppen(dlg);
     const zeit = new Date(m.seit * 1000).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
     dlg.innerHTML = `<div class="meldung-ansicht" style="--farbe:${PS.meldungFarbe(m.prio)}">
       <button class="zu" aria-label="Schließen">${PS.ic("close")}</button>
@@ -74,7 +76,7 @@
       <div class="m-wann">${zeit} · ${M_PRIO[m.prio] || ""}</div></div>`;
     dlg.querySelector(".zu").addEventListener("click", schliessen);
     if (m.details) { const md = document.createElement("div"); md.className = "md"; md.innerHTML = PS.markdown(m.details); dlg.appendChild(md); }
-    if (m.kamera) { const k = document.createElement("div"); k.className = "kamera"; const img = document.createElement("img"); k.appendChild(img); dlg.appendChild(k); PS.kameraStarten(img, m.kamera); }
+    if (m.kamera) { const k = document.createElement("div"); dlg.appendChild(k); PS.kameraLive(k, m.kamera); }
     const r = reihe(); r.classList.add("m-knoepfe");
     const ok = () => PS.anfrage({ typ: "popup_schliessen", popup: m.id }).catch(() => {}).then(schliessen);
     if (m.bestaetigen) {
@@ -115,6 +117,7 @@
     // Bei laufender Bedienung (Schieber) nicht neu aufbauen; Kameras laufen weiter
     if (!neu && (dlg.querySelector(".schieber.zieht") || PS.domain(eid) === "camera" || PS.domain(eid) === "climate" || Date.now() - PS.letzteBeruehrung < 2500)) return;
     dlg.querySelectorAll("img").forEach(PS.kameraStoppen);
+    PS.kameraLiveStoppen(dlg);
     const a = st.a || {}, d = PS.domain(eid), bereich = PS.bereichVon(eid);
     dlg.innerHTML = `<div class="kopf">${PS.icon(eid, "gr")}<h2>${PS.esc(PS.name(eid))}<small>${PS.esc([bereich && PS.bereichName(bereich), PS.text(eid), st.lc && "seit " + PS.zeitRelativ(st.lc).replace("vor ", "")].filter(Boolean).join(" · "))}</small></h2><button class="zu" aria-label="Schließen">${PS.ic("close")}</button></div>`;
     dlg.querySelector(".zu").addEventListener("click", schliessen);
@@ -179,8 +182,7 @@
         break;
       }
       case "camera": {
-        const k = document.createElement("div"); k.className = "kamera"; const img = document.createElement("img"); k.appendChild(img); box.appendChild(k);
-        PS.kameraStarten(img, eid); break;
+        const k = document.createElement("div"); box.appendChild(k); PS.kameraLive(k, eid); break;
       }
       case "number": case "input_number": {
         const min = Number(a.min ?? 0), max = Number(a.max ?? 100), step = Number(a.step ?? 1);

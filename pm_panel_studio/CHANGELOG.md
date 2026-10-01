@@ -1,5 +1,13 @@
 # Änderungen
 
+## 0.1.4 – 2026-10-01
+
+- Kamera-Livestream (HLS, hls.js lokal eingebunden) beim Antippen einer Kamera und im Tür-Overlay; zuerst das
+  letzte Standbild, dann das Video, sobald die Kamera wach ist. Ohne Stream Rückfall auf Einzelbilder.
+- Kamerakacheln zeigen nur noch ein Standbild, alle 30 s erneuert (schont Akkukameras).
+- Kamera-Popups (z. B. „Wohnungstür Personenerkennung Popup“) öffnen das Vollbild-Overlay wie früher das Popup;
+  `browser_mod.close_popup` derselben Kennung schließt es.
+
 ## 0.1.3 – 2026-10-01
 
 - Meldungen gegliedert wie an den Panels Büro und Bad: Die App hört `script.panel_meldung` und

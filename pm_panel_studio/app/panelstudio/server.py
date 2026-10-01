@@ -33,7 +33,8 @@ COOKIE = "pmps_zugang"
 
 CSP = (
     "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; "
-    "script-src 'self'; font-src 'self'; connect-src 'self'; frame-ancestors 'self'; base-uri 'self'"
+    "script-src 'self'; font-src 'self'; connect-src 'self'; media-src 'self' blob:; worker-src 'self' blob:; "
+    "frame-ancestors 'self'; base-uri 'self'"
 )
 
 K_HUB: web.AppKey[Hub] = web.AppKey("hub")
@@ -204,6 +205,33 @@ async def kamera(request: web.Request) -> web.StreamResponse:
     return ziel
 
 
+HLS_RE = re.compile(r"^[A-Za-z0-9_\-]+/[A-Za-z0-9_\-./]+$")
+
+
+async def hls(request: web.Request) -> web.StreamResponse:
+    """HLS-Livestream von Home Assistant durchreichen (Playlisten und Segmente, Pfade relativ zu /api/hls/)."""
+    hub = request.app[K_HUB]
+    pfad = request.match_info["pfad"]
+    if not HLS_RE.match(pfad) or ".." in pfad:
+        raise web.HTTPBadRequest(text="Pfad ungültig")
+    try:
+        quelle = await hub.client.stream_oeffnen(f"hls/{pfad}")
+    except HAError as err:
+        raise web.HTTPBadGateway(text=str(err)) from err
+    try:
+        ziel = web.StreamResponse(
+            headers={"Content-Type": quelle.headers.get("Content-Type", "application/octet-stream"), "Cache-Control": "no-store"}
+        )
+        await ziel.prepare(request)
+        async for block in quelle.content.iter_chunked(64 * 1024):
+            await ziel.write(block)
+    except (ConnectionResetError, aiohttp.ClientError, asyncio.CancelledError):
+        pass
+    finally:
+        quelle.release()
+    return ziel
+
+
 async def einstellungen_get(request: web.Request) -> web.Response:
     hub = request.app[K_HUB]
     return web.json_response(
@@ -256,6 +284,7 @@ def _gemeinsam(app: web.Application) -> None:
     app.router.add_get("/api/ws", ws_handler)
     app.router.add_get("/api/bild", bild)
     app.router.add_get("/api/kamera", kamera)
+    app.router.add_get("/api/hls/{pfad:.+}", hls)
     app.router.add_static("/static/", STATIC_DIR, show_index=False)
 
 

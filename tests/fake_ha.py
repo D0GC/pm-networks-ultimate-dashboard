@@ -321,6 +321,7 @@ class FakeHA:
         r.add_post("/core/api/services/{domain}/{service}", self.rest_service)
         r.add_get("/core/api/camera_proxy/{eid}", self.rest_camera)
         r.add_get("/core/api/camera_proxy_stream/{eid}", self.rest_camera_stream)
+        r.add_get("/core/api/hls/{token}/{datei}", self.rest_hls)
         r.add_get("/core/api/calendars/{eid}", self.rest_calendar)
         r.add_get("/core/api/logbook/{start}", self.rest_logbook)
         r.add_get("/core/websocket", self.ws)
@@ -349,6 +350,12 @@ class FakeHA:
             await resp.write(b"--frame\r\nContent-Type: image/png\r\n\r\n" + PNG_1PX + b"\r\n")
             await asyncio.sleep(0.05)
         return resp
+
+    async def rest_hls(self, request):
+        self._auth(request)
+        if request.match_info["datei"].endswith(".m3u8"):
+            return web.Response(text="#EXTM3U\n#EXT-X-VERSION:3\nsegment0.ts\n", content_type="application/vnd.apple.mpegurl")
+        return web.Response(body=b"\x47" * 188, content_type="video/mp2t")
 
     async def rest_calendar(self, request):
         self._auth(request)
@@ -485,6 +492,10 @@ class FakeHA:
         if typ == "call_service":
             res = self.service(req["domain"], req["service"], req.get("service_data") or {})
             return ok({"context": {}, "response": res})
+        if typ == "camera/stream":
+            return ok(
+                {"url": f"/api/hls/tok123/master_playlist.m3u8?{req['entity_id']}"[: len("/api/hls/tok123/master_playlist.m3u8")]}
+            )
         if typ == "todo/item/list":
             return ok({"items": self.todo.get(req.get("entity_id"), [])})
         if typ == "history/history_during_period":

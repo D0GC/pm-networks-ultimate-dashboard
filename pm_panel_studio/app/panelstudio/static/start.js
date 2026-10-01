@@ -244,11 +244,12 @@
   function ereignis(e) {
     const an = !!(e && e.aktiv);
     document.body.classList.toggle("ereignis-an", an);
-    const img = $("#ereignis-bild");
-    if (!an) { PS.kameraStoppen(img); return; }
+    const box = $("#ereignis-kamera");
+    if (!an) { PS.kameraLiveStoppen(box.parentElement); box._eid = null; return; }
     document.body.classList.remove("ruhe");
     $("#ereignis-titel").textContent = e.titel || "Tür";
-    if (e.kamera) PS.kameraStarten(img, e.kamera);
+    // Läuft das Overlay schon mit derselben Kamera, nur den Titel nachführen (kein Neustart des Streams)
+    if (e.kamera && !(box._eid === e.kamera && box.classList.contains("live") && box._stop)) { PS.kameraLive(box, e.kamera); box._eid = e.kamera; }
     $("#ereignis-oeffnen").hidden = !e.tueroeffner;
   }
 

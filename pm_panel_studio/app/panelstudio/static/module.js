@@ -75,7 +75,7 @@
       }
       if (titel === "Kameras") {
         const r = E('<div class="raster breit"></div>');
-        teil.forEach((c) => { const k = E(`<div class="kamera"><img alt=""><span>${PS.esc(PS.kurzname(c, name))}</span></div>`); k.addEventListener("click", () => PS.mehrInfos(c)); r.appendChild(k); setTimeout(() => PS.kameraStarten(k.querySelector("img"), c), 50); });
+        teil.forEach((c) => { const k = E(`<div class="kamera"><img alt=""><span>${PS.esc(PS.kurzname(c, name))}</span></div>`); k.addEventListener("click", () => PS.mehrInfos(c)); r.appendChild(k); setTimeout(() => PS.kameraVorschau(k.querySelector("img"), c), 50); });
         el.appendChild(gruppe(titel, r)); continue;
       }
       const aktion = titel === "Licht" && teil.length > 1 ? knopf("Alle aus", "lightbulb-group-off-outline", () => PS.dienst("light", "turn_off", { entity_id: teil })) : null;
@@ -175,7 +175,7 @@
         const kameras = alle().filter(dom("camera")).filter((e) => PS.sichtbar(e) && !PS.nichtDa(e));
         if (kameras.length) {
           const r = E('<div class="raster breit"></div>');
-          kameras.forEach((c) => { const k = E(`<div class="kamera"><img alt=""><span>${PS.esc(PS.name(c))}</span></div>`); k.addEventListener("click", () => PS.mehrInfos(c)); r.appendChild(k); setTimeout(() => PS.kameraStarten(k.querySelector("img"), c), 50); });
+          kameras.forEach((c) => { const k = E(`<div class="kamera"><img alt=""><span>${PS.esc(PS.name(c))}</span></div>`); k.addEventListener("click", () => PS.mehrInfos(c)); r.appendChild(k); setTimeout(() => PS.kameraVorschau(k.querySelector("img"), c), 50); });
           el.appendChild(gruppe("Kameras", r));
         }
         const aufnahme = alle().filter((e) => e.startsWith("switch.") && /aufzeichn|aufnahme|record|privacy|voralarm|sirene/i.test(e) && PS.sichtbar(e));
