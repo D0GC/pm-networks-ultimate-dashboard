@@ -1,5 +1,11 @@
 # Änderungen
 
+## 0.1.8 – 2026-10-01
+
+- Lüften-Karte wie im Konzept: Ring mit der Luftfeuchte („71 % rF“), Überschrift „Bad lüften“, darunter
+  „Luftfeuchte 71 % · Fenster 10 Minuten öffnen“. Der Wert stammt aus der Hinweiszeile (Bad-Regel); Hinweise ohne
+  Feuchtewert (Büro-Regel) behalten die bisherige Darstellung.
+
 ## 0.1.7 – 2026-10-01
 
 - Modulseiten Klima, Licht, Sicherheit, Energie, Medien, Listen und Wartung im Drei-Spalten-Muster der Raumansicht,

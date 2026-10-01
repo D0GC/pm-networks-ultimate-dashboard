@@ -86,7 +86,33 @@
   let aktuell = 0, liste = [], wechselZeit = 0;
   const elemente = new Map();
 
+  // Lüften wie im Konzept: Ring mit der Luftfeuchte, „Bad lüften“, Luftfeuchte und Empfehlung darunter
+  function lueftenWert(k) {
+    if (k.schluessel !== "lueften") return null;
+    const m = `${k.hinweis} ${k.wert}`.match(/(\d{1,3})\s*%/);
+    return m ? Math.min(100, Number(m[1])) : null;
+  }
+  // Ringanteil einer Karte (Aktivität: Fortschritt, Lüften: Feuchte, sonst voller Ring)
+  function ringAnteil(k) {
+    if (k.art === "aktivitaet") return k.ring;
+    const f = lueftenWert(k);
+    return f != null ? f / 100 : 1;
+  }
+  PS.ringAnteil = ringAnteil;
+  function raumDerHinweise() {
+    const e = PS.opt.hinweise_entitaet || "";
+    return e.includes("bad") ? "Bad" : e.includes("buero") ? "Büro" : e.includes("flur") ? "Flur" : "";
+  }
   function karteInhalt(k) {
+    const feuchte = lueftenWert(k);
+    if (feuchte != null) {
+      const [ic, farbe] = KARTE.lueften;
+      const raum = raumDerHinweise();
+      // Bad-Regel: „lueften|Lüften|71 %|Fenster öffnen“ -> „Luftfeuchte 71 % · Fenster 10 Minuten öffnen“
+      const text = [k.hinweis, k.wert].find((t) => t && !/\d\s*%/.test(t)) || "";
+      const rat = /fenster öffnen|empf/i.test(`${k.hinweis} ${k.wert}`) ? "Fenster 10 Minuten öffnen" : text;
+      return { farbe, html: `<div class="kopf"><i class="punkt"></i><span>Lüften</span></div><div class="ring">${PS.ringSVG(feuchte / 100)}<div class="innen"><b class="tabular stark">${feuchte}</b><small>% rF</small></div></div><h2 class="stark">${PS.esc(raum ? `${raum} lüften` : "Lüften empfohlen")}</h2><p>${PS.esc(`Luftfeuchte ${feuchte} %${rat ? " · " + rat : ""}`)}</p>` };
+    }
     let [ic, farbe] = KARTE[k.schluessel] || KARTE.neutral;
     if (k.art === "meldung") { ic = PS.meldungIcon(k.icon); farbe = PS.meldungFarbe(k.prio); }
     const akt = k.art === "aktivitaet";
@@ -119,7 +145,7 @@
         el.querySelector(".ring .innen").replaceWith(neu.querySelector(".ring .innen"));
         el.querySelector("h2").replaceWith(neu.querySelector("h2"));
         el.querySelector("p").replaceWith(neu.querySelector("p"));
-        PS.ringSetzen(el.querySelector(".ring svg"), k.art === "aktivitaet" ? k.ring : 1);
+        PS.ringSetzen(el.querySelector(".ring svg"), ringAnteil(k));
       }
       el._html = inhalt.html; el._karte = k;
       el.style.setProperty("--farbe", inhalt.farbe);
@@ -138,7 +164,7 @@
     if (neuStart) {
       wechselZeit = Date.now();
       const k = liste[aktuell]; const el = k && elemente.get(k.id);
-      if (el && k.art === "aktivitaet") { const svg = el.querySelector(".ring svg"); PS.ringSetzen(svg, 0); requestAnimationFrame(() => requestAnimationFrame(() => PS.ringSetzen(svg, k.ring))); }
+      if (el && (k.art === "aktivitaet" || lueftenWert(k) != null)) { const svg = el.querySelector(".ring svg"); PS.ringSetzen(svg, 0); requestAnimationFrame(() => requestAnimationFrame(() => PS.ringSetzen(svg, ringAnteil(k)))); }
     }
     const pk = $("#punkte");
     pk.style.setProperty("--verweil", (PS.einst.verweildauer_s || 8) + "s");
