@@ -61,6 +61,7 @@ WS_ERLAUBT = {
     "logbook/get_events",
     "recorder/statistics_during_period",
     "weather/subscribe_forecast",
+    "energy/get_prefs",
 }
 REST_ERLAUBT = ("calendars/", "logbook/", "history/period/")
 BILD_ERLAUBT = ("/api/camera_proxy/", "/api/media_player_proxy/", "/api/image_proxy/", "/api/image/serve/")

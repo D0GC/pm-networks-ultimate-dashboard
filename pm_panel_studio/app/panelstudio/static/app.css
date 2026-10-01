@@ -337,3 +337,50 @@ body.ohne-animation *,body.ohne-animation *::before,body.ohne-animation *::after
 .glocke.hoch{color:var(--krit);border-color:rgba(239,106,122,.5);animation:glocke 2.4s ease-in-out infinite}
 @keyframes glocke{0%,80%,100%{transform:rotate(0)}84%{transform:rotate(12deg)}88%{transform:rotate(-10deg)}92%{transform:rotate(6deg)}}
 .glocke .zahl{position:absolute;top:-.2rem;right:-.2rem;min-width:1.5rem;height:1.5rem;padding:0 .35rem;border-radius:99px;background:var(--krit);color:#fff;font:700 .85rem var(--f-ui,Montserrat,sans-serif);display:grid;place-items:center}
+
+/* Modulseiten */
+.ring.r-ring{width:9rem;height:auto;aspect-ratio:1;flex:none;position:relative}
+.ring.r-ring .wert{stroke:var(--farbe,var(--lavender))}
+.ring.r-ring .innen b{font-size:2.4rem}
+.r-zustand{display:flex;align-items:center;gap:1.3rem;min-width:0}
+.r-zahl{font-size:3rem;font-weight:600;line-height:1.05}
+.r-zahl small{font-size:1.2rem;color:var(--leise);font-weight:500}
+.r-zahl.klein{font-size:1.6rem}
+.r-unter{font-size:1rem;color:var(--leise);line-height:1.4}
+.r-text{font-size:1.25rem;line-height:1.45}
+.raum-ansicht.breit-mitte{grid-template-columns:24% minmax(0,1fr) 23%}
+.r-thermos{display:grid;grid-template-columns:repeat(2,minmax(19rem,1fr));gap:.9rem}
+.raster.mini.r3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.r-chips{flex-wrap:wrap}
+.r-chips button{padding:.4rem .9rem;font-size:.95rem}
+.r-diagramm{min-height:14rem}
+.diagramm.saeulen{height:16rem}
+.r-legende{display:flex;flex-wrap:wrap;gap:.4rem 1.2rem;font-size:.95rem;color:var(--lavender)}
+.r-legende i{display:inline-block;width:.8rem;height:.8rem;border-radius:3px;margin-right:.4rem;vertical-align:-1px}
+.balken-zeile{cursor:pointer}
+.balken-zeile.eingerueckt{padding-left:1.4rem;font-size:1rem;opacity:.85}
+/* Kompakte Thermostat-Karte: Ring nie gestaucht, Sollwert mit Plus/Minus in einer Zeile */
+.gross.kompakt .titel{cursor:pointer;font-size:1.15rem}
+.gross.kompakt .titel .mdi{font-size:1.6rem}
+.gross.kompakt .thermo{display:grid;grid-template-columns:6.8rem minmax(0,1fr);gap:1rem;align-items:center}
+.gross.kompakt .thermo .ring{width:6.8rem;height:auto;aspect-ratio:1}
+.gross.kompakt .thermo .ring .innen b{font-size:1.7rem}
+.gross.kompakt .thermo .ring .innen small{font-size:.75rem}
+.gross.kompakt .spalte-r{display:contents}
+.gross.kompakt .soll{flex-wrap:nowrap;justify-content:space-between;gap:.5rem}
+.gross.kompakt .soll b{font-size:1.8rem;min-width:4.6rem}
+.gross.kompakt .knopf.rund{width:3rem;height:3rem;flex:none}
+.gross.kompakt .modi{grid-column:1/-1;gap:.4rem}
+.gross.kompakt .modi [data-preset]:not(.aktiv){display:none}
+.thermo .ring{aspect-ratio:1;flex:none}
+.gross.kompakt{padding:1rem 1.1rem}
+.gross.kompakt .titel small{display:none}
+.gross.kompakt .thermo{grid-template-columns:6rem minmax(0,1fr);gap:.8rem}
+.gross.kompakt .thermo .ring{width:6rem}
+.gross.kompakt .thermo .ring .innen b{font-size:1.5rem}
+.gross.kompakt .soll{gap:.35rem;min-width:0}
+.gross.kompakt .soll b{font-size:1.6rem;min-width:4.1rem}
+.gross.kompakt .knopf.rund{width:2.8rem;height:2.8rem}
+.r-thermos{grid-template-columns:repeat(2,minmax(0,1fr))}
+.balken-zeile{grid-template-columns:minmax(0,1fr) auto}
+.balken-zeile .w{white-space:nowrap}

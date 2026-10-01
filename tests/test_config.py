@@ -33,3 +33,14 @@ def test_ton_einstellungen():
     assert e.ton_hoch and e.ton_lautstaerke == 70
     e.aktualisieren({"ton_hoch": False, "ton_lautstaerke": 500})
     assert e.ton_hoch is False and e.ton_lautstaerke == 100
+
+
+def test_raum_schalter_und_wartung():
+    e = Einstellungen()
+    assert "input_button.shower_mode" in e.raum_schalter["badezimmer"]
+    assert len(e.wartung_entitaeten) == 40
+    e.aktualisieren(
+        {"raum_schalter": {"wohnzimmer": ["input_boolean.gina_lernt", "kein text"], "Ungültig!": ["input_boolean.x"]}}
+    )
+    assert e.raum_schalter == {"wohnzimmer": ["input_boolean.gina_lernt"]}
+    assert e.aktualisieren({"raum_schalter": "falsch"}) == ["raum_schalter"]

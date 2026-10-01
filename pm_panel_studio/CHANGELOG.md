@@ -1,5 +1,16 @@
 # Änderungen
 
+## 0.1.7 – 2026-10-01
+
+- Modulseiten Klima, Licht, Sicherheit, Energie, Medien, Listen und Wartung im Drei-Spalten-Muster der Raumansicht,
+  mit Reitern oben; die bisherigen Listen bleiben unter „Alle …“.
+- Energie nach dem eingebauten Energie-Dashboard: Geräte und Wasser aus `energy/get_prefs`, Verbrauch aus der
+  Statistik (Heute, Gestern, Woche, Monat), gestapeltes Diagramm, enthaltene Geräte eingerückt, Leistung live.
+- Wartung: Systemzustand mit derselben Entitätenliste wie das Jarvis-Dashboard.
+- Modi je Raum: Helfer wie „Gina lernt“, „Kohle stumm“, Duschmodus, Spa-Modus und Bewegungsmelder Bad erscheinen in
+  der Raumansicht (Zuordnung in der App, im Editor änderbar, nicht in der HA-Registry).
+- Kompakte Thermostat-Karte: Ringe immer kreisrund, Sollwert mit Plus und Minus vollständig in der Karte.
+
 ## 0.1.6 – 2026-10-01
 
 - Glocke oben rechts; sie zählt und listet nur echte Meldungen (Panel-Meldungen, Popups, HA-Benachrichtigungen).

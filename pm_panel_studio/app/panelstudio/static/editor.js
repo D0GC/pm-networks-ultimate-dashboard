@@ -32,6 +32,7 @@
     $("#animationen").checked = e.animationen !== false;
     $("#ton_hoch").checked = e.ton_hoch !== false;
     $("#schnellzugriff").value = (e.schnellzugriff || []).join("\n");
+    $("#raum_schalter").value = Object.entries(e.raum_schalter || {}).map(([b, ids]) => `${b}: ${ids.join(", ")}`).join("\n");
     $("#szenen_angeheftet").value = (e.szenen_angeheftet || []).join("\n");
     $("#szenen_aus").value = (e.szenen_aus || []).join("\n");
     moduleReihe = [...e.module, ...Object.keys(MODULE).filter((m) => !e.module.includes(m))].map((m) => ({ m, an: e.module.includes(m) }));
@@ -67,6 +68,11 @@
     neu.animationen = $("#animationen").checked;
     neu.ton_hoch = $("#ton_hoch").checked;
     neu.schnellzugriff = $("#schnellzugriff").value.split(/\s+/).map((s) => s.trim()).filter(Boolean);
+    neu.raum_schalter = {};
+    $("#raum_schalter").value.split("\n").forEach((z) => {
+      const [b, rest] = z.split(":"); if (!b || !rest) return;
+      neu.raum_schalter[b.trim()] = rest.split(/[,\s]+/).map((x) => x.trim()).filter(Boolean);
+    });
     neu.szenen_angeheftet = $("#szenen_angeheftet").value.split(/\s+/).map((x) => x.trim()).filter(Boolean);
     neu.szenen_aus = $("#szenen_aus").value.split(/\s+/).map((x) => x.trim()).filter(Boolean);
     neu.module = moduleReihe.filter((x) => x.an).map((x) => x.m);
