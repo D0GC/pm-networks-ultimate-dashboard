@@ -1,5 +1,13 @@
 # Änderungen
 
+## 0.1.6 – 2026-10-01
+
+- Glocke oben rechts; sie zählt und listet nur echte Meldungen (Panel-Meldungen, Popups, HA-Benachrichtigungen).
+  Hinweise und Status (Offen, Scharf …) bleiben im Karussell und in der Statuszeile.
+- Hinweiston bei Meldungen mit Priorität hoch über die Lautsprecher des Panels (dreistimmiger Gong, höchstens
+  dreimal im Abstand von 20 s, endet mit OK, Bestätigen oder Später). Stumm bei „Alles stumm“, außer bei
+  Sicherheitsmeldungen. Ton und Lautstärke im Editor. Kiosk-Parameter siehe Dokumentation.
+
 ## 0.1.5 – 2026-10-01
 
 - Neue Raumansicht auf einem Bildschirm in drei Spalten: links PM-Klima kompakt und Lieblingsszenen, Mitte Licht

@@ -5,7 +5,7 @@
   const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const MODULE = { raeume: "Räume", klima: "Klima", licht: "Licht", sicherheit: "Sicherheit", medien: "Medien", listen: "Listen", energie: "Energie", wartung: "Wartung", suche: "Suche" };
   const KARTEN = { meldung: "Panel-Meldungen", eil: "Eilmeldung", warnung: "Warnung", termin: "Termin", arbeit: "Fahrten", wetter: "Wetter", muell: "Müll", fertig: "Gerät fertig", offen: "Offen", lueften: "Lüften", pollen: "Pollen", eigen: "Eigener Hinweis", dusche: "Duschmodus", spa: "Spa", kohle: "Kohle", waesche: "Waschmaschine", spueler: "Spülmaschine", robo: "Roborock", musik: "Musik" };
-  const ZAHLEN = ["verweildauer_s", "ruhe_nach_s", "bedienung_zurueck_s", "ruhe_helligkeit", "nacht_helligkeit", "ereignis_dauer_s"];
+  const ZAHLEN = ["verweildauer_s", "ruhe_nach_s", "bedienung_zurueck_s", "ruhe_helligkeit", "nacht_helligkeit", "ereignis_dauer_s", "ton_lautstaerke"];
   let daten = null, bereiche = [], ws = null, wsId = 1, moduleReihe = [];
 
   async function laden(nurStatus = false) {
@@ -30,6 +30,7 @@
     $("#adresse").textContent = adresse();
     ZAHLEN.forEach((k) => { $("#" + k).value = e[k]; });
     $("#animationen").checked = e.animationen !== false;
+    $("#ton_hoch").checked = e.ton_hoch !== false;
     $("#schnellzugriff").value = (e.schnellzugriff || []).join("\n");
     $("#szenen_angeheftet").value = (e.szenen_angeheftet || []).join("\n");
     $("#szenen_aus").value = (e.szenen_aus || []).join("\n");
@@ -64,6 +65,7 @@
     const neu = {};
     ZAHLEN.forEach((k) => { neu[k] = Number($("#" + k).value); });
     neu.animationen = $("#animationen").checked;
+    neu.ton_hoch = $("#ton_hoch").checked;
     neu.schnellzugriff = $("#schnellzugriff").value.split(/\s+/).map((s) => s.trim()).filter(Boolean);
     neu.szenen_angeheftet = $("#szenen_angeheftet").value.split(/\s+/).map((x) => x.trim()).filter(Boolean);
     neu.szenen_aus = $("#szenen_aus").value.split(/\s+/).map((x) => x.trim()).filter(Boolean);

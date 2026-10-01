@@ -40,9 +40,13 @@ Chromium mit eigenem, dauerhaftem Profil starten (nicht inkognito, sonst geht de
 
 ```sh
 chromium --kiosk --noerrdialogs --disable-session-crashed-bubble --disable-infobars \
+  --autoplay-policy=no-user-gesture-required \
   --check-for-update-interval=31536000 --overscroll-history-navigation=0 \
   --user-data-dir="$HOME/.config/pm-panel" "http://homeassistant.local:8098/"
 ```
+
+`--autoplay-policy=no-user-gesture-required` erlaubt den Hinweiston bei Meldungen mit Priorität hoch auch ohne
+vorherige Berührung. Ohne den Parameter spielt das Panel Ton erst nach der ersten Berührung seit dem Start.
 
 Beim ersten Start einmal die Adresse mit `?token=…` aus dem Editor öffnen. Bildschirmschoner und Energiesparen des
 Desktops abschalten; die App dunkelt selbst ab. Für den Autostart eine `.desktop`-Datei unter `~/.config/autostart/`
