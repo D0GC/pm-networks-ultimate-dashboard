@@ -212,6 +212,7 @@
     if (arg && def.unterseite) def.unterseite(arg);
   };
   PS.unterseite = (titel, render) => { stapel.push({ modul: stapel[0] && stapel[0].modul, titel, render }); zeichnen(); };
+  PS.seiteErsetzen = (titel, render) => { if (!stapel.length) return; stapel[stapel.length - 1] = { modul: stapel[0].modul, titel, render }; zeichnen(true); };
   PS.schliessen = () => {
     document.body.classList.remove("offen"); stapel.length = 0; markieren();
     $("#sheet-inhalt").querySelectorAll("img").forEach(PS.kameraStoppen); PS.emit("seite");
@@ -227,6 +228,7 @@
     inhalt.querySelectorAll("img").forEach(PS.kameraStoppen);
     PS.emit("seite");
     inhalt.classList.toggle("still", !!still);
+    inhalt.classList.remove("raumseite");
     inhalt.innerHTML = ""; inhalt.scrollTop = 0;
     seite.render(inhalt);
     PS.kachelnBinden(inhalt);

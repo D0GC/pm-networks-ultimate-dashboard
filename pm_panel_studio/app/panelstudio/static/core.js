@@ -39,6 +39,7 @@
         PS.ereignis = m.ereignis || { aktiv: false };
         PS.meldungen = m.meldungen || [];
         PS.popups = m.popups || [];
+        PS.szenen = m.szenen || { stat: {}, farben: {} };
         modusSetzen(m);
         document.body.classList.toggle("ohne-animation", PS.einst.animationen === false);
         PS.emit("init");
@@ -60,6 +61,7 @@
         document.body.classList.toggle("ohne-animation", PS.einst.animationen === false);
         PS.emit("einstellungen"); modusSetzen({ modus: PS.modus, nacht: PS.nacht, verbunden: PS.verbunden });
         break;
+      case "szenen": PS.szenen = { stat: m.stat || {}, farben: m.farben || {} }; PS.emit("szenen"); break;
       case "popups": PS.popups = m.liste || []; PS.emit("popups", m.neu); break;
       case "meldungen": PS.meldungen = m.liste || []; PS.emit("meldungen"); break;
       case "registry": PS.bereiche = m.bereiche || []; PS.reg = m.registry || {}; PS.emit("registry"); break;
@@ -112,6 +114,7 @@
   PS.kurzname = (eid, bereichName) => {
     let n = PS.name(eid);
     if (bereichName && n.toLowerCase().startsWith(bereichName.toLowerCase() + " ")) n = n.slice(bereichName.length + 1);
+    else if (bereichName && n.toLowerCase().endsWith(" " + bereichName.toLowerCase())) n = n.slice(0, -(bereichName.length + 1));
     return n.charAt(0).toUpperCase() + n.slice(1);
   };
   PS.bereichVon = (eid) => (PS.reg[eid] || {}).b || null;

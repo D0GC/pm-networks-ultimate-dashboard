@@ -1,5 +1,14 @@
 # Änderungen
 
+## 0.1.5 – 2026-10-01
+
+- Neue Raumansicht auf einem Bildschirm in drei Spalten: links PM-Klima kompakt und Lieblingsszenen, Mitte Licht
+  („Alle Lichter“ mit Helligkeitsregler, Lampen nebeneinander), rechts Medien, Zustand und Geräte. Der Rest unter
+  „Alle Geräte im Raum“. Raumwechsel über Reiter in der Kopfzeile.
+- Lieblingsszenen: die sechs häufigsten der letzten 30 Tage, gewichtet nach Tageszeit; im Editor anheften oder
+  ausblenden. Farben aus den Lichtfarben der Szene (nur in HA angelegte Szenen), sonst neutral.
+- Namen ohne Raumnamen am Ende („Deckenlampe Wohnzimmer“ → „Deckenlampe“).
+
 ## 0.1.4 – 2026-10-01
 
 - Kamera-Livestream (HLS, hls.js lokal eingebunden) beim Antippen einer Kamera und im Tür-Overlay; zuerst das

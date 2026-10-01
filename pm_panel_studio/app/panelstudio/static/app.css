@@ -295,3 +295,35 @@ body.ohne-animation *,body.ohne-animation *::before,body.ohne-animation *::after
 .kamera.live.laeuft .status{color:var(--krit)}
 .ereignis .kamera-voll{position:absolute;inset:0}
 .ereignis .kamera-voll.kamera{border-radius:0;aspect-ratio:auto}
+
+/* Raumansicht: drei Spalten auf einem Bildschirm */
+.sheet-inhalt.raumseite{overflow:hidden;display:flex;padding-bottom:1.6rem}
+.raum-ansicht{display:grid;grid-template-columns:31% minmax(0,1fr) 25%;gap:1.4rem;width:100%;min-height:0}
+.r-spalte{display:flex;flex-direction:column;gap:1.2rem;min-height:0;min-width:0;overflow-y:auto;scrollbar-width:none}
+.r-box{background:var(--flaeche);border:1px solid var(--linie);border-radius:1.3rem;padding:1.2rem 1.3rem;display:flex;flex-direction:column;gap:.9rem;min-width:0}
+.r-box h3{margin:0;display:flex;justify-content:space-between;align-items:center;font-size:.85rem;font-weight:600;letter-spacing:.18em;text-transform:uppercase;color:var(--akzent)}
+.r-box h3 small{letter-spacing:0;text-transform:none;color:var(--leise);font-weight:500;font-size:.9rem}
+.r-box h3.unter{margin-top:.3rem}
+.szenen{display:grid;grid-template-columns:1fr 1fr;gap:.7rem}
+.szene{all:unset;cursor:pointer;position:relative;overflow:hidden;border-radius:1rem;padding:1rem 1.1rem;min-height:5.2rem;display:flex;flex-direction:column;justify-content:flex-end;gap:.15rem;
+  background:linear-gradient(180deg,rgba(15,12,42,.05),rgba(15,12,42,.55)),linear-gradient(135deg,var(--c1),var(--c2));border:1px solid rgba(255,255,255,.08);transition:transform .2s var(--ease)}
+.szene:active{transform:scale(.95)}
+.szene b{font-size:1.15rem;font-weight:600;text-shadow:0 1px 6px rgba(0,0,0,.55)}
+.szene small{font-size:.85rem;color:rgba(255,255,255,.85);min-height:1em}
+.szene.aktiv::after{content:"";position:absolute;right:.8rem;top:.8rem;width:.7rem;height:.7rem;border-radius:50%;background:#fff;box-shadow:0 0 0 .3rem rgba(255,255,255,.25)}
+.knopf.mehr-szenen,.knopf.r-alles{justify-content:center;background:transparent;border-style:dashed}
+.r-master{display:grid;grid-template-columns:minmax(0,15rem) 1fr;gap:.9rem;align-items:stretch}
+.r-master .kachel{min-height:0}
+.r-master .schieber{height:auto;min-height:3.6rem}
+.raster.r-lichter{grid-template-columns:repeat(3,minmax(0,1fr))}
+.raster.mini{grid-template-columns:repeat(2,minmax(0,1fr));gap:.6rem}
+.raster.mini .kachel{min-height:5.4rem;padding:.8rem;gap:.3rem}
+.raster.mini .kachel>.mdi{font-size:1.7rem}
+.raster.mini .kachel b{font-size:1rem}
+.raster.mini .kachel small{font-size:.85rem}
+.gross.kompakt{padding:1.2rem;gap:.7rem}
+.gross.kompakt .thermo .ring{width:7.5rem;height:7.5rem}
+.gross.kompakt .thermo .ring .innen b{font-size:1.9rem}
+.gross.kompakt .thermo .soll b{font-size:1.9rem;min-width:5rem}
+.gross.kompakt .knopf{padding:.5rem .8rem;font-size:.95rem}
+.gross.kompakt .knopf.rund{width:3rem;height:3rem;padding:0}
