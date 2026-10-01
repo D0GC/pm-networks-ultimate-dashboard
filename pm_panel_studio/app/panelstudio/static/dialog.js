@@ -52,23 +52,40 @@
     document.querySelectorAll("#dialog img").forEach(PS.kameraStoppen);
   }
   PS.dialogSchliessen = schliessen;
-  // Browser-Mod-Popup als Dialog: Titel, Markdown, Kamera, Knöpfe wie im Original
+  // Panel-Meldung wie an den Panels Büro und Bad: Symbol, Titel, Text, Zeit und Priorität, Bestätigen/Später bzw. OK.
+  // Ein Browser-Mod-Popup mit gleicher Kennung liefert den ausführlichen Text und ggf. eine Kamera dazu.
+  const M_ICON = { info: "information-outline", kohle: "fire", alarm: "shield-alert-outline", tuer: "door-open", lueften: "window-open-variant",
+    warnung: "alert-outline", termin: "calendar-clock-outline", muell: "trash-can-outline", fertig: "check-circle-outline", wetter: "weather-partly-cloudy" };
+  const M_FARBE = { high: "var(--krit)", normal: "var(--warn)", low: "var(--lavender)" };
+  const M_PRIO = { high: "Priorität hoch", normal: "Priorität normal", low: "Priorität niedrig" };
+  PS.meldungIcon = (icon) => M_ICON[icon] || "information-outline";
+  PS.meldungFarbe = (prio) => M_FARBE[prio] || M_FARBE.normal;
   PS.popupZeigen = (id) => {
     const m = (PS.popups || []).find((x) => x.id === id); if (!m) return;
     offenFuer = null;
     const dlg = $("#dialog");
     dlg.querySelectorAll("img").forEach(PS.kameraStoppen);
-    dlg.innerHTML = `<div class="kopf">${PS.ic("bell-ring-outline", "gr")}<h2>${PS.esc(m.titel)}<small>${PS.esc("seit " + PS.zeitRelativ(new Date(m.seit * 1000).toISOString()).replace("vor ", ""))}</small></h2><button class="zu" aria-label="Schließen">${PS.ic("close")}</button></div><div class="md">${PS.markdown(m.text)}</div>`;
+    const zeit = new Date(m.seit * 1000).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
+    dlg.innerHTML = `<div class="meldung-ansicht" style="--farbe:${PS.meldungFarbe(m.prio)}">
+      <button class="zu" aria-label="Schließen">${PS.ic("close")}</button>
+      <div class="m-icon">${PS.ic(PS.meldungIcon(m.icon))}</div>
+      <h2>${PS.esc(m.titel)}</h2>
+      ${m.text ? `<p class="m-text">${PS.esc(m.text)}</p>` : ""}
+      <div class="m-wann">${zeit} · ${M_PRIO[m.prio] || ""}</div></div>`;
     dlg.querySelector(".zu").addEventListener("click", schliessen);
+    if (m.details) { const md = document.createElement("div"); md.className = "md"; md.innerHTML = PS.markdown(m.details); dlg.appendChild(md); }
     if (m.kamera) { const k = document.createElement("div"); k.className = "kamera"; const img = document.createElement("img"); k.appendChild(img); dlg.appendChild(k); PS.kameraStarten(img, m.kamera); }
-    const r = reihe();
-    const verwerfen = () => PS.anfrage({ typ: "popup_schliessen", popup: m.id }).catch(() => {}).then(schliessen);
-    r.appendChild(knopf("Verwerfen", "close", verwerfen));
-    m.knoepfe.forEach((b) => {
-      r.appendChild(knopf(b.text, null, () => {
-        if (b.domain === "browser_mod" || !b.domain) { verwerfen(); return; }
-        PS.dienst(b.domain, b.service, b.data || {}).then(() => { PS.toast(`${b.text} ausgeführt`); verwerfen(); });
-      }, b.art === "haupt" ? "primaer" : ""));
+    const r = reihe(); r.classList.add("m-knoepfe");
+    const ok = () => PS.anfrage({ typ: "popup_schliessen", popup: m.id }).catch(() => {}).then(schliessen);
+    if (m.bestaetigen) {
+      r.appendChild(knopf("Bestätigen", "check", () => PS.dienst(PS.domain(m.bestaetigen), "press", { entity_id: m.bestaetigen }).then(() => { PS.toast("Bestätigt"); schliessen(); }), "gut"));
+      r.appendChild(knopf("Später", "clock-outline", schliessen));
+    } else {
+      r.appendChild(knopf("OK", "check", ok, "primaer"));
+    }
+    // Zusätzliche Knöpfe des Popups (ohne Doppel zum Bestätigen-Knopf)
+    m.knoepfe.filter((b) => b.domain && b.domain !== "browser_mod" && !(m.bestaetigen && (b.data || {}).entity_id === m.bestaetigen)).forEach((b) => {
+      r.appendChild(knopf(b.text, null, () => PS.dienst(b.domain, b.service, b.data || {}).then(() => { PS.toast(`${b.text} ausgeführt`); schliessen(); })));
     });
     dlg.appendChild(r);
     $("#dialog-grund").classList.add("offen");

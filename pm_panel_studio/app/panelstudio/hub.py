@@ -248,12 +248,16 @@ class Hub:
 
     def _on_dienst(self, event: dict[str, Any]) -> None:
         data = event.get("data") or {}
-        if data.get("domain") != "browser_mod":
+        if data.get("domain") not in ("browser_mod", "script"):
             return
-        vorher = {m["id"] for m in self.popups.liste()}
-        if self.popups.verarbeiten("browser_mod", str(data.get("service")), data.get("service_data") or {}):
-            neu = [m for m in self.popups.liste() if m["id"] not in vorher]
-            self._popups_senden(neu[0]["id"] if neu else None)
+        ergebnis = self.popups.verarbeiten(str(data.get("domain")), str(data.get("service")), data.get("service_data") or {})
+        if ergebnis is None:
+            return
+        m = self.popups.meldungen.get(ergebnis) if ergebnis else None
+        if m and m["prio"] == "high":  # wie an den Panels: hohe Priorität weckt die Anzeige
+            self.letzte_bewegung = time.monotonic()
+            self._modus_pruefen()
+        self._popups_senden(ergebnis or None)
 
     def _popups_senden(self, neu_id: str | None = None) -> None:
         self.spawn(self.senden_alle({"typ": "popups", "liste": self.popups.liste(), "neu": neu_id}))

@@ -81,9 +81,10 @@
   const elemente = new Map();
 
   function karteInhalt(k) {
-    const [ic, farbe] = KARTE[k.schluessel] || KARTE.neutral;
+    let [ic, farbe] = KARTE[k.schluessel] || KARTE.neutral;
+    if (k.art === "meldung") { ic = PS.meldungIcon(k.icon); farbe = PS.meldungFarbe(k.prio); }
     const akt = k.art === "aktivitaet";
-    const kopf = k.art === "meldung" ? "Meldung · antippen" : k.schluessel === "musik" ? "Musik" : akt ? "Aktivität" : k.schluessel === "eil" ? `Eilmeldung · ${k.titel}` : k.titel || "Hinweis";
+    const kopf = k.art === "meldung" ? (k.prio === "high" ? "Meldung · wichtig" : "Meldung") : k.schluessel === "musik" ? "Musik" : akt ? "Aktivität" : k.schluessel === "eil" ? `Eilmeldung · ${k.titel}` : k.titel || "Hinweis";
     const innen = akt
       ? `<b class="wert-txt">${PS.esc(k.wert)}</b><small>${PS.esc(k.hinweis)}</small>`
       : PS.ic(ic);
@@ -260,8 +261,10 @@
   PS.on("popups", (neu) => {
     statusZeile();
     if (stapel.length && stapel[0].modul === "hinweise") PS.neuZeichnen();
-    // Wie früher das Popup: sofort zeigen, wenn jemand am Panel ist
-    if (neu && PS.modus === "wach" && !document.body.classList.contains("ereignis-an")) PS.popupZeigen(neu);
+    // Wie an den Panels: hoch weckt und öffnet sofort, normal öffnet, wenn jemand am Panel ist, niedrig nur Glocke
+    const m = neu && (PS.popups || []).find((x) => x.id === neu);
+    if (!m || document.body.classList.contains("ereignis-an")) return;
+    if (m.prio === "high" || (m.prio === "normal" && PS.modus === "wach")) { document.body.classList.remove("ruhe"); PS.popupZeigen(neu); }
   });
   PS.on("meldungen", () => { statusZeile(); if (stapel.length && stapel[0].modul === "hinweise") PS.neuZeichnen(); });
   PS.on("ereignis", ereignis);

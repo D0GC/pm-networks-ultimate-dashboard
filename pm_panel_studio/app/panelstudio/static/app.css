@@ -277,3 +277,13 @@ body.ohne-animation *,body.ohne-animation *::before,body.ohne-animation *::after
 .dialog .md h4{margin:.4rem 0 .6rem;font-size:1.35rem;font-weight:600}
 .dialog .md ul{margin:0 0 .8rem;padding-left:1.4rem}
 .dialog .md b{font-weight:600;color:#fff}
+.meldung-ansicht{position:relative;display:flex;flex-direction:column;align-items:center;text-align:center;gap:.9rem;padding:1rem 2rem .4rem}
+.meldung-ansicht .zu{position:absolute;right:0;top:0}
+.meldung-ansicht .m-icon{width:7rem;height:7rem;border-radius:50%;display:grid;place-items:center;border:2px solid var(--farbe);color:var(--farbe);font-size:3.6rem;animation:m-puls 2.4s ease-in-out infinite}
+@keyframes m-puls{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--farbe) 40%,transparent)}100%{box-shadow:0 0 0 1.6rem transparent}}
+.meldung-ansicht h2{margin:0;font-size:2.4rem;font-weight:600}
+.meldung-ansicht .m-text{margin:0;font-size:1.45rem;line-height:1.45;color:var(--cloud);max-width:40ch}
+.meldung-ansicht .m-wann{font-size:1rem;color:var(--leise);letter-spacing:.06em}
+.m-knoepfe{justify-content:center}
+.m-knoepfe .knopf{min-width:11rem;padding:1rem 1.6rem;font-size:1.25rem}
+.knopf.gut{background:#2f8f68;border-color:transparent}

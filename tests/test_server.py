@@ -134,12 +134,19 @@ async def test_kamera_stream(ingress):
     assert r.status == 400
 
 
-async def test_browser_mod_popup_kommt_im_panel_an(ingress, fake):
+async def test_panel_meldung_und_popup_kommen_im_panel_an(ingress, fake, hub):
     ws = await ingress.ws_connect("/api/ws")
     await _init(ws)
-    fake.service("browser_mod", "popup", {"title": "Kohle fertig", "content": "Fertig.", "tag": "kohle_fertig"})
+    hub.modus = "ruhe"
+    fake.service(
+        "script", "panel_meldung", {"tag": "kohle_fertig", "titel": "Kohle fertig", "text": "Fertig.", "prioritaet": "high"}
+    )
     m = await _warte_auf(ws, "popups")
-    assert m["neu"] == "pop:kohle_fertig"
+    assert m["neu"] == "msg:kohle_fertig"
+    assert m["liste"][0]["prio"] == "high"
+    assert hub.modus == "wach"  # hohe Priorität weckt
+    fake.service("browser_mod", "popup", {"title": "Kohle fertig", "content": "Lang.", "tag": "kohle_fertig"})
+    m = await _warte_auf(ws, "popups", lambda m: m["liste"] and m["liste"][0]["details"] == "Lang.")
     k = await _warte_auf(ws, "karten", lambda m: m["karten"][0]["art"] == "meldung")
     assert k["karten"][0]["titel"] == "Kohle fertig"
     fake.service("browser_mod", "close_popup", {"tag": "kohle_fertig"})

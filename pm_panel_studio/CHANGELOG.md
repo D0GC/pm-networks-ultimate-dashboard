@@ -1,5 +1,14 @@
 # Änderungen
 
+## 0.1.3 – 2026-10-01
+
+- Meldungen gegliedert wie an den Panels Büro und Bad: Die App hört `script.panel_meldung` und
+  `script.panel_meldung_schliessen` mit (Kennung, Titel, Text, Symbol, Priorität, Bestätigen-Knopf, Laufzeit).
+  Ein Browser-Mod-Popup mit gleicher Kennung ergänzt die Meldung um den ausführlichen Text und ggf. eine Kamera.
+- Priorität wie am Panel: niedrig nur Glocke, normal Karte und sofort offen, wenn jemand am Panel ist,
+  hoch weckt das Panel und öffnet sofort. Knöpfe „Bestätigen“ und „Später“ bzw. „OK“.
+- Automationen bleiben unverändert; der Flur zeigt alle Panel-Meldungen.
+
 ## 0.1.2 – 2026-10-01
 
 - Browser-Mod-Popups erscheinen im Panel: Die App hört `browser_mod.popup` und `browser_mod.close_popup` mit.
