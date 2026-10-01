@@ -110,3 +110,25 @@ async def test_bewegung_weckt(hub, fake):
             break
         await asyncio.sleep(0.05)
     assert hub.modus == "wach"
+
+
+async def test_pm_klima_zugeordnet_und_musik_und_meldungen(ingress, hub):
+    ws = await ingress.ws_connect("/api/ws")
+    m = await _init(ws)
+    assert m["registry"]["climate.pm_wohnzimmer"]["b"] == "wohnzimmer"
+    assert "musik" in [k["schluessel"] for k in m["karten"]]
+    if not m["meldungen"]:
+        m = await _warte_auf(ws, "meldungen")
+        assert m["liste"][0]["notification_id"] == "n1"
+    else:
+        assert m["meldungen"][0]["notification_id"] == "n1"
+    await ws.close()
+
+
+async def test_kamera_stream(ingress):
+    r = await ingress.get("/api/kamera", params={"eid": "camera.wohnungstuer_standardauflosung"})
+    assert r.status == 200
+    assert r.headers["Content-Type"].startswith("multipart/x-mixed-replace")
+    assert b"--frame" in await r.read()
+    r = await ingress.get("/api/kamera", params={"eid": "light.flur"})
+    assert r.status == 400

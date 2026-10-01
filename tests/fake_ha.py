@@ -129,7 +129,7 @@ def default_states(jetzt: datetime) -> list[dict[str, Any]]:
         s(
             "climate.pm_wohnzimmer",
             "heat",
-            "wohnzimmer",
+            None,
             friendly_name="PM Wohnzimmer",
             current_temperature=21.4,
             temperature=21.0,
@@ -237,6 +237,26 @@ def default_states(jetzt: datetime) -> list[dict[str, Any]]:
             installed_version="2026.9.3",
         ),
         s(
+            "climate.wohnzimmer_lokal",
+            "heat",
+            "wohnzimmer",
+            friendly_name="Wohnzimmer lokal",
+            current_temperature=21.2,
+            temperature=21.0,
+        ),
+        s("scene.wohnzimmer_fairfax", "unknown", "wohnzimmer", friendly_name="Wohnzimmer Fairfax"),
+        s(
+            "media_player.wohnung_3",
+            "playing",
+            None,
+            friendly_name="Wohnung",
+            media_title="Midnight City",
+            media_artist="M83",
+            media_duration=244,
+            media_position=60,
+            media_position_updated_at=_iso(jetzt),
+        ),
+        s(
             "sensor.panel_bad_hinweise",
             "3",
             None,
@@ -279,6 +299,14 @@ class FakeHA:
             self.area_of[st["entity_id"]] = area
         self.calls: list[tuple[str, str, dict]] = []
         self._tasks: set = set()
+        self.meldungen = {
+            "n1": {
+                "notification_id": "n1",
+                "title": "Neue Geräte gefunden",
+                "message": "2 neue Geräte",
+                "created_at": _iso(jetzt),
+            }
+        }
         self.subs: list[tuple[web.WebSocketResponse, int, str]] = []
         self.todo = {
             "todo.einkaufsliste": [
@@ -292,6 +320,7 @@ class FakeHA:
         r.add_get("/core/api/config", self.rest_config)
         r.add_post("/core/api/services/{domain}/{service}", self.rest_service)
         r.add_get("/core/api/camera_proxy/{eid}", self.rest_camera)
+        r.add_get("/core/api/camera_proxy_stream/{eid}", self.rest_camera_stream)
         r.add_get("/core/api/calendars/{eid}", self.rest_calendar)
         r.add_get("/core/api/logbook/{start}", self.rest_logbook)
         r.add_get("/core/websocket", self.ws)
@@ -311,6 +340,15 @@ class FakeHA:
     async def rest_camera(self, request):
         self._auth(request)
         return web.Response(body=PNG_1PX, content_type="image/png")
+
+    async def rest_camera_stream(self, request):
+        self._auth(request)
+        resp = web.StreamResponse(headers={"Content-Type": "multipart/x-mixed-replace;boundary=frame"})
+        await resp.prepare(request)
+        for _ in range(3):
+            await resp.write(b"--frame\r\nContent-Type: image/png\r\n\r\n" + PNG_1PX + b"\r\n")
+            await asyncio.sleep(0.05)
+        return resp
 
     async def rest_calendar(self, request):
         self._auth(request)
@@ -428,7 +466,18 @@ class FakeHA:
         if typ == "config/device_registry/list":
             return ok([])
         if typ == "config/entity_registry/list_for_display":
-            return ok({"entities": [{"ei": e, "ai": a} for e, a in self.area_of.items()], "entity_categories": {}})
+            ents = [
+                {"ei": e, "ai": a, **({"pl": "music_assistant"} if e == "media_player.wohnung_3" else {})}
+                for e, a in self.area_of.items()
+            ]
+            return ok({"entities": ents, "entity_categories": {}})
+        if typ == "persistent_notification/subscribe":
+            event = {"type": "current", "notifications": self.meldungen}
+            loop = asyncio.get_running_loop()
+            loop.call_soon(
+                lambda: self._tasks.add(asyncio.ensure_future(ws.send_json({"id": mid, "type": "event", "event": event})))
+            )
+            return ok(None)
         if typ == "call_service":
             res = self.service(req["domain"], req["service"], req.get("service_data") or {})
             return ok({"context": {}, "response": res})

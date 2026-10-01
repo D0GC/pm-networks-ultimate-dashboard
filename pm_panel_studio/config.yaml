@@ -1,5 +1,5 @@
 name: PM Panel Studio
-version: "0.1.0"
+version: "0.1.1"
 slug: pm_panel_studio
 description: >-
   Wandpanel-Oberfläche für den Flur: rotierende Hinweiskarten mit Ringtimern, Ruhe- und Wachzustand,
@@ -41,7 +41,7 @@ options:
     - binary_sensor.wohnungstuer_person
   ereignis_kamera: camera.wohnungstuer_standardauflosung
   tueroeffner: button.haustur_tur_offnen
-  klima_studio_url: ""
+  klima_praefix: climate.pm_
   log_level: info
 schema:
   hinweise_entitaet: str?
@@ -56,5 +56,5 @@ schema:
     - str?
   ereignis_kamera: str?
   tueroeffner: str?
-  klima_studio_url: str?
+  klima_praefix: str?
   log_level: list(debug|info|warning|error)

@@ -37,6 +37,7 @@
         PS.z = m.zustaende || {}; PS.bereiche = m.bereiche || []; PS.reg = m.registry || {};
         PS.einst = m.einstellungen || {}; PS.opt = m.optionen || {}; PS.karten = m.karten || []; PS.ha = m.ha || {};
         PS.ereignis = m.ereignis || { aktiv: false };
+        PS.meldungen = m.meldungen || [];
         modusSetzen(m);
         document.body.classList.toggle("ohne-animation", PS.einst.animationen === false);
         PS.emit("init");
@@ -58,6 +59,7 @@
         document.body.classList.toggle("ohne-animation", PS.einst.animationen === false);
         PS.emit("einstellungen"); modusSetzen({ modus: PS.modus, nacht: PS.nacht, verbunden: PS.verbunden });
         break;
+      case "meldungen": PS.meldungen = m.liste || []; PS.emit("meldungen"); break;
       case "registry": PS.bereiche = m.bereiche || []; PS.reg = m.registry || {}; PS.emit("registry"); break;
       case "antwort": {
         const p = offen.get(m.id); if (!p) return; offen.delete(m.id);
@@ -85,8 +87,10 @@
   PS.dienst = (domain, service, data = {}, antwort = false) =>
     PS.anfrage({ typ: "dienst", domain, service, data, antwort }).catch((e) => { PS.toast(e.message, true); throw e; });
   let letzteMeldung = 0;
+  PS.letzteBeruehrung = 0;
   function beruehrt() {
     const t = Date.now();
+    PS.letzteBeruehrung = t;
     if (PS.modus === "ruhe") { document.body.classList.remove("ruhe"); PS.modus = "wach"; PS.emit("modus"); }
     if (t - letzteMeldung > 4000 && ws && ws.readyState === 1) { letzteMeldung = t; ws.send(JSON.stringify({ typ: "beruehrt" })); }
     PS.emit("beruehrt");
@@ -110,8 +114,16 @@
   };
   PS.bereichVon = (eid) => (PS.reg[eid] || {}).b || null;
   PS.bereichName = (id) => (PS.bereiche.find((b) => b.id === id) || {}).name || id;
-  PS.sichtbar = (eid) => { const r = PS.reg[eid]; return !r || (!r.h && r.ec == null); };
-  PS.nichtDa = (eid) => { const s = PS.s(eid); return s === undefined || s === "unavailable" || s === "unknown"; };
+  // Nur PM-Klima-Thermostate zeigen; die lokalen Thermostate steuert PM Klima selbst.
+  PS.klimaSichtbar = (eid) => !eid.startsWith("climate.") || !PS.opt.klima_praefix || eid.startsWith(PS.opt.klima_praefix);
+  PS.sichtbar = (eid) => { const r = PS.reg[eid]; return (!r || (!r.h && r.ec == null)) && PS.klimaSichtbar(eid); };
+  // Szenen, Skripte und Knöpfe stehen auf „unknown“, bis sie einmal ausgelöst wurden; das ist kein Fehler.
+  const OHNE_ZUSTAND = ["scene", "script", "button", "input_button", "event"];
+  PS.nichtDa = (eid) => {
+    const s = PS.s(eid);
+    if (s === undefined || s === "unavailable") return true;
+    return s === "unknown" && !OHNE_ZUSTAND.includes(PS.domain(eid));
+  };
   PS.istAn = (eid) => {
     const s = PS.s(eid), d = PS.domain(eid);
     if (s == null) return false;
@@ -163,6 +175,7 @@
   PS.text = (eid, roh) => {
     const st = PS.z[eid]; if (!st) return "–";
     const s = roh !== undefined ? roh : st.s, a = st.a || {}, d = PS.domain(eid);
+    if ((d === "scene" || d === "script" || d === "button" || d === "input_button") && s === "unknown") return "Bereit";
     if (s === "unavailable" || s === "unknown") return TEXTE[s];
     if (d === "binary_sensor") { const p = BIN[a.device_class]; return p ? p[s === "on" ? 1 : 0] : TEXTE[s] || s; }
     if (d === "light" && s === "on" && a.brightness != null) return `${Math.round((a.brightness / 255) * 100)} %`;
@@ -327,13 +340,26 @@
   PS.direktBedienbar = (eid) =>
     ["light", "switch", "fan", "input_boolean", "siren", "humidifier", "cover", "lock", "scene", "script", "button", "input_button", "media_player", "vacuum", "valve"].includes(PS.domain(eid));
 
+  // Lichtgruppen (Helfer): Die Raumgruppe (Name = Bereichsname) steht als „Alle Lichter“ vorn; Untergruppen wie
+  // „Deckenlampe Esstisch“ ersetzen ihre Einzellampen, die über den Dialog der Gruppe erreichbar bleiben.
+  PS.lichtAuswahl = (ids, bereichName) => {
+    const lichter = ids.filter((e) => e.startsWith("light."));
+    const istGruppe = (e) => Array.isArray(PS.a(e).entity_id) && PS.a(e).entity_id.length > 0;
+    const gruppen = lichter.filter(istGruppe);
+    const inGruppe = new Set(gruppen.flatMap((g) => PS.a(g).entity_id));
+    const nameKlein = String(bereichName || "").toLowerCase();
+    const raum = gruppen.find((g) => !inGruppe.has(g) && PS.name(g).toLowerCase() === nameKlein) || null;
+    const versteckt = new Set(gruppen.filter((g) => g !== raum).flatMap((g) => PS.a(g).entity_id));
+    return { raum, sichtbar: lichter.filter((e) => e !== raum && !versteckt.has(e)) };
+  };
+
   // Kachel für eine Entität (überall gleich aufgebaut, damit Aktualisierungen nur Klassen und Texte ändern)
   PS.kachelHTML = (eid, opts = {}) =>
-    `<button class="kachel" data-eid="${PS.esc(eid)}"${opts.bereich ? ` data-bereich="${PS.esc(opts.bereich)}"` : ""} style="--i:${opts.i || 0}">${PS.icon(eid)}<b></b><small></small><span class="balken"></span></button>`;
+    `<button class="kachel" data-eid="${PS.esc(eid)}"${opts.bereich ? ` data-bereich="${PS.esc(opts.bereich)}"` : ""}${opts.titel ? ` data-titel="${PS.esc(opts.titel)}"` : ""} style="--i:${opts.i || 0}">${PS.icon(eid)}<b></b><small></small><span class="balken"></span></button>`;
   PS.kachelAktualisieren = (el, bereichName) => {
     const eid = el.dataset.eid, st = PS.z[eid], d = PS.domain(eid);
     const icon = el.querySelector(".mdi"); if (icon) icon.outerHTML = PS.icon(eid);
-    el.querySelector("b").textContent = PS.kurzname(eid, bereichName);
+    el.querySelector("b").textContent = el.dataset.titel || PS.kurzname(eid, bereichName);
     el.querySelector("small").textContent = PS.text(eid);
     el.classList.toggle("an", PS.istAn(eid) && d !== "person");
     el.classList.toggle("weg", !st || PS.nichtDa(eid));
@@ -380,6 +406,23 @@
     c.style.strokeDashoffset = (U * (1 - a)).toFixed(1);
   };
 
+  PS.kameraUrl = (eid) => "api/kamera?eid=" + encodeURIComponent(eid) + "&t=" + Date.now();
+  // Livebild (MJPEG); fällt bei Fehlern auf Einzelbilder zurück, die nacheinander (nie überlappend) geladen werden.
+  PS.kameraStarten = (img, eid) => {
+    PS.kameraStoppen(img);
+    let aktiv = true, fehler = 0;
+    const einzelbild = () => {
+      if (!aktiv || !img.isConnected) return;
+      img.onload = () => { if (aktiv) img._t = setTimeout(einzelbild, 800); };
+      img.onerror = () => { if (aktiv) img._t = setTimeout(einzelbild, 3000); };
+      img.src = PS.bildUrl(`/api/camera_proxy/${eid}`);
+    };
+    img.onerror = () => { if (++fehler === 1 && aktiv) einzelbild(); };
+    img.onload = null;
+    img.src = PS.kameraUrl(eid);
+    img._stop = () => { aktiv = false; clearTimeout(img._t); img.onload = img.onerror = null; img.removeAttribute("src"); };
+  };
+  PS.kameraStoppen = (img) => { if (img && img._stop) { img._stop(); img._stop = null; } };
   PS.bildUrl = (pfad) => "api/bild?pfad=" + encodeURIComponent(pfad) + "&t=" + Date.now();
   PS.verbinden = verbinden;
 })();

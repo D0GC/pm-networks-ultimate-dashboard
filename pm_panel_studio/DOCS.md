@@ -23,7 +23,7 @@ Der Zugangsschlüssel liegt in `/data/panel_token`. „Neuen Schlüssel erzeugen
 | `alarm_entitaet` | Alarmanlage für die Statuszeile |
 | `ereignis_ausloeser` | Wird eine dieser Entitäten „an“, erscheint die Kamera im Vollbild |
 | `ereignis_kamera`, `tueroeffner` | Kamera und Türöffner im Overlay |
-| `klima_studio_url` | Optional: Adresse für den Knopf „Heizplan“ |
+| `klima_praefix` | Nur Thermostate mit diesem Präfix (Standard `climate.pm_`); ohne Bereich Zuordnung über den Namen |
 
 ## Schutz am Panel
 

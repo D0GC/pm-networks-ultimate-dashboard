@@ -54,7 +54,7 @@ class Options:
     ereignis_ausloeser: list[str] = field(default_factory=lambda: ["binary_sensor.wohnungstuer_person"])
     ereignis_kamera: str = "camera.wohnungstuer_standardauflosung"
     tueroeffner: str = "button.haustur_tur_offnen"
-    klima_studio_url: str = ""
+    klima_praefix: str = "climate.pm_"
     log_level: str = "info"
 
     @classmethod
@@ -80,7 +80,7 @@ class Options:
             cur = getattr(opts, f.name)
             if isinstance(cur, list):
                 setattr(opts, f.name, _entities(val))
-            elif f.name in ("log_level", "klima_studio_url"):
+            elif f.name in ("log_level", "klima_praefix"):
                 setattr(opts, f.name, str(val or "").strip())
             else:
                 setattr(opts, f.name, _entity(val))
