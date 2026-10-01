@@ -1,12 +1,16 @@
-"""Browser-Mod-Popups als Panel-Meldungen.
+"""Panel-Meldungen wie an den Panels Büro und Bad.
 
-Die App hört die Dienstaufrufe ``browser_mod.popup`` und ``browser_mod.close_popup`` mit (Ereignis ``call_service``).
-So erscheinen alle Popups, die bisher auf dem Dashboard aufgingen (Morgen-Briefing, Kohle, Waschmaschine …), auch
-im Panel, ohne dass Automationen geändert werden müssen. Die Daten sind beim Aufruf bereits gerendert.
+Quelle 1: das zentrale Backend ``script.panel_meldung`` (Kennung, Titel, Text, Symbol, Priorität, Bestätigen-Knopf,
+Laufzeit) und ``script.panel_meldung_schliessen``. Die App hört diese Aufrufe über das Ereignis ``call_service`` mit;
+der Flur zeigt alle Meldungen, unabhängig vom Feld ``panels``.
+
+Quelle 2: ``browser_mod.popup`` / ``close_popup``. Ein Popup mit derselben Kennung ergänzt die Panel-Meldung um den
+ausführlichen Text (Markdown), eine Kamera und seine Knöpfe. Popups ohne passende Panel-Meldung erscheinen mit
+Priorität normal und Symbol info.
 
 Eine Meldung ist ein Dict:
-  id, tag, titel, text (Markdown), kamera (camera.* oder None), knoepfe [{text, domain, service, data, art}],
-  seit (Unix-Zeit), bis (Unix-Zeit oder None)
+  id, tag, titel, text, icon, prio (low|normal|high), bestaetigen (input_button oder None),
+  details (Markdown oder ""), kamera, knoepfe [{text, domain, service, data, art}], seit, bis
 """
 
 from __future__ import annotations
@@ -16,18 +20,21 @@ import time
 import uuid
 from typing import Any
 
-MAX_DAUER_S = 4 * 3600  # Popups ohne Ablauf verschwinden spätestens nach 4 Stunden
-MAX_MELDUNGEN = 8
+MAX_DAUER_S = 4 * 3600
+MAX_MELDUNGEN = 10
+LAUFZEIT_MIN = {"low": 15, "normal": 60, "high": 240}  # wie script.panel_meldung
+PRIO_RANG = {"low": 1, "normal": 2, "high": 3}
 SERVICE_RE = re.compile(r"^[a-z0-9_]+\.[a-z0-9_]+$")
 KAMERA_RE = re.compile(r"^camera\.[a-z0-9_]+$")
+ENTITY_RE = re.compile(r"^[a-z_]+\.[a-z0-9_]+$")
 
 
-def _text_aus_inhalt(inhalt: Any) -> tuple[str, str | None]:
+def text_aus_inhalt(inhalt: Any) -> tuple[str, str | None]:
     """Markdown-Text und optionale Kamera aus ``content`` (Text oder Lovelace-Karte)."""
     if isinstance(inhalt, str):
         return inhalt, None
     if isinstance(inhalt, list):
-        teile = [_text_aus_inhalt(x) for x in inhalt]
+        teile = [text_aus_inhalt(x) for x in inhalt]
         return "\n\n".join(t for t, _ in teile if t), next((k for _, k in teile if k), None)
     if not isinstance(inhalt, dict):
         return "", None
@@ -38,17 +45,15 @@ def _text_aus_inhalt(inhalt: Any) -> tuple[str, str | None]:
             kamera = val
     if inhalt.get("type") == "markdown":
         return str(inhalt.get("content") or ""), kamera
-    if isinstance(inhalt.get("cards"), list):
-        text, k2 = _text_aus_inhalt(inhalt["cards"])
-        return text, kamera or k2
-    if isinstance(inhalt.get("card"), dict):
-        text, k2 = _text_aus_inhalt(inhalt["card"])
-        return text, kamera or k2
-    return str(inhalt.get("content") or inhalt.get("title") or ""), kamera
+    for key in ("cards", "card"):
+        if isinstance(inhalt.get(key), (list, dict)):
+            text, k2 = text_aus_inhalt(inhalt[key])
+            return text, kamera or k2
+    return str(inhalt.get("content") or ""), kamera
 
 
 def _aktion(aktion: Any) -> dict[str, Any] | None:
-    """``{service|action: "d.s", data: {...}}``; Listen: erste gültige Aktion."""
+    """Formate ``{service|action: d.s, data}`` und Tap-Action ``{action: perform-action, perform_action: d.s}``."""
     if isinstance(aktion, list):
         for a in aktion:
             if (r := _aktion(a)) is not None:
@@ -56,98 +61,167 @@ def _aktion(aktion: Any) -> dict[str, Any] | None:
         return None
     if not isinstance(aktion, dict):
         return None
-    # Formate: {service: d.s}, {action: d.s} und Tap-Action {action: perform-action, perform_action: d.s}
     dienst = str(aktion.get("perform_action") or aktion.get("service") or aktion.get("action") or "")
     if not SERVICE_RE.match(dienst):
         return None
     domain, service = dienst.split(".", 1)
     daten = aktion.get("data") or aktion.get("service_data") or {}
-    if not isinstance(daten, dict):
-        daten = {}
-    if aktion.get("target") and isinstance(aktion["target"], dict):
+    daten = daten if isinstance(daten, dict) else {}
+    if isinstance(aktion.get("target"), dict):
         daten = {**aktion["target"], **daten}
     return {"domain": domain, "service": service, "data": daten}
 
 
-def aus_aufruf(daten: dict[str, Any], jetzt: float | None = None) -> dict[str, Any]:
-    jetzt = time.time() if jetzt is None else jetzt
-    text, kamera = _text_aus_inhalt(daten.get("content"))
-    tag = str(daten.get("tag") or "") or None
-    knoepfe = []
-    for seite, art in (("left", "neben"), ("right", "haupt")):
-        beschriftung = daten.get(f"{seite}_button")
-        if not beschriftung:
-            continue
-        a = _aktion(daten.get(f"{seite}_button_action"))
-        knoepfe.append({"text": str(beschriftung), "art": art, **(a or {"domain": None, "service": None, "data": {}})})
-    timeout_ms = daten.get("timeout")
-    try:
-        dauer = float(timeout_ms) / 1000 if timeout_ms else MAX_DAUER_S
-    except (TypeError, ValueError):
-        dauer = MAX_DAUER_S
-    return {
-        "id": f"pop:{tag}" if tag else f"pop:{uuid.uuid4().hex[:10]}",
-        "tag": tag,
-        "titel": str(daten.get("title") or "Meldung"),
-        "text": text,
-        "kamera": kamera,
-        "knoepfe": knoepfe,
-        "seit": jetzt,
-        "bis": jetzt + min(dauer, MAX_DAUER_S),
-    }
+def _skript_daten(domain: str, service: str, daten: dict[str, Any], skript: str) -> dict[str, Any] | None:
+    """Felder eines Skriptaufrufs, direkt (``script.x``) oder über ``script.turn_on`` mit ``variables``."""
+    if domain != "script":
+        return None
+    if service == skript:
+        return daten
+    if service == "turn_on":
+        ziel = daten.get("entity_id")
+        ziele = [ziel] if isinstance(ziel, str) else ziel or []
+        if f"script.{skript}" in ziele:
+            return daten.get("variables") or {}
+    return None
 
 
 class PopupSpeicher:
     def __init__(self) -> None:
         self.meldungen: dict[str, dict[str, Any]] = {}
 
-    def verarbeiten(self, domain: str, service: str, daten: dict[str, Any], jetzt: float | None = None) -> bool:
-        """Liefert True, wenn sich die Liste geändert hat."""
-        if domain != "browser_mod":
-            return False
-        if service == "popup":
-            m = aus_aufruf(daten, jetzt)
-            self.meldungen[m["id"]] = m
-            while len(self.meldungen) > MAX_MELDUNGEN:
-                aeltester = min(self.meldungen.values(), key=lambda x: x["seit"])
-                self.meldungen.pop(aeltester["id"])
-            return True
-        if service == "close_popup":
+    # ------------------------------------------------------------ Eingang
+
+    def verarbeiten(self, domain: str, service: str, daten: dict[str, Any], jetzt: float | None = None) -> str | None:
+        """Wertet einen Dienstaufruf aus. Rückgabe: ID einer neuen oder aktualisierten Meldung, ``""`` bei Entfernen,
+        ``None`` ohne Änderung."""
+        jetzt = time.time() if jetzt is None else jetzt
+        if (d := _skript_daten(domain, service, daten, "panel_meldung")) is not None:
+            return self._panel(d, jetzt)
+        if (d := _skript_daten(domain, service, daten, "panel_meldung_schliessen")) is not None:
+            return "" if self._schliessen(d.get("tag")) else None
+        if domain == "browser_mod" and service == "popup":
+            return self._popup(daten, jetzt)
+        if domain == "browser_mod" and service == "close_popup":
             tag = daten.get("tag")
             if tag:
-                return self.meldungen.pop(f"pop:{tag}", None) is not None
-            geaendert = bool(self.meldungen)
-            self.meldungen.clear()
-            return geaendert
-        return False
+                return "" if self._schliessen(tag) else None
+            weg = [k for k, m in self.meldungen.items() if m["quelle"] == "popup"]
+            for k in weg:
+                del self.meldungen[k]
+            return "" if weg else None
+        return None
+
+    def _eintrag(self, tag: str | None, jetzt: float) -> dict[str, Any]:
+        mid = f"msg:{tag}" if tag else f"msg:{uuid.uuid4().hex[:10]}"
+        m = self.meldungen.get(mid)
+        if m is None:
+            m = {
+                "id": mid,
+                "tag": tag,
+                "titel": "Hinweis",
+                "text": "",
+                "icon": "info",
+                "prio": "normal",
+                "bestaetigen": None,
+                "details": "",
+                "kamera": None,
+                "knoepfe": [],
+                "quelle": "",
+                "seit": jetzt,
+                "bis": jetzt + LAUFZEIT_MIN["normal"] * 60,
+            }
+            self.meldungen[mid] = m
+        return m
+
+    def _panel(self, d: dict[str, Any], jetzt: float) -> str | None:
+        tag = str(d.get("tag") or "").replace("|", "/").strip()[:180]
+        if not tag:
+            return None
+        m = self._eintrag(tag, jetzt)
+        prio = d.get("prioritaet") if d.get("prioritaet") in LAUFZEIT_MIN else "normal"
+        try:
+            laufzeit = int(d.get("laufzeit_min") or 0) or LAUFZEIT_MIN[prio]
+        except (TypeError, ValueError):
+            laufzeit = LAUFZEIT_MIN[prio]
+        bestaetigen = str(d.get("bestaetigen_entity") or "")
+        m.update(
+            titel=str(d.get("titel") or "Hinweis"),
+            text=str(d.get("text") or ""),
+            icon=str(d.get("icon") or "info"),
+            prio=prio,
+            bestaetigen=bestaetigen if ENTITY_RE.match(bestaetigen) else None,
+            quelle="panel",
+            seit=jetzt,
+            bis=jetzt + min(laufzeit * 60, 24 * 3600),
+        )
+        self._begrenzen()
+        return m["id"]
+
+    def _popup(self, d: dict[str, Any], jetzt: float) -> str:
+        tag = str(d.get("tag") or "") or None
+        m = self._eintrag(tag, jetzt)
+        details, kamera = text_aus_inhalt(d.get("content"))
+        knoepfe = []
+        for seite, art in (("left", "neben"), ("right", "haupt")):
+            if d.get(f"{seite}_button"):
+                a = _aktion(d.get(f"{seite}_button_action")) or {"domain": None, "service": None, "data": {}}
+                knoepfe.append({"text": str(d[f"{seite}_button"]), "art": art, **a})
+        m.update(details=details, kamera=kamera, knoepfe=knoepfe)
+        if m["quelle"] != "panel":  # Popup ohne Panel-Meldung: Titel und Laufzeit aus dem Popup
+            m["titel"] = str(d.get("title") or "Meldung")
+            m["quelle"] = "popup"
+            m["seit"] = jetzt
+            try:
+                dauer = float(d["timeout"]) / 1000 if d.get("timeout") else MAX_DAUER_S
+            except (TypeError, ValueError):
+                dauer = MAX_DAUER_S
+            m["bis"] = jetzt + min(dauer, MAX_DAUER_S)
+        self._begrenzen()
+        return m["id"]
+
+    def _schliessen(self, tag: Any) -> bool:
+        return self.meldungen.pop(f"msg:{str(tag or '').replace('|', '/').strip()}", None) is not None
+
+    def _begrenzen(self) -> None:
+        while len(self.meldungen) > MAX_MELDUNGEN:
+            aelteste = min(self.meldungen.values(), key=lambda x: (PRIO_RANG[x["prio"]], x["seit"]))
+            self.meldungen.pop(aelteste["id"])
+
+    # ------------------------------------------------------------ Pflege und Ausgabe
 
     def entfernen(self, mid: str) -> bool:
         return self.meldungen.pop(mid, None) is not None
 
     def aufraeumen(self, jetzt: float | None = None) -> bool:
         jetzt = time.time() if jetzt is None else jetzt
-        weg = [k for k, m in self.meldungen.items() if m["bis"] and m["bis"] < jetzt]
+        weg = [k for k, m in self.meldungen.items() if m["bis"] < jetzt]
         for k in weg:
             del self.meldungen[k]
         return bool(weg)
 
     def liste(self) -> list[dict[str, Any]]:
-        return sorted(self.meldungen.values(), key=lambda m: m["seit"], reverse=True)
+        """Höchste Priorität zuerst, innerhalb davon die neueste."""
+        return sorted(self.meldungen.values(), key=lambda m: (-PRIO_RANG[m["prio"]], -m["seit"]))
 
     def karten(self) -> list[dict[str, Any]]:
-        """Karussell-Karten (neueste zuerst), Text ohne Markdown und auf eine Vorschau gekürzt."""
+        """Karussell-Karten; Priorität niedrig erscheint nur unter der Glocke (wie an den Panels)."""
         out = []
         for m in self.liste():
-            vorschau = re.sub(r"[*_#`>]|\[([^\]]*)\]\([^)]*\)", r"\1", m["text"])
-            vorschau = " · ".join(z.strip(" -·") for z in vorschau.splitlines() if z.strip(" -·"))[:140]
+            if m["prio"] == "low":
+                continue
+            text = m["text"] or re.sub(r"[*_#`>]", "", m["details"]).strip()
+            text = " · ".join(z.strip(" -·") for z in text.splitlines() if z.strip(" -·"))[:140]
             out.append(
                 {
                     "id": m["id"],
                     "art": "meldung",
                     "schluessel": "meldung",
+                    "icon": m["icon"],
+                    "prio": m["prio"],
                     "titel": m["titel"],
                     "wert": m["titel"],
-                    "hinweis": vorschau,
+                    "hinweis": text,
                     "ring": None,
                     "ende": None,
                     "dauer_s": None,

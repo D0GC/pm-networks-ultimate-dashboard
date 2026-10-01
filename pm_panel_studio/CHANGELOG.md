@@ -1,5 +1,22 @@
 # Änderungen
 
+## 0.1.4 – 2026-10-01
+
+- Kamera-Livestream (HLS, hls.js lokal eingebunden) beim Antippen einer Kamera und im Tür-Overlay; zuerst das
+  letzte Standbild, dann das Video, sobald die Kamera wach ist. Ohne Stream Rückfall auf Einzelbilder.
+- Kamerakacheln zeigen nur noch ein Standbild, alle 30 s erneuert (schont Akkukameras).
+- Kamera-Popups (z. B. „Wohnungstür Personenerkennung Popup“) öffnen das Vollbild-Overlay wie früher das Popup;
+  `browser_mod.close_popup` derselben Kennung schließt es.
+
+## 0.1.3 – 2026-10-01
+
+- Meldungen gegliedert wie an den Panels Büro und Bad: Die App hört `script.panel_meldung` und
+  `script.panel_meldung_schliessen` mit (Kennung, Titel, Text, Symbol, Priorität, Bestätigen-Knopf, Laufzeit).
+  Ein Browser-Mod-Popup mit gleicher Kennung ergänzt die Meldung um den ausführlichen Text und ggf. eine Kamera.
+- Priorität wie am Panel: niedrig nur Glocke, normal Karte und sofort offen, wenn jemand am Panel ist,
+  hoch weckt das Panel und öffnet sofort. Knöpfe „Bestätigen“ und „Später“ bzw. „OK“.
+- Automationen bleiben unverändert; der Flur zeigt alle Panel-Meldungen.
+
 ## 0.1.2 – 2026-10-01
 
 - Browser-Mod-Popups erscheinen im Panel: Die App hört `browser_mod.popup` und `browser_mod.close_popup` mit.

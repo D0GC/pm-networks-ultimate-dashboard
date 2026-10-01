@@ -4,7 +4,7 @@
   const $ = (s) => document.querySelector(s);
   const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const MODULE = { raeume: "Räume", klima: "Klima", licht: "Licht", sicherheit: "Sicherheit", medien: "Medien", listen: "Listen", energie: "Energie", wartung: "Wartung", suche: "Suche" };
-  const KARTEN = { meldung: "Popups (Browser Mod)", eil: "Eilmeldung", warnung: "Warnung", termin: "Termin", arbeit: "Fahrten", wetter: "Wetter", muell: "Müll", fertig: "Gerät fertig", offen: "Offen", lueften: "Lüften", pollen: "Pollen", eigen: "Eigener Hinweis", dusche: "Duschmodus", spa: "Spa", kohle: "Kohle", waesche: "Waschmaschine", spueler: "Spülmaschine", robo: "Roborock", musik: "Musik" };
+  const KARTEN = { meldung: "Panel-Meldungen", eil: "Eilmeldung", warnung: "Warnung", termin: "Termin", arbeit: "Fahrten", wetter: "Wetter", muell: "Müll", fertig: "Gerät fertig", offen: "Offen", lueften: "Lüften", pollen: "Pollen", eigen: "Eigener Hinweis", dusche: "Duschmodus", spa: "Spa", kohle: "Kohle", waesche: "Waschmaschine", spueler: "Spülmaschine", robo: "Roborock", musik: "Musik" };
   const ZAHLEN = ["verweildauer_s", "ruhe_nach_s", "bedienung_zurueck_s", "ruhe_helligkeit", "nacht_helligkeit", "ereignis_dauer_s"];
   let daten = null, bereiche = [], ws = null, wsId = 1, moduleReihe = [];
 

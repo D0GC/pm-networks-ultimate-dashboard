@@ -134,14 +134,57 @@ async def test_kamera_stream(ingress):
     assert r.status == 400
 
 
-async def test_browser_mod_popup_kommt_im_panel_an(ingress, fake):
+async def test_panel_meldung_und_popup_kommen_im_panel_an(ingress, fake, hub):
     ws = await ingress.ws_connect("/api/ws")
     await _init(ws)
-    fake.service("browser_mod", "popup", {"title": "Kohle fertig", "content": "Fertig.", "tag": "kohle_fertig"})
+    hub.modus = "ruhe"
+    fake.service(
+        "script", "panel_meldung", {"tag": "kohle_fertig", "titel": "Kohle fertig", "text": "Fertig.", "prioritaet": "high"}
+    )
     m = await _warte_auf(ws, "popups")
-    assert m["neu"] == "pop:kohle_fertig"
+    assert m["neu"] == "msg:kohle_fertig"
+    assert m["liste"][0]["prio"] == "high"
+    assert hub.modus == "wach"  # hohe Priorität weckt
+    fake.service("browser_mod", "popup", {"title": "Kohle fertig", "content": "Lang.", "tag": "kohle_fertig"})
+    m = await _warte_auf(ws, "popups", lambda m: m["liste"] and m["liste"][0]["details"] == "Lang.")
     k = await _warte_auf(ws, "karten", lambda m: m["karten"][0]["art"] == "meldung")
     assert k["karten"][0]["titel"] == "Kohle fertig"
     fake.service("browser_mod", "close_popup", {"tag": "kohle_fertig"})
     m = await _warte_auf(ws, "popups", lambda m: not m["liste"])
+    await ws.close()
+
+
+async def test_livestream_hls(ingress):
+    ws = await ingress.ws_connect("/api/ws")
+    await _init(ws)
+    await ws.send_json({"typ": "kamera_stream", "id": 21, "entity_id": "camera.wohnungstuer_standardauflosung"})
+    a = await _warte_auf(ws, "antwort", lambda m: m["id"] == 21)
+    assert a["ok"] and a["ergebnis"] == "api/hls/tok123/master_playlist.m3u8"
+    r = await ingress.get("/" + a["ergebnis"])
+    assert r.status == 200 and "#EXTM3U" in await r.text()
+    r = await ingress.get("/api/hls/tok123/segment0.ts")
+    assert r.status == 200 and len(await r.read()) == 188
+    await ws.send_json({"typ": "kamera_stream", "id": 22, "entity_id": "light.x"})
+    a = await _warte_auf(ws, "antwort", lambda m: m["id"] == 22)
+    assert not a["ok"]
+    await ws.close()
+
+
+async def test_kamera_popup_wird_overlay(ingress, fake, hub):
+    ws = await ingress.ws_connect("/api/ws")
+    await _init(ws)
+    fake.service(
+        "browser_mod",
+        "popup",
+        {
+            "title": "Person an der Tür",
+            "content": {"type": "picture-entity", "entity": "camera.wohnungstuer_hochauflosung"},
+            "tag": "tuer",
+        },
+    )
+    m = await _warte_auf(ws, "ereignis")
+    assert m["aktiv"] and m["kamera"] == "camera.wohnungstuer_hochauflosung" and m["titel"] == "Person an der Tür"
+    assert hub.popups.liste() == []  # nicht zusätzlich als Meldung
+    fake.service("browser_mod", "close_popup", {"tag": "tuer"})
+    m = await _warte_auf(ws, "ereignis", lambda m: not m["aktiv"])
     await ws.close()
