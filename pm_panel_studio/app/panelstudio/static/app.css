@@ -384,3 +384,26 @@ body.ohne-animation *,body.ohne-animation *::before,body.ohne-animation *::after
 .r-thermos{grid-template-columns:repeat(2,minmax(0,1fr))}
 .balken-zeile{grid-template-columns:minmax(0,1fr) auto}
 .balken-zeile .w{white-space:nowrap}
+.karte .kopf .punkt{width:.75rem;height:.75rem;border-radius:50%;background:currentColor;flex:none}
+.karte .stark{font-weight:600}
+
+/* Karussell 1:1 nach dem Konzept (Maße auf 1920 px: 1cqw im Konzept = 1rem hier) */
+.karte{padding:2.4rem;border-radius:2rem;background:rgba(38,34,82,.62);border:1px solid rgba(197,192,211,.14);gap:1rem;
+  box-shadow:0 2rem 4rem -2rem rgba(0,0,0,.5);transform:translateX(8%) rotateY(-10deg) scale(.96);transition:opacity .9s ease,transform .9s var(--ease)}
+.karte.an{transform:none}
+.karte.weg{transform:translateX(-8%) rotateY(10deg) scale(.96)}
+.karte .kopf{font-size:1.05rem;font-weight:600;letter-spacing:.16em;gap:.8rem}
+.karte .kopf .punkt{width:.8rem;height:.8rem}
+.karte .kopf .mdi{display:none}
+.karte .ring{width:15rem;height:auto;aspect-ratio:1;flex:none}
+.karte .ring .spur{stroke:rgba(197,192,211,.12);stroke-width:7}
+.karte .ring .wert{stroke-width:7;transition:stroke-dashoffset 1.4s var(--ease)}
+.karte .ring .innen b{font-size:3rem;font-weight:600}
+.karte .ring .innen small{font-size:1rem;letter-spacing:.1em;margin-top:.4rem}
+.karte .ring .innen .mdi{font-size:4.2rem;opacity:1}
+.karte h2{font-size:2.9rem;font-weight:600;line-height:1.1}
+.karte.eil h2{font-size:2.2rem}
+.karte p{font-size:1.4rem;color:var(--lavender);line-height:1.4}
+.punkte{gap:.6rem}
+.punkte span,.punkte span.jetzt{height:.5rem;width:1.6rem}
+.punkte span.vorbei{background:rgba(197,192,211,.5)}
