@@ -94,3 +94,13 @@ def test_niedrig_nur_glocke_und_reihenfolge():
     assert [k["id"] for k in sp.karten()] == ["msg:c", "msg:b"]
     assert sp.verarbeiten("light", "turn_on", {}) is None
     assert sp.verarbeiten("script", "panel_meldung", {"text": "ohne Kennung"}) is None
+
+
+def test_sicherheitsmeldung_merkmal():
+    sp = PopupSpeicher()
+    sp.verarbeiten(
+        "script", "panel_meldung", {"tag": "rauch", "text": "Rauch", "prioritaet": "high", "sicherheit": True}, jetzt=0
+    )
+    sp.verarbeiten("script", "panel_meldung", {"tag": "kohle", "text": "Kohle", "prioritaet": "high"}, jetzt=0)
+    assert sp.meldungen["msg:rauch"]["sicherheit"] is True
+    assert sp.meldungen["msg:kohle"]["sicherheit"] is False

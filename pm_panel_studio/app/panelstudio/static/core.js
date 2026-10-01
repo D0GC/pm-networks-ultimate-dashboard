@@ -423,6 +423,39 @@
       return `<p>${zeilen.map(inline).join("<br>")}</p>`;
     }).join("");
   };
+  // Hinweiston über die Lautsprecher des Panels (Web Audio, ohne Datei): dreistimmiger Gong.
+  // Chromium spielt Ton erst nach einer Berührung ab; im Kiosk mit --autoplay-policy=no-user-gesture-required sofort.
+  let audio = null;
+  const audioCtx = () => { try { audio = audio || new (window.AudioContext || window.webkitAudioContext)(); } catch { audio = null; } return audio; };
+  addEventListener("pointerdown", () => { const c = audioCtx(); if (c && c.state === "suspended") c.resume().catch(() => {}); }, { passive: true });
+  PS.ton = () => {
+    const c = audioCtx(); if (!c) return;
+    if (c.state === "suspended") c.resume().catch(() => {});
+    const laut = Math.max(0.05, Math.min(1, (PS.einst.ton_lautstaerke ?? 70) / 100)) * 0.5;
+    const jetzt = c.currentTime + 0.05;
+    [[880, 0], [1108.7, 0.18], [1318.5, 0.36]].forEach(([hz, ab]) => {
+      const o = c.createOscillator(), g = c.createGain();
+      o.type = "sine"; o.frequency.value = hz;
+      g.gain.setValueAtTime(0, jetzt + ab);
+      g.gain.linearRampToValueAtTime(laut, jetzt + ab + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, jetzt + ab + 1.1);
+      o.connect(g).connect(c.destination); o.start(jetzt + ab); o.stop(jetzt + ab + 1.2);
+    });
+  };
+  // Wiederholung (höchstens 3×, alle 20 s), bis die Meldung geöffnet, bestätigt oder geschlossen ist
+  let tonTimer = null, tonFuer = null;
+  PS.alarmTon = (m) => {
+    if (!m || m.prio !== "high" || PS.einst.ton_hoch === false) return;
+    if (PS.s("input_boolean.alles_stumm") === "on" && !m.sicherheit) return;
+    PS.tonStopp(); tonFuer = m.id;
+    let n = 0;
+    const spielen = () => {
+      if (tonFuer !== m.id || !(PS.popups || []).some((x) => x.id === m.id)) return PS.tonStopp();
+      PS.ton(); if (++n < 3) tonTimer = setTimeout(spielen, 20000);
+    };
+    spielen();
+  };
+  PS.tonStopp = () => { clearTimeout(tonTimer); tonTimer = null; tonFuer = null; };
   PS.kameraUrl = (eid) => "api/kamera?eid=" + encodeURIComponent(eid) + "&t=" + Date.now();
   // Livebild (MJPEG); fällt bei Fehlern auf Einzelbilder zurück, die nacheinander (nie überlappend) geladen werden.
   PS.kameraStarten = (img, eid) => {

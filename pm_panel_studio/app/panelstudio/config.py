@@ -121,6 +121,8 @@ class Einstellungen:
     szenen_angeheftet: list[str] = field(default_factory=list)  # stehen in der Raumansicht immer vorn
     szenen_aus: list[str] = field(default_factory=list)  # erscheinen nicht unter den Lieblingsszenen
     animationen: bool = True
+    ton_hoch: bool = True  # Hinweiston bei Meldungen mit Priorität hoch (Lautsprecher des Panels)
+    ton_lautstaerke: int = 70
 
     GRENZEN = {  # noqa: RUF012
         "verweildauer_s": (3, 60),
@@ -129,6 +131,7 @@ class Einstellungen:
         "ruhe_helligkeit": (0, 90),
         "nacht_helligkeit": (0, 95),
         "ereignis_dauer_s": (15, 600),
+        "ton_lautstaerke": (5, 100),
     }
 
     @classmethod
@@ -159,8 +162,8 @@ class Einstellungen:
             elif key in ("bereiche_reihenfolge", "bereiche_ausblenden", "start_raeume", "karten_aus"):
                 vals = val if isinstance(val, list) else []
                 setattr(self, key, [s for s in dict.fromkeys(str(v).strip() for v in vals) if re.match(r"^[a-z0-9_]{1,64}$", s)])
-            elif key == "animationen":
-                self.animationen = bool(val)
+            elif key in ("animationen", "ton_hoch"):
+                setattr(self, key, bool(val))
             else:
                 abgewiesen.append(key)
         return abgewiesen

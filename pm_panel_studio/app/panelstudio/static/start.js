@@ -49,9 +49,6 @@
   }
   function statusZeile() {
     const teile = [];
-    const dringend = (PS.meldungen || []).length + (PS.popups || []).length;
-    const anzahl = dringend + (PS.karten || []).filter((k) => k.art === "hinweis").length;
-    teile.push(`<button class="pille glocke${dringend ? " neu" : ""}" data-modul="hinweise" aria-label="Hinweise">${PS.ic(anzahl ? "bell-badge-outline" : "bell-outline")}${anzahl ? `<span class="tabular">${anzahl}</span>` : ""}</button>`);
     const al = PS.opt.alarm_entitaet;
     if (al && PS.z[al]) {
       const s = PS.s(al), kl = s === "triggered" ? "krit" : s === "pending" || s === "arming" ? "warn" : s.startsWith("armed") ? "gut" : "";
@@ -64,6 +61,15 @@
     $("#status").innerHTML = teile.join("");
     $("#status").querySelectorAll("[data-eid]").forEach((el) => el.addEventListener("click", () => PS.mehrInfos(el.dataset.eid)));
     $("#status").querySelectorAll("[data-modul]").forEach((el) => el.addEventListener("click", () => PS.oeffnen(el.dataset.modul)));
+    glocke();
+  }
+  // Glocke oben rechts: nur echte Meldungen (Panel-Meldungen, Popups, HA-Benachrichtigungen), keine Hinweise
+  function glocke() {
+    const el = $("#glocke"); if (!el) return;
+    const n = (PS.meldungen || []).length + (PS.popups || []).length;
+    const hoch = (PS.popups || []).some((m) => m.prio === "high");
+    el.className = "glocke" + (n ? " neu" : "") + (hoch ? " hoch" : "");
+    el.innerHTML = PS.ic(hoch ? "bell-ring-outline" : n ? "bell-badge-outline" : "bell-outline") + (n ? `<span class="zahl tabular">${n}</span>` : "");
   }
 
   // ------------------------------------------------------------ Karussell
@@ -266,7 +272,9 @@
     if (stapel.length && stapel[0].modul === "hinweise") PS.neuZeichnen();
     // Wie an den Panels: hoch weckt und öffnet sofort, normal öffnet, wenn jemand am Panel ist, niedrig nur Glocke
     const m = neu && (PS.popups || []).find((x) => x.id === neu);
-    if (!m || document.body.classList.contains("ereignis-an")) return;
+    if (!m) return;
+    PS.alarmTon(m);
+    if (document.body.classList.contains("ereignis-an")) return;
     if (m.prio === "high" || (m.prio === "normal" && PS.modus === "wach")) { document.body.classList.remove("ruhe"); PS.popupZeigen(neu); }
   });
   PS.on("meldungen", () => { statusZeile(); if (stapel.length && stapel[0].modul === "hinweise") PS.neuZeichnen(); });
@@ -283,6 +291,7 @@
 
   document.addEventListener("DOMContentLoaded", () => {
     $("#sheet-zu").addEventListener("click", PS.schliessen);
+    $("#glocke").addEventListener("click", () => PS.oeffnen("hinweise"));
     $("#sheet-zurueck").addEventListener("click", zurueck);
     $("#ereignis-ignorieren").addEventListener("click", () => { PS.anfrage({ typ: "ereignis_ende" }).catch(() => {}); ereignis({ aktiv: false }); });
     PS.halten($("#ereignis-oeffnen"), 2000, () => {

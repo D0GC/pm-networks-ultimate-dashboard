@@ -74,14 +74,14 @@
       <h2>${PS.esc(m.titel)}</h2>
       ${m.text ? `<p class="m-text">${PS.esc(m.text)}</p>` : ""}
       <div class="m-wann">${zeit} · ${M_PRIO[m.prio] || ""}</div></div>`;
-    dlg.querySelector(".zu").addEventListener("click", schliessen);
+    dlg.querySelector(".zu").addEventListener("click", () => { PS.tonStopp(); schliessen(); });
     if (m.details) { const md = document.createElement("div"); md.className = "md"; md.innerHTML = PS.markdown(m.details); dlg.appendChild(md); }
     if (m.kamera) { const k = document.createElement("div"); dlg.appendChild(k); PS.kameraLive(k, m.kamera); }
     const r = reihe(); r.classList.add("m-knoepfe");
-    const ok = () => PS.anfrage({ typ: "popup_schliessen", popup: m.id }).catch(() => {}).then(schliessen);
+    const ok = () => { PS.tonStopp(); return PS.anfrage({ typ: "popup_schliessen", popup: m.id }).catch(() => {}).then(schliessen); };
     if (m.bestaetigen) {
-      r.appendChild(knopf("Bestätigen", "check", () => PS.dienst(PS.domain(m.bestaetigen), "press", { entity_id: m.bestaetigen }).then(() => { PS.toast("Bestätigt"); schliessen(); }), "gut"));
-      r.appendChild(knopf("Später", "clock-outline", schliessen));
+      r.appendChild(knopf("Bestätigen", "check", () => PS.tonStopp() || PS.dienst(PS.domain(m.bestaetigen), "press", { entity_id: m.bestaetigen }).then(() => { PS.toast("Bestätigt"); schliessen(); }), "gut"));
+      r.appendChild(knopf("Später", "clock-outline", () => { PS.tonStopp(); schliessen(); }));
     } else {
       r.appendChild(knopf("OK", "check", ok, "primaer"));
     }

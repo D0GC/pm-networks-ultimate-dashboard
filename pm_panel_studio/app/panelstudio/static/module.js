@@ -353,7 +353,7 @@
     },
 
     hinweise: {
-      titel: "Hinweise", icon: "bell-outline", versteckt: true,
+      titel: "Meldungen", icon: "bell-outline", versteckt: true,
       render(el) {
         const pops = PS.popups || [];
         if (pops.length) {
@@ -375,9 +375,8 @@
         });
         el.appendChild(gruppe(m.length ? `Benachrichtigungen · ${m.length}` : "Benachrichtigungen", m.length ? liste : E('<div class="leer">Keine offenen Benachrichtigungen.</div>'),
           m.length > 1 ? knopf("Alle verwerfen", "notification-clear-all", () => Promise.all(m.map((n) => PS.dienst("persistent_notification", "dismiss", { notification_id: n.notification_id })))) : null));
-        const karten = (PS.karten || []).filter((k) => k.id !== "leer" && k.art !== "meldung");
-        const kl = E(`<div class="liste">${karten.map((k) => `<div class="zeile">${PS.ic(PS.kartenIcon(k.schluessel))}<span class="n">${PS.esc(k.art === "aktivitaet" ? k.titel : k.titel + " · " + k.wert)}<small>${PS.esc(k.art === "aktivitaet" ? [k.wert, k.hinweis, k.unter].filter(Boolean).join(" · ") : k.hinweis)}</small></span></div>`).join("")}</div>`);
-        el.appendChild(gruppe("Hinweise und Aktivitäten", karten.length ? kl : E('<div class="leer">Alles ruhig.</div>')));
+        if (!pops.length && !m.length) el.querySelectorAll(".gruppe").forEach((g) => g.remove());
+        if (!pops.length && !m.length) el.appendChild(E('<div class="leer">Keine Meldungen. Hinweise stehen im Karussell auf der Startseite.</div>'));
         beobachten(() => false);
       },
     },

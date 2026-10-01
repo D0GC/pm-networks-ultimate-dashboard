@@ -327,3 +327,13 @@ body.ohne-animation *,body.ohne-animation *::before,body.ohne-animation *::after
 .gross.kompakt .thermo .soll b{font-size:1.9rem;min-width:5rem}
 .gross.kompakt .knopf{padding:.5rem .8rem;font-size:.95rem}
 .gross.kompakt .knopf.rund{width:3rem;height:3rem;padding:0}
+
+/* Glocke oben rechts */
+.glocke-zeile{display:flex;justify-content:flex-end;margin-bottom:-.4rem}
+.glocke{all:unset;cursor:pointer;position:relative;width:3.8rem;height:3.8rem;border-radius:50%;display:grid;place-items:center;background:var(--flaeche-tief);border:1px solid var(--linie);color:var(--lavender);font-size:1.9rem;transition:background .3s,color .3s,transform .2s}
+.glocke:active{transform:scale(.92)}
+.glocke:focus-visible{outline:2px solid var(--cloud);outline-offset:2px}
+.glocke.neu{color:var(--warn);border-color:rgba(240,180,76,.4)}
+.glocke.hoch{color:var(--krit);border-color:rgba(239,106,122,.5);animation:glocke 2.4s ease-in-out infinite}
+@keyframes glocke{0%,80%,100%{transform:rotate(0)}84%{transform:rotate(12deg)}88%{transform:rotate(-10deg)}92%{transform:rotate(6deg)}}
+.glocke .zahl{position:absolute;top:-.2rem;right:-.2rem;min-width:1.5rem;height:1.5rem;padding:0 .35rem;border-radius:99px;background:var(--krit);color:#fff;font:700 .85rem var(--f-ui,Montserrat,sans-serif);display:grid;place-items:center}

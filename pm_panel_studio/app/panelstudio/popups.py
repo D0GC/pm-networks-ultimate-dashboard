@@ -128,6 +128,7 @@ class PopupSpeicher:
                 "kamera": None,
                 "knoepfe": [],
                 "quelle": "",
+                "sicherheit": False,
                 "seit": jetzt,
                 "bis": jetzt + LAUFZEIT_MIN["normal"] * 60,
             }
@@ -152,6 +153,7 @@ class PopupSpeicher:
             prio=prio,
             bestaetigen=bestaetigen if ENTITY_RE.match(bestaetigen) else None,
             quelle="panel",
+            sicherheit=bool(d.get("sicherheit")),
             seit=jetzt,
             bis=jetzt + min(laufzeit * 60, 24 * 3600),
         )

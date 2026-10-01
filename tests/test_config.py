@@ -26,3 +26,10 @@ def test_speicher_und_token(tmp_path):
     t1 = sp.token()
     assert len(t1) >= 24 and sp.token() == t1
     assert sp.token(neu=True) != t1
+
+
+def test_ton_einstellungen():
+    e = Einstellungen()
+    assert e.ton_hoch and e.ton_lautstaerke == 70
+    e.aktualisieren({"ton_hoch": False, "ton_lautstaerke": 500})
+    assert e.ton_hoch is False and e.ton_lautstaerke == 100
