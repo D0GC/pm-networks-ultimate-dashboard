@@ -6,7 +6,8 @@
   Schrift wie im Konzept), Überschrift und eine Textzeile, Einblendung mit leichter Drehung, Zahl zählt hoch.
 - Ringe mit Bedeutung je Karte: Müll (Stunden bis zur Abholung), Termin (Minuten bis), Fahrt (Minuten), Wetter
   (Regenwahrscheinlichkeit bzw. Höchsttemperatur), Offen (Anzahl), Lüften (Luftfeuchte), Geräte (Restzeit mit
-  „fertig gegen …“), Musik (Restzeit des Titels).
+  „fertig gegen …“), Musik (Restzeit des Titels), Pollen (Stufe 0–4 des Österreichischen Pollenwarndienstes,
+  „3 von 4“ bei „hoch“).
 
 ## 0.1.8 – 2026-10-01
 

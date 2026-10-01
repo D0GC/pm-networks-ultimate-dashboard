@@ -158,7 +158,13 @@
         return { ...m, kopf: "Offen", zahl: String(n || 1), einheit: "offen", h2: liste ? k.hinweis : k.wert, p: n > 1 ? "Fenster und Türen prüfen" : "steht offen" };
       }
       case "fertig": return { ...m, kopf: "Fertig", h2: `${k.wert} fertig`, p: k.hinweis };
-      case "pollen": return { ...m, kopf: "Pollen", h2: `Pollen ${k.wert}`, p: k.hinweis, anteil: { "mäßig": 0.34, hoch: 0.67, "sehr hoch": 1 }[k.wert] ?? 1 };
+      case "pollen": {
+        // Skala des Österreichischen Pollenwarndienstes (polleninformation_zuhause_*): 0 keine … 4 sehr hoch
+        const stufe = { keine: 0, "keine belastung": 0, gering: 1, "mäßig": 2, hoch: 3, "sehr hoch": 4 }[String(k.wert).toLowerCase()];
+        const farbe = stufe >= 3 ? "var(--krit)" : stufe === 2 ? "var(--warn)" : m.farbe;
+        return { ...m, kopf: "Pollen", farbe, h2: `Pollen ${k.wert}`, p: k.hinweis,
+          ...(stufe != null ? { zahl: String(stufe), einheit: "von 4", anteil: Math.max(0.02, stufe / 4) } : {}) };
+      }
       case "eil": return { ...m, kopf: `Eilmeldung · ${k.titel}`, h2: k.hinweis, p: "" };
       case "ruhig": return { ...m, kopf: "Hinweise", h2: "Alles ruhig", p: k.hinweis };
     }
