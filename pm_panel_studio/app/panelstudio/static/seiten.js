@@ -370,6 +370,92 @@
     r.appendChild(alleKnopf("Protokoll, Batterien und Automationen", "wartung"));
   }
 
+  // ------------------------------------------------------------ Shisha: Kohle und Zähler
+  // Der Füllstand der Ringe ist nur eine gedachte Grenze (Woche 20, Jahr 1000, Vorrat laut Zähler-Maximum); die
+  // Zähler selbst laufen unbegrenzt weiter. „Kohle gesamt“ füllt sich bis zur nächsten 500er-Marke.
+  const KOHLE = { schalter: "switch.balkon_kohlegrill", timer: "timer.kohle_timer", stumm: "input_boolean.kohle_stumm", leistung: "sensor.balkon_kohlegrill_derzeitiger_verbrauch" };
+  const SHISHA_ZAEHLER = [
+    { eid: "counter.smoked_shishas", titel: "Diese Woche", max: () => 20, farbe: () => "#c99bf0" },
+    { eid: "counter.smoked_shishas_jahrlich", titel: "Dieses Jahr", max: () => 1000, farbe: () => "#b07fd0" },
+  ];
+  const KOHLE_ZAEHLER = [
+    { eid: "counter.verbleibende_kohle", titel: "Vorrat", max: (e) => Number(PS.a(e).maximum) || 54, reset: "Neue Packung",
+      farbe: (e) => { const a = num(e) / (Number(PS.a(e).maximum) || 54); return a < 0.17 ? "var(--krit)" : a < 0.34 ? "var(--warn)" : "var(--gut)"; } },
+    { eid: "counter.kohle", titel: "Kohle gesamt", max: (e) => Math.floor(num(e) / 500 + 1) * 500, marke: true, farbe: () => "#f0964c" },
+  ];
+  const tausender = (n) => Number(n).toLocaleString("de-DE");
+  function zaehlerKarte(z) {
+    const e = z.eid, n = num(e), max = z.max(e), schritt = Number(PS.a(e).step) || 1;
+    const k = E(`<div class="zaehler-karte">
+      <div class="ring r-ring r-gross" style="--farbe:${z.farbe(e)}">${PS.ringSVG(Math.max(0.005, Math.min(1, n / max)))}<div class="innen"><b class="tabular${tausender(n).length > 4 ? " lang" : ""}">${tausender(n)}</b><small>${z.marke ? `bis ${tausender(max)}` : `von ${tausender(max)}`}</small></div></div>
+      <div class="zaehler-titel">${PS.esc(z.titel)}${n > max && !z.marke ? `<small>${tausender(n - max)} über der Marke</small>` : ""}</div>
+      <div class="reihe zaehler-knoepfe"></div></div>`);
+    const r = k.querySelector(".zaehler-knoepfe");
+    const minus = knopf(schritt > 1 ? `−${schritt}` : "", schritt > 1 ? null : "minus", () => PS.dienst("counter", "decrement", { entity_id: e }), "rund");
+    const plus = knopf(schritt > 1 ? `+${schritt}` : "", schritt > 1 ? null : "plus", () => PS.dienst("counter", "increment", { entity_id: e }), "rund primaer");
+    // Zurücksetzen bzw. neue Packung: runder Knopf, 2 s halten
+    const zurueck = knopf("", z.reset ? "package-variant-plus" : "restore", null, "rund zuruecksetzen");
+    zurueck.setAttribute("aria-label", z.reset || "Zurücksetzen");
+    PS.halten(zurueck, 2000, () => PS.dienst("counter", "reset", { entity_id: e }).then(() => PS.toast(`${z.titel}: zurückgesetzt`)));
+    r.append(minus, plus, zurueck);
+    k.querySelector(".ring").addEventListener("click", () => PS.mehrInfos(e));
+    return k;
+  }
+  function kohleRest() {
+    const t = KOHLE.timer, st = PS.s(t);
+    if (st !== "active" && st !== "paused") return null;
+    const dauer = (String(PS.a(t).duration || "0:0:0").split(":").reduce((a, x) => a * 60 + Number(x), 0)) || 1;
+    const rest = st === "active" ? Math.max(0, (Date.parse(PS.a(t).finishes_at) - Date.now()) / 1000)
+      : String(PS.a(t).remaining || "0:0:0").split(":").reduce((a, x) => a * 60 + Number(x), 0);
+    return { rest, dauer, pausiert: st === "paused" };
+  }
+  function shisha(el) {
+    const [l, m, r] = seite(el, "shisha");
+    // Links: Kohle anzünden
+    const b1 = box("Kohle", PS.z[KOHLE.leistung] && num(KOHLE.leistung) > 0 ? `${PS.zahl(num(KOHLE.leistung), 0)} W` : "");
+    const an = PS.s(KOHLE.schalter) === "on", rest = kohleRest();
+    const kopf = E('<div class="kohle-kopf"></div>');
+    const kr = E(`<div class="ring r-ring r-gross" style="--farbe:${an ? "#f0964c" : "var(--leise)"}">${PS.ringSVG(rest ? rest.rest / rest.dauer : an ? 1 : 0)}<div class="innen"><b class="tabular kohle-zeit">${rest ? "" : an ? PS.ic("fire") : "Aus"}</b><small>${rest ? (rest.pausiert ? "pausiert" : "bis fertig") : an ? "glüht" : "bereit"}</small></div></div>`);
+    kopf.appendChild(kr);
+    const zeit = kr.querySelector(".kohle-zeit");
+    const ticken = () => {
+      const x = kohleRest();
+      if (zeit._lief && !zeit.isConnected) return clearInterval(uhr);
+      zeit._lief = zeit.isConnected;
+      if (!x) return;
+      const g = Math.ceil(x.rest);
+      zeit.textContent = `${Math.floor(g / 60)}:${String(g % 60).padStart(2, "0")}`;
+      PS.ringSetzen(kr.querySelector("svg"), x.rest / x.dauer);
+    };
+    const uhr = setInterval(ticken, 1000); ticken();
+    b1.appendChild(kopf);
+    if (PS.z[KOHLE.schalter]) b1.appendChild(knopf(an ? "Kohle ausschalten" : "Kohle einschalten", "fire-circle",
+      () => PS.dienst("switch", an ? "turn_off" : "turn_on", { entity_id: KOHLE.schalter }).then(() => PS.toast(an ? "Kohle aus" : "Kohle wird angezündet")), an ? "gefahr breit" : "primaer breit"));
+    const kacheln = [KOHLE.stumm].filter((e) => PS.z[e]);
+    if (kacheln.length) b1.appendChild(raster(kacheln));
+    l.appendChild(b1);
+    // Mitte: Shishas
+    const b2 = box("Shishas", "Zurücksetzen: 2 s halten");
+    const g2 = E('<div class="zaehler-reihe"></div>');
+    SHISHA_ZAEHLER.filter((z) => PS.z[z.eid]).forEach((z) => g2.appendChild(zaehlerKarte(z)));
+    b2.appendChild(g2);
+    m.appendChild(b2);
+    // Rechts: Kohlezähler
+    const b3 = box("Kohlezähler", "Zurücksetzen: 2 s halten");
+    const g3 = E('<div class="zaehler-reihe"></div>');
+    KOHLE_ZAEHLER.filter((z) => PS.z[z.eid]).forEach((z) => g3.appendChild(zaehlerKarte(z)));
+    b3.appendChild(g3);
+    r.appendChild(b3);
+  }
+  // Zähler und Kohle an Ort und Stelle: Seite still neu zeichnen, wenn sich ein beteiligter Wert ändert
+  const SHISHA_IDS = new Set([...Object.values(KOHLE), ...SHISHA_ZAEHLER.map((z) => z.eid), ...KOHLE_ZAEHLER.map((z) => z.eid)]);
+  let shishaTimer = null;
+  PS.on("diff", (ids) => {
+    if (!document.querySelector(".zaehler-reihe") || ![...ids].some((e) => SHISHA_IDS.has(e)) || shishaTimer) return;
+    shishaTimer = setTimeout(() => { shishaTimer = null; if (document.querySelector(".zaehler-reihe")) PS.neuZeichnen(); }, 250);
+  });
+  PS.module.shisha = { titel: "Shisha", icon: "smoke", render: (el) => shisha(el) };
+
   // ------------------------------------------------------------ Luftqualität je Raum
   // Skalen mit Eskalationsfarben. Grenzen: CO₂ nach Pettenkofer/UBA-Leitwerten, Feinstaub nach dem Europäischen
   // Luftqualitätsindex, VOC nach UBA (ppb) bzw. Sensirion-Index, AQI nach US-EPA, Allergen-Index nach Philips (1–12).

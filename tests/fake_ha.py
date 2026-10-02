@@ -361,6 +361,21 @@ def default_states(jetzt: datetime) -> list[dict[str, Any]]:
             friendly_name="Dominiks Zahnbürste Dauer",
             unit_of_measurement="s",
         ),
+        # Shisha: Zähler und Kohle-Timer
+        s("counter.smoked_shishas", "12", None, friendly_name="smoked Shishas", step=1, initial=0),
+        s("counter.smoked_shishas_jahrlich", "386", None, friendly_name="smoked Shishas jährlich", step=1, initial=0),
+        s(
+            "counter.verbleibende_kohle",
+            "33",
+            None,
+            friendly_name="Verbleibende Kohle",
+            step=3,
+            initial=54,
+            minimum=0,
+            maximum=54,
+        ),
+        s("counter.kohle", "1176", "balkon", friendly_name="Kohle", step=3, initial=0),
+        s("input_boolean.kohle_stumm", "off", None, friendly_name="Kohle Stumm", icon="mdi:volume-off"),
         # Luftqualität Wohnzimmer (PM Klima, Wetterstation, Luftreiniger)
         s(
             "sensor.pm_wohnzimmer_luftqualitaet",
@@ -575,6 +590,15 @@ class FakeHA:
                 self.set_state(eid, "on", **attrs)
             elif service == "turn_off":
                 self.set_state(eid, "off")
+            elif domain == "counter" and service in ("increment", "decrement", "reset"):
+                a = st["attributes"]
+                n = int(st["state"]) + {"increment": 1, "decrement": -1, "reset": 0}[service] * int(a.get("step", 1))
+                n = (
+                    a.get("initial", 0)
+                    if service == "reset"
+                    else max(a.get("minimum", -(10**9)), min(a.get("maximum", 10**9), n))
+                )
+                self.set_state(eid, str(n), **a)
             elif domain == "lock" and service in ("lock", "unlock", "open"):
                 self.set_state(eid, "locked" if service == "lock" else "unlocked")
         if domain == "weather" and service == "get_forecasts":

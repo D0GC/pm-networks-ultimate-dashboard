@@ -1,5 +1,15 @@
 # Änderungen
 
+## 0.1.14 – 2026-10-02
+
+- Neue Seite „Shisha“ (Dock und Modulband, vor „Wartung“; bestehende Einstellungen nehmen sie einmalig auf):
+  - Kohle: Ring mit sekundengenauer Restzeit des Kohle-Timers, Knopf „Kohle einschalten/ausschalten“, Kohle stumm.
+  - Shishas: Zähler „Diese Woche“ und „Dieses Jahr“ als sich füllende Ringe; gedachte Marke 20 bzw. 1000 nur für
+    den Füllstand, die Zähler laufen darüber hinaus weiter.
+  - Kohlezähler: Vorrat (Marke = Zähler-Maximum 54, Farbe wird bei wenig Vorrat gelb bzw. rot, Zurücksetzen =
+    neue Packung) und Kohle gesamt (Ring bis zur nächsten 500er-Marke).
+  - Je Zähler Minus, Plus (Schrittweite des Zählers, z. B. ±3 bei Kohle) und Zurücksetzen (2 s halten).
+
 ## 0.1.13 – 2026-10-02
 
 - Raumansicht: Die Raumreiter unter dem Modulband entfallen; Räume wählen Sie über die Übersicht „Räume“.

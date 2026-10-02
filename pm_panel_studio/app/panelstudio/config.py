@@ -18,7 +18,9 @@ DATA_DIR = Path(os.environ.get("PMPS_DATA_DIR", "/data"))
 
 ENTITY_RE = re.compile(r"^[a-z_]+\.[a-z0-9_]+$")
 
-MODULE = ("start", "raeume", "klima", "licht", "sicherheit", "medien", "listen", "energie", "wartung", "suche")
+MODULE = ("start", "raeume", "klima", "licht", "sicherheit", "medien", "listen", "energie", "shisha", "wartung", "suche")
+# Module, die nach dem ersten Release hinzukamen: gespeicherte Einstellungen ohne „module_bekannt“ kennen sie noch nicht
+MODULE_NACHTRAG = ("shisha",)
 
 
 def _entity(value: Any) -> str:
@@ -139,6 +141,7 @@ class Einstellungen:
     ereignis_dauer_s: int = 90
     schnellzugriff: list[str] = field(default_factory=lambda: list(STANDARD_SCHNELLZUGRIFF))
     module: list[str] = field(default_factory=lambda: [m for m in MODULE if m != "start"])
+    module_bekannt: list[str] = field(default_factory=lambda: list(MODULE))  # neue Module erscheinen einmalig im Dock
     bereiche_reihenfolge: list[str] = field(default_factory=list)
     bereiche_ausblenden: list[str] = field(default_factory=list)
     start_raeume: list[str] = field(default_factory=lambda: ["wohnzimmer", "badezimmer", "schlafzimmer"])
@@ -171,6 +174,15 @@ class Einstellungen:
     def from_dict(cls, raw: dict[str, Any]) -> Einstellungen:
         e = cls()
         e.aktualisieren(raw)
+        if isinstance((raw or {}).get("module"), list):
+            # Neue Module, die der gespeicherte Stand noch nicht kannte, einmalig einreihen (vor „Suche“)
+            bekannt = raw.get("module_bekannt")
+            bekannt = set(bekannt) if isinstance(bekannt, list) else set(MODULE) - set(MODULE_NACHTRAG)
+            for m in MODULE:
+                if m != "start" and m not in bekannt and m not in e.module:
+                    pos = e.module.index("suche") if "suche" in e.module else len(e.module)
+                    e.module.insert(pos, m)
+        e.module_bekannt = list(MODULE)
         return e
 
     def aktualisieren(self, raw: dict[str, Any]) -> list[str]:
@@ -223,6 +235,8 @@ class Einstellungen:
                 setattr(self, key, [e for e in _entities(val) if e.startswith("scene.")][:60])
             elif key == "schnellzugriff":
                 self.schnellzugriff = _entities(val)[:8]
+            elif key == "module_bekannt":
+                pass  # wird beim Laden gesetzt
             elif key == "module":
                 vals = val if isinstance(val, list) else []
                 self.module = [m for m in dict.fromkeys(str(v) for v in vals) if m in MODULE and m != "start"]

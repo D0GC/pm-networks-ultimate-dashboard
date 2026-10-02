@@ -52,3 +52,11 @@ def test_raum_schalter_und_wartung():
     )
     assert e.raum_schalter == {"wohnzimmer": ["input_boolean.gina_lernt"]}
     assert e.aktualisieren({"raum_schalter": "falsch"}) == ["raum_schalter"]
+
+
+def test_neues_modul_wird_einmalig_eingereiht():
+    alt = Einstellungen.from_dict({"module": ["raeume", "klima", "wartung", "suche"]})
+    assert alt.module == ["raeume", "klima", "wartung", "shisha", "suche"]
+    # Nach dem Speichern kennt der Stand Shisha; abgewählt bleibt es abgewählt
+    neu = Einstellungen.from_dict({**alt.to_dict(), "module": ["raeume", "suche"]})
+    assert neu.module == ["raeume", "suche"]

@@ -453,3 +453,19 @@ body.ruhe .gruss.an{opacity:.6}
 .skala i.jetzt{opacity:1}
 .skala b{position:absolute;top:50%;width:1.05rem;height:1.05rem;border-radius:50%;background:#fff;transform:translate(-50%,-50%);
   box-shadow:0 0 0 .2rem var(--stufe),0 0 .7rem var(--stufe);transition:left .8s var(--ease)}
+
+/* Shisha */
+.ring.r-ring.r-gross{width:10.5rem}
+.ring.r-ring.r-gross .innen b{font-size:2.6rem}
+.ring.r-ring.r-gross .innen b.lang{font-size:1.95rem}
+.ring.r-ring.r-gross .innen .mdi{font-size:3.2rem;color:var(--farbe)}
+.kohle-kopf{display:grid;place-items:center;padding:.6rem 0 1rem}
+.knopf.breit{align-self:stretch;justify-content:center}
+.zaehler-reihe{display:grid;grid-template-columns:repeat(auto-fit,minmax(13rem,1fr));gap:1.4rem}
+.zaehler-karte{display:flex;flex-direction:column;align-items:center;gap:.7rem;padding:.9rem .6rem;border-radius:1.1rem;background:var(--flaeche-tief)}
+.zaehler-karte .ring{cursor:pointer}
+.zaehler-titel{font-size:1.2rem;font-weight:600;text-align:center}
+.zaehler-titel small{display:block;font-size:.9rem;font-weight:500;color:var(--leise)}
+.zaehler-knoepfe{justify-content:center;align-items:center;flex-wrap:nowrap;gap:.6rem}
+.zaehler-knoepfe .knopf.rund{width:3.2rem;height:3.2rem;flex:none}
+.zaehler-knoepfe .zuruecksetzen{margin-left:.6rem;opacity:.8}
