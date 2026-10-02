@@ -297,6 +297,8 @@
     const d = PS.domain(eid);
     return (d === "lock" && PS.s(eid) !== "unlocked" && PS.s(eid) !== "open") || eid === PS.opt.tueroeffner;
   };
+  // Schalter mit Freigabe (Server-Hauptschalter im Büro): schaltbar nur, solange der Freigabe-Helfer an ist
+  PS.freigabe = (eid) => (PS.einst.freigaben || {})[eid] || null;
   PS.halten = (el, ms, aktion, bedingung) => {
     let t = null, sofort = false;
     const ab = () => { clearTimeout(t); t = null; el.classList.remove("haelt"); };
@@ -368,6 +370,9 @@
     el.querySelector("small").textContent = PS.text(eid);
     el.classList.toggle("an", PS.istAn(eid) && d !== "person");
     el.classList.toggle("weg", !st || PS.nichtDa(eid));
+    const frei = PS.freigabe(eid);
+    el.classList.toggle("gesperrt", !!frei && PS.s(frei) !== "on");
+    el.classList.toggle("freigegeben", !!frei && PS.s(frei) === "on");
     el.classList.toggle("alarm", (d === "alarm_control_panel" && st && st.s === "triggered") || (d === "binary_sensor" && st && st.s === "on" && ["smoke", "moisture", "gas", "safety", "carbon_monoxide"].includes((st.a || {}).device_class)));
     const a = (st || {}).a || {};
     let pct = 0;
@@ -388,7 +393,8 @@
     }
     PS.tippen(el, (ev) => {
       PS.welle(el, ev);
-      if (PS.direktBedienbar(eid)) PS.umschalten(eid); else PS.mehrInfos(eid);
+      if (PS.freigabe(eid)) PS.mehrInfos(eid);
+      else if (PS.direktBedienbar(eid)) PS.umschalten(eid); else PS.mehrInfos(eid);
     }, () => PS.mehrInfos(eid));
   };
   // Alle Kacheln im Container an Zustandsänderungen koppeln
@@ -397,7 +403,7 @@
   };
   PS.on("diff", (ids) => {
     document.querySelectorAll(".kachel[data-eid]").forEach((el) => {
-      if (ids.has(el.dataset.eid)) PS.kachelAktualisieren(el, el.dataset.bereich || undefined);
+      if (ids.has(el.dataset.eid) || (PS.freigabe(el.dataset.eid) && ids.has(PS.freigabe(el.dataset.eid)))) PS.kachelAktualisieren(el, el.dataset.bereich || undefined);
     });
   });
 

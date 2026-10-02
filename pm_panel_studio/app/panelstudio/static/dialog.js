@@ -26,12 +26,34 @@
   };
 
   // ------------------------------------------------------------ Verlauf
-  PS.diagramm = async (box, eid, stunden = 24) => {
+  // Heizphasen eines Thermostats (hvac_action „heating“) als Zeitintervalle
+  async function heizphasen(klima, start, ende) {
+    const r = await PS.anfrage({ typ: "ws", befehl: { type: "history/history_during_period", start_time: start.toISOString(), end_time: ende.toISOString(), entity_ids: [klima], minimal_response: false, no_attributes: false, include_start_time_state: true, significant_changes_only: false } });
+    const roh = ((r || {})[klima] || []).map((p) => [((p.lu || p.lc || 0) * 1000) || Date.parse(p.last_updated || p.last_changed), p.a || p.attributes || {}]).filter((p) => p[0]);
+    const pkt = roh.map(([t, a]) => [t, a.hvac_action]);
+    const phasen = [];
+    let ab = null, letzte;
+    pkt.forEach(([t, akt]) => {
+      if (akt === undefined) akt = letzte; letzte = akt;
+      if (akt === "heating" && ab == null) ab = Math.max(t, start.getTime());
+      if (akt !== "heating" && ab != null) { phasen.push([ab, t]); ab = null; }
+    });
+    if (ab != null) phasen.push([ab, ende.getTime()]);
+    // Isttemperatur des Thermostats, falls der Raum keinen eigenen Temperatursensor hat
+    const temps = roh.map(([t, a]) => [t, Number(a.current_temperature)]).filter((p) => isFinite(p[1]));
+    return { phasen, temps };
+  }
+  PS.diagramm = async (box, eid, stunden = 24, klima = null) => {
     box.innerHTML = '<div class="leer">Verlauf wird geladen …</div>';
     const ende = new Date(), start = new Date(ende - stunden * 3600e3);
     try {
-      const r = await PS.anfrage({ typ: "ws", befehl: { type: "history/history_during_period", start_time: start.toISOString(), end_time: ende.toISOString(), entity_ids: [eid], minimal_response: true, no_attributes: true, include_start_time_state: true, significant_changes_only: false } });
-      const pkt = ((r || {})[eid] || []).map((p) => [((p.lu || p.lc || 0) * 1000) || Date.parse(p.last_updated || p.last_changed), Number(p.s ?? p.state)]).filter((p) => isFinite(p[1]) && p[0]);
+      const eigen = PS.domain(eid) === "climate";
+      const [r, hz] = await Promise.all([
+        eigen ? {} : PS.anfrage({ typ: "ws", befehl: { type: "history/history_during_period", start_time: start.toISOString(), end_time: ende.toISOString(), entity_ids: [eid], minimal_response: true, no_attributes: true, include_start_time_state: true, significant_changes_only: false } }),
+        klima ? heizphasen(klima, start, ende).catch(() => ({ phasen: [], temps: [] })) : { phasen: [], temps: [] },
+      ]);
+      const phasen = hz.phasen;
+      const pkt = eid === klima ? hz.temps : ((r || {})[eid] || []).map((p) => [((p.lu || p.lc || 0) * 1000) || Date.parse(p.last_updated || p.last_changed), Number(p.s ?? p.state)]).filter((p) => isFinite(p[1]) && p[0]);
       if (pkt.length < 2) { box.innerHTML = '<div class="leer">Kein Zahlenverlauf vorhanden.</div>'; return; }
       pkt.push([ende.getTime(), pkt[pkt.length - 1][1]]);
       const xs = pkt.map((p) => p[0]), ys = pkt.map((p) => p[1]);
@@ -39,10 +61,12 @@
       const W = 600, H = 150, X = (x) => ((x - x0) / (x1 - x0)) * W, Y = (y) => H - 14 - ((y - lo) / sp) * (H - 34);
       let d = `M${X(xs[0]).toFixed(1)},${Y(ys[0]).toFixed(1)}`;
       for (let i = 1; i < pkt.length; i++) d += `H${X(xs[i]).toFixed(1)}V${Y(ys[i]).toFixed(1)}`;
-      const einheit = PS.a(eid).unit_of_measurement || "";
-      box.innerHTML = `<svg class="diagramm" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><defs><linearGradient id="verlauf" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#784295"/><stop offset="1" stop-color="#784295" stop-opacity="0"/></linearGradient></defs>
+      const einheit = eid === klima ? "°C" : PS.a(eid).unit_of_measurement || "";
+      const baender = phasen.map(([a, b]) => `<rect class="heizt" x="${X(a).toFixed(1)}" y="0" width="${Math.max(1.5, X(b) - X(a)).toFixed(1)}" height="${H - 14}"/>`).join("");
+      const heizMin = Math.round(phasen.reduce((s, [a, b]) => s + (b - a), 0) / 60e3);
+      box.innerHTML = `<svg class="diagramm" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">${baender}<defs><linearGradient id="verlauf" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#784295"/><stop offset="1" stop-color="#784295" stop-opacity="0"/></linearGradient></defs>
         <path class="flaeche" d="${d}V${H}H0Z"/><path class="linie" d="${d}"/>
-        <text x="4" y="12">${PS.zahl(hi)} ${PS.esc(einheit)}</text><text x="4" y="${H - 2}">${PS.zahl(lo)} ${PS.esc(einheit)}</text><text x="${W - 4}" y="${H - 2}" text-anchor="end">jetzt</text><text x="${W / 2}" y="${H - 2}" text-anchor="middle">−${stunden / 2} h</text></svg>`;
+        <text x="4" y="12">${PS.zahl(hi)} ${PS.esc(einheit)}</text><text x="4" y="${H - 2}">${PS.zahl(lo)} ${PS.esc(einheit)}</text><text x="${W - 4}" y="${H - 2}" text-anchor="end">jetzt</text><text x="${W / 2}" y="${H - 2}" text-anchor="middle">−${stunden / 2} h</text></svg>${klima ? `<div class="heiz-legende"><i></i>${phasen.length ? `Geheizt: ${heizMin >= 60 ? `${Math.floor(heizMin / 60)} h ${heizMin % 60} min` : `${heizMin} min`} in ${stunden} h · ${phasen.slice(-3).map(([a, b]) => `${PS.uhrzeit(new Date(a))}–${b >= ende.getTime() - 60e3 ? "jetzt" : PS.uhrzeit(new Date(b))}`).join(", ")}` : `In den letzten ${stunden} h nicht geheizt`}</div>` : ""}`;
     } catch (e) { box.innerHTML = `<div class="leer">Verlauf nicht verfügbar: ${PS.esc(e.message)}</div>`; }
   };
 
@@ -114,7 +138,30 @@
 
   PS.mehrInfos = (eid) => {
     delete $("#dialog").dataset.popup; offenFuer = eid; zeichnen(true); $("#dialog-grund").classList.add("offen"); };
-  PS.on("diff", (ids) => { if (offenFuer && ids.has(offenFuer)) zeichnen(false); });
+  PS.on("diff", (ids) => {
+    if (offenFuer && PS.freigabe(offenFuer) && ids.has(PS.freigabe(offenFuer))) zeichnen(true);
+    else if (offenFuer && ids.has(offenFuer)) zeichnen(false);
+  });
+  // Gesperrter Schalter: erst Freigabe erteilen (2 s halten), dann schalten (2 s halten). Die Freigabe läuft über
+  // den Timer in Home Assistant ab; das Backend weist Schaltbefehle ohne Freigabe ebenfalls ab.
+  function freigabeBedienung(box, eid) {
+    const frei = PS.freigabe(eid), offen = PS.s(frei) === "on";
+    const timer = "timer." + frei.split(".")[1], ende = PS.z[timer] && PS.s(timer) === "active" ? Date.parse(PS.a(timer).finishes_at) : null;
+    box.appendChild(Object.assign(document.createElement("div"), {
+      className: "freigabe-hinweis" + (offen ? " offen" : ""),
+      innerHTML: `${PS.ic(offen ? "lock-open-variant-outline" : "lock-outline")}<span><b>${offen ? "Freigabe erteilt" : "Gesperrt"}</b><small>${offen ? (ende ? `Schalten möglich bis ${PS.uhrzeit(new Date(ende))}` : "Schalten jetzt möglich") : "Dieser Schalter versorgt Server und Router. Schalten nur mit Freigabe."}</small></span>`,
+    }));
+    if (!offen) {
+      const b = knopf("Freigabe erteilen (halten)", "lock-open-alert-outline", null, "primaer");
+      PS.halten(b, 2000, () => PS.dienst("input_boolean", "turn_on", { entity_id: frei }).then(() => PS.toast("Freigabe erteilt")));
+      box.appendChild(reihe(b));
+      return;
+    }
+    const b = knopf(PS.istAn(eid) ? "Ausschalten (halten)" : "Einschalten (halten)", "power", null, "gefahr");
+    PS.halten(b, 2000, () => PS.dienst(PS.domain(eid), PS.istAn(eid) ? "turn_off" : "turn_on", { entity_id: eid }).then(() => PS.toast(`${PS.name(eid)} ${PS.istAn(eid) ? "aus" : "ein"}geschaltet`)));
+    const zu = knopf("Freigabe zurücknehmen", "lock-outline", () => PS.dienst("input_boolean", "turn_off", { entity_id: frei }));
+    box.appendChild(reihe(b, zu));
+  }
 
   function knopf(text, icon, fn, klasse = "") {
     const b = document.createElement("button");
@@ -227,6 +274,7 @@
         box.appendChild(reihe(b)); break;
       }
       case "switch": case "input_boolean": case "siren": case "humidifier": case "valve":
+        if (PS.freigabe(eid)) { freigabeBedienung(box, eid); break; }
         box.appendChild(reihe(knopf(PS.istAn(eid) ? "Ausschalten" : "Einschalten", "power", svc(d, "toggle", E), "primaer"))); break;
       case "weather": {
         const g = document.createElement("div"); g.className = "gross-wert"; g.textContent = `${PS.zahl(a.temperature, 1)}${a.temperature_unit || "°C"}`; box.appendChild(g);
@@ -240,7 +288,7 @@
     if (zahlWert || d === "climate") {
       const v = document.createElement("div"); box.appendChild(v);
       const quelle = d === "climate" ? Object.keys(PS.reg).find((e) => PS.reg[e].b === bereich && e.startsWith("sensor.") && PS.a(e).device_class === "temperature") : eid;
-      if (quelle) PS.diagramm(v, quelle, 24);
+      PS.diagramm(v, quelle || eid, 24, d === "climate" ? eid : null);
     }
     // Attribute
     const attrs = Object.entries(a).filter(([k]) => !["friendly_name", "icon", "entity_picture", "supported_features", "supported_color_modes", "_gross", "attribution"].includes(k));

@@ -120,6 +120,9 @@ STANDARD_RAUM_SCHALTER: dict[str, list[str]] = {
 }
 
 
+# Schalter, die nur mit Freigabe schaltbar sind: Entität -> Freigabe-Helfer (input_boolean, setzt sich per Timer zurück)
+STANDARD_FREIGABEN = {"switch.buro_buro": "input_boolean.burostrom_schaltfreigabe"}
+
 # Außenluftfeuchte: der erste verfügbare Sensor gilt (lokale Wetterstation, DWD als Rückfall)
 STANDARD_AUSSEN_FEUCHTE = ["sensor.wetter_outdoor_module_luftfeuchtigkeit", "sensor.zuhause_relative_luftfeuchtigkeit"]
 
@@ -148,6 +151,7 @@ class Einstellungen:
     material_modus: str = "auto"  # Verbrauchsmaterial: "auto" (erkannt) oder "manuell" (nur material_fest)
     material_fest: list[str] = field(default_factory=list)
     aussen_feuchte: list[str] = field(default_factory=lambda: list(STANDARD_AUSSEN_FEUCHTE))
+    freigaben: dict[str, str] = field(default_factory=lambda: dict(STANDARD_FREIGABEN))
     gruss: bool = True  # Begrüßung unten links (Ankunft, Morgen, Nacht)
     gruss_anrede: dict[str, str] = field(default_factory=lambda: {"person.dominik": "Sir"})
     ton_hoch: bool = True  # Hinweiston bei Meldungen mit Priorität hoch (Lautsprecher des Panels)
@@ -199,6 +203,13 @@ class Einstellungen:
                     abgewiesen.append(key)
                     continue
                 self.material_modus = val
+            elif key == "freigaben":
+                if not isinstance(val, dict):
+                    abgewiesen.append(key)
+                    continue
+                self.freigaben = {
+                    str(k): str(v) for k, v in val.items() if _entities([k]) and re.match(r"^input_boolean\.[a-z0-9_]+$", str(v))
+                }
             elif key == "gruss_anrede":
                 if not isinstance(val, dict):
                     abgewiesen.append(key)
