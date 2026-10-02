@@ -147,33 +147,25 @@
     document.querySelectorAll("[data-licht-ziel]").forEach((x) => { if (x.dataset.lichtZiel.split(",").some((e) => ids.has(e)) && x.aktualisieren) x.aktualisieren(); });
   });
 
-  // Raumreiter als eigene Zeile über der Raumansicht; der Seitenkopf trägt das Modulband wie alle Module
-  function raumTabs(el, b) {
-    const liste = bereicheSortiert();
-    const zeile = E('<div class="tabs r-raumreiter"></div>');
-    el.appendChild(zeile);
-    PS.tabs(liste.map((x) => [x.id, x.name]), b, (k) => PS.seiteErsetzen(PS.bereichName(k), (neu) => raumKompakt(neu, k)), zeile);
-    const aktiv = zeile.querySelector(".aktiv");
-    if (aktiv) requestAnimationFrame(() => { zeile.scrollLeft = aktiv.offsetLeft - zeile.clientWidth / 2 + aktiv.clientWidth / 2; });
-  }
   function raumKompakt(el, b) {
     const name = PS.bereichName(b), ids = imBereich(b);
-    el.classList.add("raumseite", "mit-reitern");
-    raumTabs(el, b);
+    el.classList.add("raumseite");
     const g = E('<div class="raum-ansicht"><div class="r-spalte"></div><div class="r-spalte"></div><div class="r-spalte"></div></div>');
     const [links, mitte, rechts] = g.children;
     // Links: Klima und Szenen
     ids.filter(dom("climate")).forEach((k) => { const c = PS.klimaSteuerung(k); c.classList.add("kompakt"); links.appendChild(c); });
     links.appendChild(szenenBox(b, name));
-    // Mitte: Licht
+    // Mitte: Licht und Luftqualität
     mitte.appendChild(lichtBox(ids, name));
+    const luft = PS.luftBox(b, ids);
+    if (luft) mitte.appendChild(luft);
     // Rechts: Modi (zugeordnete Schalter), Medien, Zustand, Geräte
     const modi = (raumSchalter()[b] || []).filter((e) => PS.z[e]);
     if (modi.length) { const z = E('<section class="r-box"><h3><span>Modi</span></h3></section>'); z.appendChild(kachelRaster(modi, name)); z.lastElementChild.classList.add("mini"); rechts.appendChild(z); }
     const medien = ids.filter(dom("media_player")).filter((e) => ["playing", "paused", "on", "idle", "buffering"].includes(PS.s(e)));
     medien.slice(0, 1).forEach((m) => rechts.appendChild(PS.medienSteuerung(m, false)));
     const zustand = ids.filter((e) => (e.startsWith("binary_sensor.") && ["door", "window", "opening", "motion", "occupancy", "presence", "moisture", "smoke"].includes(PS.a(e).device_class))
-      || (e.startsWith("sensor.") && ["carbon_dioxide", "pm25", "volatile_organic_compounds", "aqi"].includes(PS.a(e).device_class)));
+);  // Luftwerte stehen in der Luft-Box
     if (zustand.length) { const z = E('<section class="r-box"><h3><span>Zustand</span></h3></section>'); z.appendChild(kachelRaster(zustand.slice(0, 6).sort(sortName(name)), name)); z.lastElementChild.classList.add("mini"); rechts.appendChild(z); }
     // Geräte; Wake-on-LAN-Knöpfe (PC starten) gehören dazu und stehen vorn
     const wol = (e) => PS.domain(e) === "button" && /(^|_)wol(_|$)|wake_on_lan/.test(e);

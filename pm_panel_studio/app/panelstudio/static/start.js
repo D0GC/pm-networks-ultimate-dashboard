@@ -397,7 +397,7 @@
     inhalt.querySelectorAll("img").forEach(PS.kameraStoppen);
     PS.emit("seite");
     inhalt.classList.toggle("still", !!still);
-    inhalt.classList.remove("raumseite", "mit-reitern");
+    inhalt.classList.remove("raumseite");
     inhalt.innerHTML = ""; inhalt.scrollTop = 0;
     seite.render(inhalt);
     PS.kachelnBinden(inhalt);

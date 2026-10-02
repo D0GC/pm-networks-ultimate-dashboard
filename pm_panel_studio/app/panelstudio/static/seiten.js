@@ -370,6 +370,73 @@
     r.appendChild(alleKnopf("Protokoll, Batterien und Automationen", "wartung"));
   }
 
+  // ------------------------------------------------------------ Luftqualität je Raum
+  // Skalen mit Eskalationsfarben. Grenzen: CO₂ nach Pettenkofer/UBA-Leitwerten, Feinstaub nach dem Europäischen
+  // Luftqualitätsindex, VOC nach UBA (ppb) bzw. Sensirion-Index, AQI nach US-EPA, Allergen-Index nach Philips (1–12).
+  const STUFE = ["#5fd3a0", "#b5d86a", "#f0d34c", "#f0964c", "#ef6a7a"];
+  const SKALEN = {
+    carbon_dioxide: { n: "CO₂", e: "ppm", min: 400, max: 2500, g: [[800, 0, "sehr gut"], [1000, 1, "gut"], [1400, 2, "mäßig"], [2000, 3, "erhöht"], [1 / 0, 4, "hoch – lüften"]] },
+    pm25: { n: "Feinstaub PM2,5", e: "µg/m³", min: 0, max: 75, g: [[5, 0, "sehr gut"], [15, 1, "gut"], [25, 2, "mäßig"], [50, 3, "schlecht"], [1 / 0, 4, "sehr schlecht"]] },
+    pm10: { n: "Feinstaub PM10", e: "µg/m³", min: 0, max: 150, g: [[15, 0, "sehr gut"], [45, 1, "gut"], [50, 2, "mäßig"], [100, 3, "schlecht"], [1 / 0, 4, "sehr schlecht"]] },
+    voc_ppb: { n: "VOC", e: "ppb", min: 0, max: 3000, g: [[220, 0, "sehr gut"], [660, 1, "gut"], [1430, 2, "mäßig"], [2200, 3, "erhöht"], [1 / 0, 4, "hoch"]] },
+    voc_index: { n: "VOC-Index", e: "", min: 0, max: 500, g: [[100, 0, "normal"], [150, 1, "leicht erhöht"], [250, 2, "erhöht"], [400, 3, "hoch"], [1 / 0, 4, "sehr hoch"]] },
+    aqi: { n: "AQI", e: "", min: 0, max: 300, g: [[50, 0, "gut"], [100, 1, "mäßig"], [150, 2, "für Empfindliche"], [200, 3, "ungesund"], [1 / 0, 4, "sehr ungesund"]] },
+    allergen: { n: "Allergen-Index", e: "", min: 1, max: 12, g: [[3, 0, "niedrig"], [6, 2, "mittel"], [9, 3, "hoch"], [1 / 0, 4, "sehr hoch"]] },
+    humidity: { n: "Luftfeuchte", e: "%", min: 20, max: 80, g: [[30, 4, "zu trocken"], [40, 2, "trocken"], [60, 0, "ideal"], [65, 2, "erhöht"], [70, 3, "feucht"], [1 / 0, 4, "Schimmelrisiko"]] },
+  };
+  const URTEIL = { gut: [0, "check-circle-outline", "Luft gut"], mittel: [2, "alert-circle-outline", "Luft mittel"], schlecht: [4, "alert-outline", "Luft schlecht"] };
+  function skalaHTML(art, v) {
+    const s = SKALEN[art], idx = s.g.findIndex(([bis]) => v < bis), [, st, txt] = s.g[idx];
+    let ab = s.min;
+    const seg = s.g.map(([bis, f], i) => { const ende = Math.min(bis, s.max), w = Math.max(0, ende - ab); ab = ende; return `<i class="${i === idx ? "jetzt" : ""}" style="flex:${w};--f:${STUFE[f]}"></i>`; }).join("");
+    const pos = Math.max(0, Math.min(100, ((v - s.min) / (s.max - s.min)) * 100));
+    return { stufe: STUFE[st], txt, html: `<div class="skala" style="--stufe:${STUFE[st]}">${seg}<b style="left:${pos}%"></b></div>` };
+  }
+  PS.luftBox = (b, ids) => {
+    const box = luftBauen(b, ids); if (box) box._raum = [b, ids]; return box;
+  };
+  function luftBauen(b, ids) {
+    const pm = PS.z[`sensor.pm_${b}_luftqualitaet`] ? `sensor.pm_${b}_luftqualitaet` : null;
+    const pa = pm ? PS.a(pm) : {};
+    const sensor = (dc) => ids.find((e) => e.startsWith("sensor.") && PS.a(e).device_class === dc && !PS.nichtDa(e) && isFinite(num(e)));
+    const werte = [];
+    const nimm = (art, eid, v) => { if (v != null && isFinite(v)) werte.push({ art, eid, v: Number(v) }); };
+    const co2 = sensor("carbon_dioxide"); nimm("carbon_dioxide", co2 || pm, co2 ? num(co2) : pa.co2);
+    const pm25 = sensor("pm25"); nimm("pm25", pm25 || pm, pm25 ? num(pm25) : pa.pm25);
+    const pm10 = sensor("pm10"); if (pm10) nimm("pm10", pm10, num(pm10));
+    const voc = sensor("volatile_organic_compounds_parts") || sensor("volatile_organic_compounds");
+    if (voc) nimm(PS.a(voc).unit_of_measurement === "ppb" ? "voc_ppb" : "voc_index", voc, num(voc));
+    const aqi = sensor("aqi"); if (aqi) nimm("aqi", aqi, num(aqi));
+    const allergen = ids.find((e) => e.startsWith("sensor.") && /allergen/.test(e) && isFinite(num(e))); if (allergen) nimm("allergen", allergen, num(allergen));
+    const feuchte = PS.raumWerte(b).feuchte ?? pa.feuchte_innen; nimm("humidity", pm, feuchte);
+    if (!pm && werte.filter((w) => w.art !== "humidity").length === 0) return null;
+    const box = E('<section class="r-box luft-box"><h3><span>Luftqualität</span><small></small></h3><div class="luft-kopf"></div><div class="luft-werte"></div></section>');
+    const kopf = box.querySelector(".luft-kopf");
+    if (pm) {
+      const [st, icon, text] = URTEIL[PS.s(pm)] || [1, "information-outline", PS.text(pm)];
+      const gruende = (pa.gruende || []).slice(0, 2).join(" · ") || (pa.lueften_noetig ? "Lüften empfohlen" : "Keine Auffälligkeiten");
+      kopf.innerHTML = `<span class="luft-urteil" style="--stufe:${STUFE[st]}">${PS.ic(icon)}${PS.esc(text)}</span><span class="luft-gruende">${PS.esc(gruende)}</span>`;
+      if (pa.taupunkt != null) box.querySelector("h3 small").textContent = `Taupunkt ${PS.zahl(pa.taupunkt, 1)}°`;
+    } else kopf.remove();
+    const liste = box.querySelector(".luft-werte");
+    werte.forEach(({ art, eid, v }) => {
+      const s = SKALEN[art], k = skalaHTML(art, v);
+      const z = E(`<div class="luft-wert" style="--stufe:${k.stufe}"><span class="n">${s.n}</span><span class="v tabular">${PS.zahl(v, Number.isInteger(v) || ["carbon_dioxide", "aqi", "humidity"].includes(art) || v >= 100 ? 0 : 1)}${s.e ? `<small>${s.e}</small>` : ""}</span>${k.html}<span class="st">${PS.esc(k.txt)}</span></div>`);
+      if (eid) z.addEventListener("click", () => PS.mehrInfos(eid));
+      liste.appendChild(z);
+    });
+    box.dataset.luft = [pm, co2, pm25, pm10, voc, aqi, allergen].filter(Boolean).join(",");
+    return box;
+  }
+  // Luftwerte an Ort und Stelle nachführen (Box neu aufbauen, ohne Einblendung)
+  PS.on("diff", (ids) => {
+    document.querySelectorAll(".luft-box[data-luft]").forEach((box) => {
+      if (!box.dataset.luft.split(",").some((e) => ids.has(e)) || !box._raum) return;
+      const neu = PS.luftBox(box._raum[0], box._raum[1]);
+      if (neu) { neu.style.animation = "none"; box.replaceWith(neu); }
+    });
+  });
+
   // ------------------------------------------------------------ Einhängen: neue Seite, alte Liste unter „Alle …“
   const NEU = { klima, licht, sicherheit, energie, medien, listen, wartung };
   Object.entries(NEU).forEach(([k, fn]) => {
