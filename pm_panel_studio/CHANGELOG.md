@@ -1,5 +1,10 @@
 # Änderungen
 
+## 0.1.12 – 2026-10-02
+
+- Karussell: Kohle, Duschmodus und Spa zählen wie an den Panels Bad und Büro sekundengenau („7:12 min“); Geräte mit
+  geschätzter Restzeit (Waschmaschine, Spüler) bleiben bei Minuten.
+
 ## 0.1.11 – 2026-10-02
 
 - Büro: Server-Hauptschalter (`switch.buro_buro`, in HA jetzt „Main Switch Server“ mit Symbol Server) nur mit
