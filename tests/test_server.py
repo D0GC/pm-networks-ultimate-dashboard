@@ -188,3 +188,27 @@ async def test_kamera_popup_wird_overlay(ingress, fake, hub):
     fake.service("browser_mod", "close_popup", {"tag": "tuer"})
     m = await _warte_auf(ws, "ereignis", lambda m: not m["aktiv"])
     await ws.close()
+
+
+async def test_aufnahmen_und_video(ingress):
+    ws = await ingress.ws_connect("/api/ws")
+    init = await _init(ws)
+    assert init["geraete"]["dev_tabletop"] == "Panel Tabletop"
+    await ws.send_json({"typ": "aufnahmen", "id": 31})
+    a = await _warte_auf(ws, "antwort", lambda m: m["id"] == 31)
+    kam = a["ergebnis"]["kameras"][0]
+    assert kam["titel"] == "Wohnungstuer" and kam["tage"][0]["titel"] == "2026/10/2"  # neuester Tag zuerst
+    await ws.send_json({"typ": "aufnahmen", "id": 32, "tag": kam["tage"][0]["id"]})
+    a = await _warte_auf(ws, "antwort", lambda m: m["id"] == 32)
+    datei = a["ergebnis"]["aufnahmen"][0]
+    assert datei["titel"].endswith("Person")
+    await ws.send_json({"typ": "aufnahmen", "id": 33, "tag": "media-source://media_source/local"})
+    a = await _warte_auf(ws, "antwort", lambda m: m["id"] == 33)
+    assert not a["ok"]
+    await ws.close()
+    r = await ingress.get("/api/video", params={"id": datei["id"]})
+    assert r.status == 200 and r.content_type == "video/mp4" and len(await r.read()) == 10240
+    r = await ingress.get("/api/video", params={"id": datei["id"]}, headers={"Range": "bytes=100-199"})
+    assert r.status == 206 and r.headers["Content-Range"] == "bytes 100-199/10240" and len(await r.read()) == 100
+    r = await ingress.get("/api/video", params={"id": "media-source://media_source/local/x.mp4"})
+    assert r.status == 400

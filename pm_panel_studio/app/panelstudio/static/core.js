@@ -34,7 +34,7 @@
   function verarbeiten(m) {
     switch (m.typ) {
       case "init":
-        PS.z = m.zustaende || {}; PS.bereiche = m.bereiche || []; PS.reg = m.registry || {};
+        PS.z = m.zustaende || {}; PS.bereiche = m.bereiche || []; PS.reg = m.registry || {}; PS.geraete = m.geraete || PS.geraete || {};
         PS.einst = m.einstellungen || {}; PS.opt = m.optionen || {}; PS.karten = m.karten || []; PS.ha = m.ha || {};
         PS.ereignis = m.ereignis || { aktiv: false };
         PS.meldungen = m.meldungen || [];
@@ -64,7 +64,7 @@
       case "szenen": PS.szenen = { stat: m.stat || {}, farben: m.farben || {} }; PS.emit("szenen"); break;
       case "popups": PS.popups = m.liste || []; PS.emit("popups", m.neu); break;
       case "meldungen": PS.meldungen = m.liste || []; PS.emit("meldungen"); break;
-      case "registry": PS.bereiche = m.bereiche || []; PS.reg = m.registry || {}; PS.emit("registry"); break;
+      case "registry": PS.bereiche = m.bereiche || []; PS.reg = m.registry || {}; PS.geraete = m.geraete || PS.geraete || {}; PS.emit("registry"); break;
       case "antwort": {
         const p = offen.get(m.id); if (!p) return; offen.delete(m.id);
         m.ok ? p.resolve(m.ergebnis) : p.reject(new Error(m.fehler || "Fehler"));

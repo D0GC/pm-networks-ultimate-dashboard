@@ -38,7 +38,15 @@ def test_ton_einstellungen():
 def test_raum_schalter_und_wartung():
     e = Einstellungen()
     assert "input_button.shower_mode" in e.raum_schalter["badezimmer"]
-    assert len(e.wartung_entitaeten) == 40
+    assert e.wartung_ignorieren == [] and e.material_modus == "auto"
+    assert e.aussen_feuchte[0] == "sensor.wetter_outdoor_module_luftfeuchtigkeit"
+    # Die frühere Jarvis-Liste in gespeicherten Einstellungen wird still übergangen
+    assert e.aktualisieren({"wartung_entitaeten": ["binary_sensor.x"]}) == []
+    assert e.aktualisieren({"material_modus": "egal"}) == ["material_modus"]
+    e.aktualisieren({"material_modus": "manuell", "material_fest": ["sensor.filter", "kein text"]})
+    assert e.material_modus == "manuell" and e.material_fest == ["sensor.filter"]
+    e.aktualisieren({"gruss": False, "gruss_anrede": {"person.gina_perina": "Gina", "licht.x": "Nein"}})
+    assert e.gruss is False and e.gruss_anrede == {"person.gina_perina": "Gina"}
     e.aktualisieren(
         {"raum_schalter": {"wohnzimmer": ["input_boolean.gina_lernt", "kein text"], "Ungültig!": ["input_boolean.x"]}}
     )

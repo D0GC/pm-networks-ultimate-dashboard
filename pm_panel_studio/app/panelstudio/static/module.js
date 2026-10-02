@@ -147,14 +147,19 @@
     document.querySelectorAll("[data-licht-ziel]").forEach((x) => { if (x.dataset.lichtZiel.split(",").some((e) => ids.has(e)) && x.aktualisieren) x.aktualisieren(); });
   });
 
-  function raumTabs(b) {
+  // Raumreiter als eigene Zeile über der Raumansicht; der Seitenkopf trägt das Modulband wie alle Module
+  function raumTabs(el, b) {
     const liste = bereicheSortiert();
-    PS.tabs(liste.map((x) => [x.id, x.name]), b, (k) => PS.seiteErsetzen(PS.bereichName(k), (el) => raumKompakt(el, k)));
+    const zeile = E('<div class="tabs r-raumreiter"></div>');
+    el.appendChild(zeile);
+    PS.tabs(liste.map((x) => [x.id, x.name]), b, (k) => PS.seiteErsetzen(PS.bereichName(k), (neu) => raumKompakt(neu, k)), zeile);
+    const aktiv = zeile.querySelector(".aktiv");
+    if (aktiv) requestAnimationFrame(() => { zeile.scrollLeft = aktiv.offsetLeft - zeile.clientWidth / 2 + aktiv.clientWidth / 2; });
   }
   function raumKompakt(el, b) {
     const name = PS.bereichName(b), ids = imBereich(b);
-    el.classList.add("raumseite");
-    raumTabs(b);
+    el.classList.add("raumseite", "mit-reitern");
+    raumTabs(el, b);
     const g = E('<div class="raum-ansicht"><div class="r-spalte"></div><div class="r-spalte"></div><div class="r-spalte"></div></div>');
     const [links, mitte, rechts] = g.children;
     // Links: Klima und Szenen
@@ -482,14 +487,38 @@
     const batterien = alle().filter((e) => e.startsWith("sensor.") && PS.a(e).device_class === "battery" && isFinite(Number(PS.s(e)))).sort((x, y) => Number(PS.s(x)) - Number(PS.s(y)));
     return { batterien };
   }
+  // Verbrauchsmaterial: Filter, Bürsten, Sensoren usw. mit Restanteil. „auto“ erkennt passende Sensoren,
+  // „manuell“ zeigt nur die im Editor festgelegten (wie angeheftete Szenen).
+  const LEBENSDAUER_H = [[/haupt.?b(ü|u)rste/i, 300], [/seiten.?b(ü|u)rste/i, 200], [/sensor/i, 30], [/wisch|mop/i, 180], [/filter/i, 150]]; // Roborock-Vorgaben
+  const MATERIAL_RE = /filter|b(ü|u)rste|sensorzeit|wischtuch|mopp?|staubbeutel|verbrauchsmaterial/i;
+  const MATERIAL_NICHT = /zahnb(ü|u)rste|reinigungszeit|anzahl|gesamt|feinstaub|status|fehler/i;
+  PS.verbrauchsmaterial = () => {
+    const eintrag = (e) => {
+      const v = Number(PS.s(e)), einheit = PS.a(e).unit_of_measurement, n = PS.name(e);
+      let rest = null, text = PS.text(e);
+      if (einheit === "%" && isFinite(v)) rest = v / 100;
+      else if (einheit === "h" && isFinite(v)) {
+        const soll = (LEBENSDAUER_H.find(([re]) => re.test(e + " " + n)) || [])[1];
+        rest = soll ? Math.min(1, v / soll) : null;
+        text = v >= 48 ? `${Math.round(v / 24)} Tage` : `${Math.round(v)} h`;
+      }
+      return { e, rest, text, name: n.replace(/verbleibende (zeit (der|des) )?/i, "").replace(/\s+/g, " ").trim() };
+    };
+    if (PS.einst.material_modus === "manuell") return (PS.einst.material_fest || []).filter((e) => PS.z[e]).map(eintrag);
+    const kandidaten = alle().filter((e) => e.startsWith("sensor.") && PS.sichtbar(e) && !PS.nichtDa(e)
+      && MATERIAL_RE.test(e + " " + PS.name(e)) && !MATERIAL_NICHT.test(e + " " + PS.name(e)) && ["%", "h"].includes(PS.a(e).unit_of_measurement));
+    // Doppelte Angaben (Prozent und „verbleibende Stunden“ desselben Filters): Prozent genügt
+    return kandidaten.filter((e) => !(e.endsWith("_verbleibende_stunden") && kandidaten.includes(e.replace(/_verbleibende_stunden$/, ""))))
+      .map(eintrag).sort((x, y) => (x.rest ?? 2) - (y.rest ?? 2));
+  };
   function uebersicht(box) {
     const updates = alle().filter((e) => e.startsWith("update.") && PS.s(e) === "on" && PS.sichtbar(e));
     box.appendChild(gruppe(updates.length ? `Updates · ${updates.length}` : "Updates · alles aktuell", kachelRaster(updates)));
     const schwach = wartungsListe().batterien.filter((e) => Number(PS.s(e)) < 25);
     const binSchwach = alle().filter((e) => e.startsWith("binary_sensor.") && PS.a(e).device_class === "battery" && PS.s(e) === "on");
     box.appendChild(gruppe(schwach.length + binSchwach.length ? "Schwache Batterien" : "Batterien · alle über 25 %", kachelRaster([...schwach, ...binSchwach])));
-    const material = alle().filter((e) => e.startsWith("sensor.") && PS.sichtbar(e) && /filter|burste|bürste|sensorzeit|verbrauch(smaterial)?|wartung|reinigung/i.test(e + " " + PS.name(e)) && !PS.nichtDa(e) && !["power", "energy", "temperature", "humidity"].includes(PS.a(e).device_class));
-    if (material.length) box.appendChild(gruppe("Verbrauchsmaterial", kachelRaster(material.sort(sortName()))));
+    const material = PS.verbrauchsmaterial().map((x) => x.e);
+    if (material.length) box.appendChild(gruppe("Verbrauchsmaterial", kachelRaster(material)));
     const probleme = alle().filter((e) => e.startsWith("binary_sensor.") && PS.a(e).device_class === "problem" && PS.s(e) === "on");
     if (probleme.length) box.appendChild(gruppe("Problem-Meldungen", kachelRaster(probleme)));
   }

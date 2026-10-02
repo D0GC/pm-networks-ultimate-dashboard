@@ -72,6 +72,74 @@
     el.innerHTML = PS.ic(hoch ? "bell-ring-outline" : n ? "bell-badge-outline" : "bell-outline") + (n ? `<span class="zahl tabular">${n}</span>` : "");
   }
 
+  // ------------------------------------------------------------ Begrüßung unten links (höchstens zwei Sätze)
+  // Ankunft (20 min nach dem Heimkommen), morgens 6–10 Uhr, nachts 0–1:30 Uhr mit kurzem Abschluss des Tages.
+  const GRUSS = {
+    ankunft: [
+      "Willkommen zuhause, {n}.", "Willkommen daheim, {n}.", "Willkommen zurück, {n}.", "{g}, {n}. Willkommen zuhause.",
+      "{g}, {n}. Schön, dass Sie wieder da sind.", "Willkommen zuhause, {n}. Die Wohnung ist bereit.", "Da sind Sie ja, {n}. Willkommen daheim.",
+      "Willkommen zurück, {n}. Alles ist an seinem Platz.", "{g}, {n}. Willkommen daheim.", "Willkommen zuhause, {n}. Ich habe die Stellung gehalten.",
+    ],
+    morgen: [
+      "Guten Morgen, {n}.", "Einen guten Morgen, {n}.", "Guten Morgen, {n}, ich hoffe, Sie haben gut geschlafen.", "Guten Morgen, {n}, die Systeme sind bereit.",
+      "Guten Morgen, {n}, ein neuer Tag beginnt.", "Willkommen im neuen Tag, {n}.", "Guten Morgen, {n}, alles ist vorbereitet.",
+      "Einen angenehmen Morgen, {n}.", "Guten Morgen, {n}, ich stehe zur Verfügung.", "Guten Morgen, {n}, Zeit für einen guten Start.",
+    ],
+    nacht: [
+      "Gute Nacht, {n}.", "Angenehme Nachtruhe, {n}.", "Schlafen Sie gut, {n}.", "Gute Nacht, {n}, ich halte Wache.", "Eine erholsame Nacht, {n}.",
+      "Gute Nacht, {n}, der Tag ist geschafft.", "Zeit zur Ruhe, {n}.", "Gute Nacht, {n}, ich kümmere mich um den Rest.", "Ruhen Sie sich aus, {n}.", "Gute Nacht, {n}, bis morgen.",
+    ],
+  };
+  const vorname = (p) => PS.name(p).split(" ")[0];
+  const anrede = (p) => (PS.einst.gruss_anrede || {})[p] || vorname(p);
+  const streu = (text) => [...text].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7);
+  const karte = (schl) => (PS.karten || []).find((k) => k.schluessel === schl);
+  function grussFakt(anlass, wer, da) {
+    if (anlass === "ankunft") {
+      const andere = da.filter((p) => p !== wer);
+      return andere.length ? `${andere.map(vorname).join(" und ")} ${andere.length > 1 ? "sind" : "ist"} bereits zuhause.` : "";
+    }
+    if (anlass === "morgen") {
+      const t = karte("termin");
+      if (t) return t.wert === "heute" ? `Heute steht an: ${t.hinweis}.` : `Ihr nächster Termin: ${t.hinweis}, ${t.wert}.`;
+      const h = vorhersage[0];
+      if (h && h.temperature != null) return `Heute ${PS.zahl(h.templow, 0)} bis ${PS.zahl(h.temperature, 0)} Grad${(h.precipitation_probability || 0) >= 50 ? ", Regen ist wahrscheinlich" : ""}.`;
+      return "";
+    }
+    const offen = offeneZugaenge();
+    if (offen.length) return `Noch offen: ${offen.slice(0, 2).map((e) => PS.name(e)).join(" und ")}${offen.length > 2 ? ` und ${offen.length - 2} weitere` : ""}.`;
+    const m = karte("muell");
+    if (m && m.wert === "morgen") return `Morgen früh wird abgeholt: ${m.hinweis}.`;
+    const al = PS.opt.alarm_entitaet;
+    if (al && PS.s(al) === "disarmed") return "Alle Türen und Fenster sind zu, die Alarmanlage ist noch nicht scharf.";
+    return "Alle Türen und Fenster sind geschlossen.";
+  }
+  function gruss() {
+    const el = $("#gruss"); if (!el) return;
+    const da = (PS.opt.personen || []).filter((p) => PS.s(p) === "home");
+    let text = "";
+    if (PS.einst.gruss !== false && da.length) {
+      const jetzt = new Date(), min = jetzt.getHours() * 60 + jetzt.getMinutes();
+      const kam = da.map((p) => [p, Date.parse(PS.st(p).lc) || 0]).sort((x, y) => y[1] - x[1])[0];
+      const chef = da.find((p) => (PS.einst.gruss_anrede || {})[p]) || da[0];
+      let anlass = null, wer = chef, schluessel = "";
+      if (Date.now() - kam[1] < 20 * 60e3) { anlass = "ankunft"; wer = kam[0]; schluessel = kam[0] + kam[1]; }
+      else if (min >= 360 && min < 600) anlass = "morgen";
+      else if (min < 90) anlass = "nacht";
+      if (anlass) {
+        const liste = GRUSS[anlass], g = min < 660 ? "Guten Morgen" : min < 1080 ? "Guten Tag" : "Guten Abend";
+        const satz = liste[streu(anlass + schluessel + jetzt.toDateString()) % liste.length].replace("{n}", anrede(wer)).replace("{g}", g);
+        // Höchstens zwei Sätze: der Zusatz nur, wenn die Begrüßung aus einem Satz besteht
+        const zusatz = (satz.match(/\./g) || []).length < 2 ? grussFakt(anlass, wer, da) : "";
+        text = zusatz ? `${satz} ${zusatz}` : satz;
+      }
+    }
+    if (el.dataset.text === text) return;
+    el.dataset.text = text;
+    el.classList.remove("an");
+    setTimeout(() => { el.textContent = text; if (text) requestAnimationFrame(() => el.classList.add("an")); }, el.textContent ? 600 : 0);
+  }
+
   // ------------------------------------------------------------ Karussell
   const KARTE = {
     eil: ["alert-decagram-outline", "var(--krit)"], warnung: ["alert-outline", "var(--warn)"], termin: ["calendar-clock-outline", "#c99bf0"],
@@ -320,19 +388,23 @@
     const seite = stapel[stapel.length - 1]; if (!seite) return;
     $("#sheet-titel").textContent = seite.titel;
     $("#sheet-zurueck").hidden = stapel.length < 2;
-    $("#sheet-tabs").innerHTML = "";
+    modulBand(seite.modul);
     const inhalt = $("#sheet-inhalt");
     inhalt.querySelectorAll("img").forEach(PS.kameraStoppen);
     PS.emit("seite");
     inhalt.classList.toggle("still", !!still);
-    inhalt.classList.remove("raumseite");
+    inhalt.classList.remove("raumseite", "mit-reitern");
     inhalt.innerHTML = ""; inhalt.scrollTop = 0;
     seite.render(inhalt);
     PS.kachelnBinden(inhalt);
   }
   PS.neuZeichnen = () => { if (stapel.length) { const y = $("#sheet-inhalt").scrollTop; zeichnen(true); $("#sheet-inhalt").scrollTop = y; } };
-  PS.tabs = (eintraege, aktiv, beiWahl) => {
-    const box = $("#sheet-tabs");
+  // Modulband im Seitenkopf, auf allen Modulseiten gleich (Seiten mit eigenen Reitern ersetzen es über PS.tabs)
+  function modulBand(aktiv) {
+    const mods = (PS.einst.module || []).filter((m) => PS.module[m] && m !== "suche");
+    PS.tabs(mods.map((m) => [m, PS.module[m].titel]), aktiv, (k) => PS.oeffnen(k));
+  }
+  PS.tabs = (eintraege, aktiv, beiWahl, box = $("#sheet-tabs")) => {
     box.innerHTML = eintraege.map(([k, t]) => `<button data-k="${PS.esc(k)}" class="${k === aktiv ? "aktiv" : ""}">${PS.esc(t)}</button>`).join("");
     box.querySelectorAll("button").forEach((b) => b.addEventListener("click", () => {
       box.querySelectorAll("button").forEach((x) => x.classList.toggle("aktiv", x === b)); beiWahl(b.dataset.k);
@@ -354,10 +426,10 @@
 
   // ------------------------------------------------------------ Aufbau
   function alles() {
-    uhr(); wetter(); personen(); statusZeile(); schnellzugriff(); raeumeKurz(); dock();
+    uhr(); wetter(); personen(); statusZeile(); schnellzugriff(); raeumeKurz(); dock(); gruss();
   }
   PS.on("init", () => { alles(); vorhersageLaden(); if (stapel.length) PS.neuZeichnen(); });
-  PS.on("karten", (k) => { kartenSetzen(k); statusZeile(); });
+  PS.on("karten", (k) => { kartenSetzen(k); statusZeile(); gruss(); });
   PS.on("popups", (neu) => {
     statusZeile();
     if (stapel.length && stapel[0].modul === "hinweise") PS.neuZeichnen();
@@ -370,13 +442,13 @@
   });
   PS.on("meldungen", () => { statusZeile(); if (stapel.length && stapel[0].modul === "hinweise") PS.neuZeichnen(); });
   PS.on("ereignis", ereignis);
-  PS.on("einstellungen", () => { schnellzugriff(); raeumeKurz(); dock(); zeigen(false); });
+  PS.on("einstellungen", () => { schnellzugriff(); raeumeKurz(); dock(); zeigen(false); gruss(); });
   PS.on("registry", () => { raeumeKurz(); });
   let diffTimer = null;
   PS.on("diff", (ids) => {
     const relevant = [...ids].some((e) => e.startsWith("person.") || e.startsWith("binary_sensor.") || e.startsWith("lock.") || e === PS.opt.alarm_entitaet || e === PS.opt.wetter_entitaet || e === PS.opt.aussentemperatur || e.startsWith("sensor.") || e.startsWith("light.") || e.startsWith("climate.") || e.startsWith("update."));
     if (!relevant || diffTimer) return;
-    diffTimer = setTimeout(() => { diffTimer = null; wetter(); personen(); statusZeile(); raeumeKurz(); dock(); }, 600);
+    diffTimer = setTimeout(() => { diffTimer = null; wetter(); personen(); statusZeile(); raeumeKurz(); dock(); gruss(); }, 600);
   });
   PS.on("beruehrt", () => { zuletztBeruehrt = Date.now(); });
 
@@ -389,6 +461,7 @@
       PS.dienst(PS.domain(PS.opt.tueroeffner), PS.domain(PS.opt.tueroeffner) === "lock" ? "open" : "press", { entity_id: PS.opt.tueroeffner }).then(() => PS.toast("Tür geöffnet"));
     });
     setInterval(uhr, 5000);
+    setInterval(gruss, 30000);
     setInterval(takt, 1000);
     setInterval(vorhersageLaden, 30 * 60 * 1000);
     setInterval(() => {

@@ -26,9 +26,6 @@
   const alleKnopf = (text, modul) => knopf(text, "view-grid-outline", () => PS.unterseite(`${PS.module[modul].titel} · alle`, (el) => PS.module[modul]._alle(el)), "r-alles");
   function seite(el, modul) {
     el.classList.add("raumseite");
-    // Reiter wie bei den Räumen; die Modulleiste unten bleibt zusätzlich
-    const mods = (PS.einst.module || []).filter((m) => PS.module[m] && m !== "suche");
-    PS.tabs(mods.map((m) => [m, PS.module[m].titel]), modul, (k) => PS.oeffnen(k));
     const g = E('<div class="raum-ansicht"><div class="r-spalte"></div><div class="r-spalte"></div><div class="r-spalte"></div></div>');
     el.appendChild(g);
     return g.children;
@@ -63,12 +60,23 @@
     if (pm.length) b3.appendChild(E('<div class="reihe"></div>')).append(
       knopf("Alle: Zurück zum Plan", "calendar-sync", () => PS.dienst("pm_heizung", "clear_overlay", { entity_id: pm }).then(() => PS.toast("Alle Räume wieder nach Plan"))));
     m.appendChild(b3);
-    const luft = alle().filter((e) => e.startsWith("sensor.") && PS.sichtbar(e) && !PS.nichtDa(e) && ["carbon_dioxide", "pm25", "humidity"].includes(PS.a(e).device_class));
-    const b4 = box("Luft");
+    // Luft: ein Außenwert (lokale Wetterstation, DWD als Rückfall), innen je Raum und Messgröße ein Sensor
+    const aussenF = (PS.einst.aussen_feuchte || []).find((e) => PS.z[e] && !PS.nichtDa(e) && isFinite(num(e)));
     const grenze = { carbon_dioxide: 1400, pm25: 50, humidity: 100 };
-    luft.sort((x, y) => num(y) / grenze[PS.a(y).device_class] - num(x) / grenze[PS.a(x).device_class]).slice(0, 6)
-      .forEach((e) => { const dc = PS.a(e).device_class, a = num(e) / grenze[dc]; b4.appendChild(balken(PS.name(e), PS.text(e), a, a > 0.7 ? "var(--warn)" : "var(--gut)", e)); });
-    if (luft.length) r.appendChild(b4);
+    const jeRaum = new Map();
+    alle().filter((e) => e.startsWith("sensor.") && PS.sichtbar(e) && !PS.nichtDa(e) && isFinite(num(e)) && grenze[PS.a(e).device_class])
+      .filter((e) => { const b = PS.bereichVon(e); return b && !/balkon|garten|terrasse|aussen|außen/i.test(b + " " + PS.bereichName(b)); })
+      .sort(nameSort)
+      .forEach((e) => { const k = PS.bereichVon(e) + "|" + PS.a(e).device_class; if (!jeRaum.has(k)) jeRaum.set(k, e); });
+    const innenLuft = [...jeRaum.values()].sort((x, y) => num(y) / grenze[PS.a(y).device_class] - num(x) / grenze[PS.a(x).device_class]).slice(0, aussenF ? 5 : 6);
+    const b4 = box("Luft");
+    if (aussenF) b4.appendChild(balken("Außen", PS.text(aussenF), num(aussenF) / 100, "var(--info)", aussenF));
+    innenLuft.forEach((e) => {
+      const dc = PS.a(e).device_class, a = num(e) / grenze[dc];
+      const was = { carbon_dioxide: " · CO₂", pm25: " · Feinstaub", humidity: "" }[dc];
+      b4.appendChild(balken(`${PS.bereichName(PS.bereichVon(e))}${was}`, PS.text(e), a, a > 0.7 ? "var(--warn)" : "var(--gut)", e));
+    });
+    if (aussenF || innenLuft.length) r.appendChild(b4);
     const ger = alle().filter((e) => (dom("fan")(e) || dom("humidifier")(e)) && PS.sichtbar(e));
     if (ger.length) { const b5 = box("Geräte"); b5.appendChild(raster(ger.sort(nameSort))); r.appendChild(b5); }
     r.appendChild(alleKnopf("Alle Klimawerte", "klima"));
@@ -137,6 +145,7 @@
       b3.appendChild(k); r.appendChild(b3);
       setTimeout(() => PS.kameraVorschau(k.querySelector("img"), kam), 50);
     }
+    r.appendChild(aufnahmenBox());
     const b4 = box("Letzte Ereignisse");
     const liste = E('<div class="liste"><div class="leer">Wird geladen …</div></div>');
     b4.appendChild(liste); r.appendChild(b4);
@@ -146,6 +155,52 @@
       liste.innerHTML = ev.map((x) => `<div class="zeile">${PS.z[x.entity_id] ? PS.icon(x.entity_id) : PS.ic("history")}<span class="n">${PS.esc(x.name || x.entity_id)}<small>${PS.esc(x.message || PS.text(x.entity_id, x.state))}</small></span><span class="w">${PS.uhrzeit(new Date(x.when))}</span></div>`).join("") || '<div class="leer">Keine Ereignisse in den letzten 12 Stunden.</div>';
     }).catch(() => { liste.innerHTML = '<div class="leer">Protokoll nicht verfügbar.</div>'; });
     r.appendChild(alleKnopf("Alle Melder und Kameras", "sicherheit"));
+  }
+
+  // Aufnahmen der Reolink-Kamera (Medienquelle): heute und gestern, antippen spielt sie ab
+  const ART = { person: "Person", motion: "Bewegung", vehicle: "Fahrzeug", pet: "Tier", animal: "Tier", visitor: "Klingel", face: "Gesicht", package: "Paket" };
+  function aufnahmeZeile(a, tag) {
+    const [uhr, dauer, ...arten] = String(a.titel || "").split(" ");
+    const sek = (dauer || "").split(":").reduce((s, x) => s * 60 + Number(x || 0), 0);
+    const was = [...new Set(arten.map((x) => ART[x.toLowerCase()] || x))].join(", ") || "Aufnahme";
+    const z = E(`<div class="zeile">${PS.ic(/Person|Klingel|Gesicht/.test(was) ? "account-outline" : "motion-sensor")}<span class="n">${PS.esc(was)}<small>${PS.esc(tag)} · ${sek >= 60 ? `${Math.floor(sek / 60)} min ${sek % 60} s` : `${sek} s`}</small></span><span class="w tabular">${PS.esc((uhr || "").slice(0, 5))}</span></div>`);
+    z.addEventListener("click", () => PS.aufnahmeZeigen(`${was} · ${(uhr || "").slice(0, 5)}`, tag, a.id));
+    return z;
+  }
+  const tagName = (titel) => {
+    const [j, m, t] = String(titel).split("/").map(Number), d = new Date(j, m - 1, t), h = new Date(); h.setHours(0, 0, 0, 0);
+    const diff = Math.round((h - d) / 86400e3);
+    return diff === 0 ? "Heute" : diff === 1 ? "Gestern" : d.toLocaleDateString("de-DE", { weekday: "short", day: "numeric", month: "numeric" });
+  };
+  async function tagLaden(t) { const r = await PS.anfrage({ typ: "aufnahmen", tag: t.id }); return ((r || {}).aufnahmen || []).slice().reverse(); }
+  function aufnahmenBox() {
+    const b = box("Aufnahmen", "antippen zum Abspielen");
+    const liste = E('<div class="liste"><div class="leer">Wird geladen …</div></div>');
+    b.appendChild(liste);
+    PS.anfrage({ typ: "aufnahmen" }).then(async (res) => {
+      const kam = ((res || {}).kameras || [])[0];
+      if (!kam || !kam.tage.length) { liste.innerHTML = '<div class="leer">Keine Aufnahmen gefunden.</div>'; return; }
+      const zeilen = [];
+      for (const t of kam.tage.slice(0, 2)) { (await tagLaden(t)).forEach((a) => zeilen.push([a, tagName(t.titel)])); if (zeilen.length >= 5) break; }
+      liste.innerHTML = zeilen.length ? "" : '<div class="leer">Heute und gestern keine Aufnahmen.</div>';
+      zeilen.slice(0, 5).forEach(([a, tag]) => liste.appendChild(aufnahmeZeile(a, tag)));
+      b.appendChild(knopf("Alle Aufnahmen", "filmstrip-box-multiple", () => PS.unterseite(`Aufnahmen · ${kam.titel}`, (el) => aufnahmenSeite(el, kam)), "r-alles"));
+    }).catch(() => { liste.innerHTML = '<div class="leer">Aufnahmen nicht verfügbar.</div>'; });
+    return b;
+  }
+  function aufnahmenSeite(el, kam) {
+    const chips = E(`<div class="tabs r-chips" style="flex-wrap:wrap;margin-bottom:1.2rem">${kam.tage.slice(0, 14).map((t, i) => `<button data-i="${i}" class="${i === 0 ? "aktiv" : ""}">${PS.esc(tagName(t.titel))}</button>`).join("")}</div>`);
+    const liste = E('<div class="liste r-aufnahmen"></div>');
+    const zeigen = (i) => {
+      chips.querySelectorAll("button").forEach((x) => x.classList.toggle("aktiv", Number(x.dataset.i) === i));
+      liste.innerHTML = '<div class="leer">Wird geladen …</div>';
+      const t = kam.tage[i];
+      tagLaden(t).then((a) => { liste.innerHTML = a.length ? "" : '<div class="leer">An diesem Tag keine Aufnahmen.</div>'; a.forEach((x) => liste.appendChild(aufnahmeZeile(x, tagName(t.titel)))); })
+        .catch(() => { liste.innerHTML = '<div class="leer">Aufnahmen nicht verfügbar.</div>'; });
+    };
+    chips.querySelectorAll("button").forEach((x) => x.addEventListener("click", () => zeigen(Number(x.dataset.i))));
+    el.append(chips, liste);
+    zeigen(0);
   }
 
   // ------------------------------------------------------------ Energie (nach dem eingebauten Energie-Dashboard)
@@ -280,15 +335,24 @@
   // ------------------------------------------------------------ Wartung
   function wartung(el) {
     const [l, m, r] = seite(el, "wartung");
-    const liste = (PS.einst.wartung_entitaeten || []).filter((e) => PS.z[e] || true);
-    const weg = liste.filter((e) => !PS.z[e] || ["unavailable", "unknown"].includes(PS.s(e)));
-    const ok = liste.length - weg.length;
-    const b1 = box("Systemzustand", "wie Jarvis");
+    // Systemzustand: Geräte, deren Entitäten alle nicht verfügbar sind (automatisch, ohne feste Liste)
+    const ignoriert = new Set((PS.einst.wartung_ignorieren || []).map((e) => (PS.reg[e] || {}).d).filter(Boolean));
+    const jeGeraet = new Map();
+    Object.entries(PS.reg || {}).forEach(([e, r]) => {
+      if (!r.d || !PS.z[e] || !(r.d in (PS.geraete || {})) || ignoriert.has(r.d)) return;
+      if (!jeGeraet.has(r.d)) jeGeraet.set(r.d, []);
+      jeGeraet.get(r.d).push(e);
+    });
+    const weg = [...jeGeraet.entries()].filter(([, es]) => es.every((e) => PS.s(e) === "unavailable"))
+      .map(([d, es]) => ({ d, e: es.find((x) => !(PS.reg[x] || {}).ec) || es[0] }))
+      .sort((x, y) => (Date.parse(PS.st(y.e).lc) || 0) - (Date.parse(PS.st(x.e).lc) || 0));
+    const gesamt = jeGeraet.size, ok = gesamt - weg.length;
+    const b1 = box("Systemzustand", "Geräte erreichbar");
     const kopf = E('<div class="r-zustand"></div>');
-    kopf.append(ring(liste.length ? ok / liste.length : 1, weg.length ? "var(--warn)" : "var(--gut)", String(ok), `von ${liste.length}`),
-      E(`<div><div class="r-zahl klein">${weg.length ? `${weg.length} benötigen Aufmerksamkeit` : "Alles nominal"}</div><div class="r-unter">${weg.length ? "" : "Alle überwachten Entitäten antworten."}</div></div>`));
+    kopf.append(ring(gesamt ? ok / gesamt : 1, weg.length ? "var(--warn)" : "var(--gut)", String(ok), `von ${gesamt}`),
+      E(`<div><div class="r-zahl klein">${weg.length ? `${weg.length} ${weg.length === 1 ? "Gerät antwortet" : "Geräte antworten"} nicht` : "Alles nominal"}</div><div class="r-unter">${weg.length ? "" : "Alle Geräte melden sich."}</div></div>`));
     b1.appendChild(kopf);
-    if (weg.length) b1.appendChild(E(`<div class="liste">${weg.slice(0, 6).map((e) => `<div class="zeile"${PS.z[e] ? ` data-eid="${PS.esc(e)}"` : ""}>${PS.z[e] ? PS.icon(e) : PS.ic("help-circle-outline")}<span class="n">${PS.esc(PS.z[e] ? PS.name(e) : e)}<small>${PS.z[e] ? `${PS.text(e)} · ${PS.zeitRelativ(PS.st(e).lc)}` : "fehlt"}</small></span></div>`).join("")}</div>`));
+    if (weg.length) b1.appendChild(E(`<div class="liste">${weg.slice(0, 5).map(({ d, e }) => `<div class="zeile" data-eid="${PS.esc(e)}">${PS.icon(e)}<span class="n">${PS.esc(PS.geraete[d] || PS.name(e))}<small>nicht erreichbar · ${PS.esc(PS.zeitRelativ(PS.st(e).lc))}</small></span></div>`).join("")}</div>`));
     b1.querySelectorAll("[data-eid]").forEach((z) => z.addEventListener("click", () => PS.mehrInfos(z.dataset.eid)));
     l.appendChild(b1);
     const upd = alle().filter((e) => e.startsWith("update.") && PS.s(e) === "on" && PS.sichtbar(e));
@@ -299,12 +363,9 @@
     const b3 = box("Batterien", "schwächste zuerst");
     batt.slice(0, 6).forEach((e) => b3.appendChild(balken(PS.name(e), `${PS.zahl(num(e), 0)} %`, num(e) / 100, num(e) < 20 ? "var(--krit)" : num(e) < 35 ? "var(--warn)" : null, e)));
     m.appendChild(b3);
-    const mat = alle().filter((e) => e.startsWith("sensor.") && PS.sichtbar(e) && !PS.nichtDa(e) && /filter|burste|bürste|sensorzeit|reinigung|wartung/i.test(e + " " + PS.name(e)) && !["power", "energy", "temperature", "humidity"].includes(PS.a(e).device_class));
-    const b4 = box("Verbrauchsmaterial");
-    mat.sort((x, y) => num(x) - num(y)).slice(0, 7).forEach((e) => {
-      const v = num(e), pct = PS.a(e).unit_of_measurement === "%";
-      b4.appendChild(balken(PS.name(e), PS.text(e), pct ? v / 100 : 1, pct && v < 10 ? "var(--krit)" : pct && v < 25 ? "var(--warn)" : null, e));
-    });
+    const mat = PS.verbrauchsmaterial();
+    const b4 = box("Verbrauchsmaterial", PS.einst.material_modus === "manuell" ? "feste Auswahl" : "automatisch");
+    mat.slice(0, 7).forEach(({ e, rest, text, name }) => b4.appendChild(balken(name, text, rest == null ? 1 : rest, rest == null ? null : rest < 0.1 ? "var(--krit)" : rest < 0.25 ? "var(--warn)" : "var(--gut)", e)));
     if (mat.length) r.appendChild(b4);
     r.appendChild(alleKnopf("Protokoll, Batterien und Automationen", "wartung"));
   }

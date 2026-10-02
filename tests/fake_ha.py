@@ -284,7 +284,101 @@ def default_states(jetzt: datetime) -> list[dict[str, Any]]:
             unit_of_measurement="min",
         ),
         s("sensor.roborock_s8_status", "charging", "flur", friendly_name="Roborock Status"),
+        # Außenluftfeuchte (lokal und DWD) sowie Verbrauchsmaterial
+        s(
+            "sensor.wetter_outdoor_module_luftfeuchtigkeit",
+            "97",
+            "balkon",
+            friendly_name="Wetter Outdoor Module Luftfeuchtigkeit",
+            device_class="humidity",
+            unit_of_measurement="%",
+        ),
+        s(
+            "sensor.zuhause_relative_luftfeuchtigkeit",
+            "93.2",
+            None,
+            friendly_name="DWD Zuhause Relative Luftfeuchtigkeit",
+            device_class="humidity",
+            unit_of_measurement="%",
+        ),
+        s(
+            "sensor.wohnzimmer_luftreiniger_wohnzimmer_filterwechsel",
+            "94.2",
+            "wohnzimmer",
+            friendly_name="Luftreiniger Wohnzimmer Filterwechsel",
+            unit_of_measurement="%",
+        ),
+        s(
+            "sensor.wohnzimmer_luftreiniger_wohnzimmer_filterwechsel_verbleibende_stunden",
+            "4520",
+            "wohnzimmer",
+            friendly_name="Luftreiniger Wohnzimmer Filterwechsel – verbleibende Stunden",
+            unit_of_measurement="h",
+        ),
+        s(
+            "sensor.wohnzimmer_luftreiniger_wohnzimmer_filterreinigung",
+            "18.7",
+            "wohnzimmer",
+            friendly_name="Luftreiniger Wohnzimmer Filterreinigung",
+            unit_of_measurement="%",
+        ),
+        s(
+            "sensor.roborock_s8_verbleibende_zeit_der_hauptburste",
+            "130.8",
+            "flur",
+            friendly_name="Roborock S8 Verbleibende Zeit der Hauptbürste",
+            unit_of_measurement="h",
+            device_class="duration",
+        ),
+        s(
+            "sensor.roborock_s8_verbleibende_zeit_der_seitenburste",
+            "194.5",
+            "flur",
+            friendly_name="Roborock S8 Verbleibende Zeit der Seitenbürste",
+            unit_of_measurement="h",
+            device_class="duration",
+        ),
+        s(
+            "sensor.roborock_s8_verbleibende_filterzeit",
+            "131.9",
+            "flur",
+            friendly_name="Roborock S8 Verbleibende Filterzeit",
+            unit_of_measurement="h",
+            device_class="duration",
+        ),
+        s(
+            "sensor.roborock_s8_verbleibende_sensorzeit",
+            "4.5",
+            "flur",
+            friendly_name="Roborock S8 Verbleibende Sensorzeit",
+            unit_of_measurement="h",
+            device_class="duration",
+        ),
+        s(
+            "sensor.badezimmer_dominiks_zahnburste_dauer",
+            "0",
+            "badezimmer",
+            friendly_name="Dominiks Zahnbürste Dauer",
+            unit_of_measurement="s",
+        ),
+        s("binary_sensor.panel_tabeltop_nextion_display", "unavailable", None, friendly_name="Panel Tabletop Display"),
+        s("sensor.panel_tabeltop_temperatur", "unavailable", None, friendly_name="Panel Tabletop Temperatur"),
     ]
+
+
+# Geräte für den Systemzustand: Entitäts-ID -> Geräte-ID
+GERAETE = {
+    "binary_sensor.panel_tabeltop_nextion_display": ("dev_tabletop", "Panel Tabletop"),
+    "sensor.panel_tabeltop_temperatur": ("dev_tabletop", "Panel Tabletop"),
+    "vacuum.roborock_s8": ("dev_robo", "Roborock S8"),
+    "sensor.roborock_s8_status": ("dev_robo", "Roborock S8"),
+    "sensor.wohnzimmer_luftreiniger_wohnzimmer_filterwechsel": ("dev_luft", "Luftreiniger Wohnzimmer"),
+}
+REOLINK_CAM = "media-source://reolink/CAM|abc|0"
+REOLINK_SUB = "media-source://reolink/RES|abc|0|sub"
+REOLINK_TAG = "media-source://reolink/DAY|abc|0|sub|2026|10|2"
+REOLINK_DATEI = "media-source://reolink/FILE|abc|0|sub|1-0-0126|20261002111611|20261002111701"
+VIDEO = bytes(range(256)) * 40
 
 
 class FakeHA:
@@ -323,6 +417,7 @@ class FakeHA:
         r.add_get("/core/api/camera_proxy_stream/{eid}", self.rest_camera_stream)
         r.add_get("/core/api/hls/{token}/{datei}", self.rest_hls)
         r.add_get("/core/api/calendars/{eid}", self.rest_calendar)
+        r.add_get("/core/api/reolink/video/{rest:.+}", self.rest_video)
         r.add_get("/core/api/logbook/{start}", self.rest_logbook)
         r.add_get("/core/websocket", self.ws)
 
@@ -356,6 +451,22 @@ class FakeHA:
         if request.match_info["datei"].endswith(".m3u8"):
             return web.Response(text="#EXTM3U\n#EXT-X-VERSION:3\nsegment0.ts\n", content_type="application/vnd.apple.mpegurl")
         return web.Response(body=b"\x47" * 188, content_type="video/mp2t")
+
+    async def rest_video(self, request):
+        # Signierter Pfad wie bei HA: authSig im Query, Range-Anfragen für das Spulen
+        if request.query.get("authSig") != "sig":
+            raise web.HTTPUnauthorized()
+        rng = request.headers.get("Range", "")
+        if rng.startswith("bytes="):
+            a, _, b = rng[6:].partition("-")
+            a, b = int(a), int(b or len(VIDEO) - 1)
+            return web.Response(
+                status=206,
+                body=VIDEO[a : b + 1],
+                content_type="video/mp4",
+                headers={"Content-Range": f"bytes {a}-{b}/{len(VIDEO)}", "Accept-Ranges": "bytes"},
+            )
+        return web.Response(body=VIDEO, content_type="video/mp4", headers={"Accept-Ranges": "bytes"})
 
     async def rest_calendar(self, request):
         self._auth(request)
@@ -475,10 +586,15 @@ class FakeHA:
         if typ == "config/floor_registry/list":
             return ok([{"floor_id": "eg", "name": "Erdgeschoss", "level": 0}])
         if typ == "config/device_registry/list":
-            return ok([])
+            return ok([{"id": d, "name": n, "area_id": None} for d, n in dict(GERAETE.values()).items()])
         if typ == "config/entity_registry/list_for_display":
             ents = [
-                {"ei": e, "ai": a, **({"pl": "music_assistant"} if e == "media_player.wohnung_3" else {})}
+                {
+                    "ei": e,
+                    "ai": a,
+                    **({"pl": "music_assistant"} if e == "media_player.wohnung_3" else {}),
+                    **({"di": GERAETE[e][0]} if e in GERAETE else {}),
+                }
                 for e, a in self.area_of.items()
             ]
             return ok({"entities": ents, "entity_categories": {}})
@@ -496,6 +612,23 @@ class FakeHA:
             return ok(
                 {"url": f"/api/hls/tok123/master_playlist.m3u8?{req['entity_id']}"[: len("/api/hls/tok123/master_playlist.m3u8")]}
             )
+        if typ == "media_source/browse_media":
+            mid_ = req["media_content_id"]
+            kind = lambda i, t, k="channel": {"media_content_id": i, "title": t, "media_class": k}  # noqa: E731
+            baum = {
+                "media-source://reolink": [{**kind(REOLINK_CAM, "Wohnungstuer"), "thumbnail": "/api/camera_proxy/camera.x"}],
+                REOLINK_CAM: [kind(REOLINK_SUB, "Low resolution"), kind(REOLINK_SUB.replace("|sub", "|main"), "High resolution")],
+                REOLINK_SUB: [kind(REOLINK_TAG[:-1] + "1", "2026/10/1"), kind(REOLINK_TAG, "2026/10/2")],
+                REOLINK_TAG: [
+                    kind(REOLINK_DATEI, "11:16:11 0:00:50 Person", "video"),
+                    kind(REOLINK_DATEI + "x", "11:42:56 0:00:11 Motion", "video"),
+                ],
+            }
+            return ok({"title": "x", "children": baum.get(mid_, [])})
+        if typ == "media_source/resolve_media":
+            if not req["media_content_id"].startswith("media-source://reolink/FILE|"):
+                return {"id": mid, "type": "result", "success": False, "error": {"code": "x", "message": "unbekannt"}}
+            return ok({"url": "/api/reolink/video/abc/0/sub/datei.mp4?authSig=sig", "mime_type": "video/mp4"})
         if typ == "energy/get_prefs":
             return ok(
                 {

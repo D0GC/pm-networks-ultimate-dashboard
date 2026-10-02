@@ -64,6 +64,9 @@ WS_ERLAUBT = {
     "energy/get_prefs",
 }
 REST_ERLAUBT = ("calendars/", "logbook/", "history/period/")
+AUFNAHME_WURZEL = "media-source://reolink"
+AUFNAHME_TAG = "media-source://reolink/DAY|"
+AUFNAHME_DATEI = "media-source://reolink/FILE|"
 BILD_ERLAUBT = ("/api/camera_proxy/", "/api/media_player_proxy/", "/api/image_proxy/", "/api/image/serve/")
 
 
@@ -103,6 +106,7 @@ class Hub:
         self.einstellungen: Einstellungen = speicher.laden()
         self.states: dict[str, dict[str, Any]] = {}
         self.registry: dict[str, dict[str, Any]] = {}
+        self.geraete: dict[str, str] = {}  # Geräte-ID -> Name (für den Systemzustand)
         self.bereiche: list[dict[str, Any]] = []
         self.ha_config: dict[str, Any] = {}
         self.clients: set[web.WebSocketResponse] = set()
@@ -210,6 +214,11 @@ class Hub:
         devices = await self.client.device_registry_list()
         entities = await self.client.entity_registry_list_for_display()
         dev_area = {d.get("id"): d.get("area_id") for d in devices if isinstance(d, dict)}
+        self.geraete = {
+            d["id"]: str(d.get("name_by_user") or d.get("name") or "")
+            for d in devices
+            if isinstance(d, dict) and d.get("id") and not d.get("disabled_by") and d.get("entry_type") != "service"
+        }
         self.bereiche = [
             {
                 "id": a.get("area_id"),
@@ -308,7 +317,9 @@ class Hub:
             except HAError as err:
                 _LOGGER.warning("Registry nicht geladen: %s", err)
                 continue
-            await self.senden_alle({"typ": "registry", "bereiche": self.bereiche, "registry": self.registry})
+            await self.senden_alle(
+                {"typ": "registry", "bereiche": self.bereiche, "registry": self.registry, "geraete": self.geraete}
+            )
 
     # ------------------------------------------------------------ Zustände
 
@@ -465,6 +476,7 @@ class Hub:
             "zustaende": {eid: kompakt(st) for eid, st in self.states.items()},
             "bereiche": self.bereiche,
             "registry": self.registry,
+            "geraete": self.geraete,
             "einstellungen": self.einstellungen.to_dict(),
             "optionen": self.opts.public(),
             "karten": self.karten,
@@ -507,6 +519,49 @@ class Hub:
 
     # ------------------------------------------------------------ Anfragen der Panels
 
+    async def _durchsuchen(self, media_id: str) -> dict[str, Any]:
+        res = await self.client.ws_command({"type": "media_source/browse_media", "media_content_id": media_id}, timeout=30)
+        return res if isinstance(res, dict) else {}
+
+    async def aufnahmen(self, tag: str) -> dict[str, Any]:
+        """Kameraaufnahmen der Reolink-Integration (Medienquelle). Ohne ``tag``: Kameras mit ihren Aufnahmetagen
+        (niedrige Auflösung, lädt am Panel schneller); mit ``tag``: die Aufnahmen dieses Tages."""
+        if tag:
+            if not tag.startswith(AUFNAHME_TAG):
+                raise ValueError("Tag ungültig")
+            res = await self._durchsuchen(tag)
+            return {
+                "aufnahmen": [
+                    {"id": c.get("media_content_id"), "titel": c.get("title")}
+                    for c in res.get("children") or []
+                    if str(c.get("media_content_id", "")).startswith(AUFNAHME_DATEI)
+                ]
+            }
+        kameras = []
+        for cam in (await self._durchsuchen(AUFNAHME_WURZEL)).get("children") or []:
+            res = await self._durchsuchen(str(cam.get("media_content_id")))
+            aufl = res.get("children") or []
+            sub = next((c for c in aufl if str(c.get("media_content_id", "")).endswith("|sub")), aufl[0] if aufl else None)
+            tage = (await self._durchsuchen(str(sub.get("media_content_id")))).get("children") or [] if sub else []
+            kameras.append(
+                {
+                    "titel": cam.get("title"),
+                    "bild": cam.get("thumbnail"),
+                    "tage": [{"id": t.get("media_content_id"), "titel": t.get("title")} for t in reversed(tage[-31:])],
+                }
+            )
+        return {"kameras": kameras}
+
+    async def aufnahme_pfad(self, media_id: str) -> str:
+        """Signierter HA-Pfad einer Aufnahme (``/api/reolink/video/…?authSig=…``)."""
+        if not media_id.startswith(AUFNAHME_DATEI):
+            raise ValueError("Aufnahme ungültig")
+        res = await self.client.ws_command({"type": "media_source/resolve_media", "media_content_id": media_id}, timeout=30)
+        url = str((res or {}).get("url") or "")
+        if not url.startswith("/api/reolink/") or ".." in url:
+            raise ValueError("Aufnahme nicht abspielbar")
+        return url
+
     async def anfrage(self, msg: dict[str, Any]) -> Any:
         """Bearbeitet eine Anfrage mit ``id``; Rückgabe ist das Ergebnis, Fehler als HAError/ValueError."""
         typ = msg.get("typ")
@@ -540,6 +595,8 @@ class Hub:
             if not url.startswith("/api/hls/"):
                 raise ValueError("Kein Livestream verfügbar")
             return url.removeprefix("/")
+        if typ == "aufnahmen":
+            return await self.aufnahmen(str(msg.get("tag") or ""))
         if typ == "popup_schliessen":
             if self.popups.entfernen(str(msg.get("popup", ""))):
                 self._popups_senden()

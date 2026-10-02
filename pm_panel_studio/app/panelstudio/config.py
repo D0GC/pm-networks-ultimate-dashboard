@@ -120,49 +120,8 @@ STANDARD_RAUM_SCHALTER: dict[str, list[str]] = {
 }
 
 
-# Überwachte Entitäten für den Systemzustand (gleiche Liste wie das Jarvis-Dashboard)
-STANDARD_WARTUNG = [
-    "binary_sensor.remote_ui",
-    "binary_sensor.wohnung_konnektivitat",
-    "binary_sensor.hub_schlafzimmer_konnektivitat",
-    "binary_sensor.hub_kuche_konnektivitat",
-    "binary_sensor.hub_wohnzimmer_konnektivitat",
-    "binary_sensor.tv_wohnzimmer_konnektivitat",
-    "binary_sensor.echo_dot_badezimmer_konnektivitat",
-    "binary_sensor.dot_konnektivitat",
-    "binary_sensor.wetterstation_konnektivitat",
-    "binary_sensor.wetter_outdoor_module_konnektivitat",
-    "sensor.dishwasher_bsh_common_status_operationstate",
-    "binary_sensor.ib0892493824_verbindungszustand",
-    "binary_sensor.heizung_kuche_verbindungszustand",
-    "binary_sensor.heizung_schlafzimmer_verbindungszustand",
-    "binary_sensor.heizung_wohnzimmer_verbindungszustand",
-    "binary_sensor.heizung_badezimmer_verbindungszustand",
-    "binary_sensor.bewegungsmelder_wohnung",
-    "binary_sensor.bewegungsmelder_flur_1_bewegung",
-    "binary_sensor.bewegungsmelder_flur_2_bewegung",
-    "binary_sensor.bewegungsmelder_schlafzimmer",
-    "binary_sensor.bewegungsmelder_buero",
-    "binary_sensor.bewegungsmelder_badezimmer_bewegung",
-    "binary_sensor.bewegungsmelder_balkon_bewegung",
-    "binary_sensor.tur_wohnung",
-    "binary_sensor.aqara_door_and_window_sensor_p2_tur_2",
-    "binary_sensor.fenster_kuche",
-    "lock.eingangstur",
-    "climate.wohnzimmer_lokal",
-    "climate.kuche_lokal",
-    "climate.badezimmer_lokal",
-    "climate.schlafzimmer_lokal",
-    "binary_sensor.karl_die_waschmaschine_fernstart",
-    "binary_sensor.roborock_s8_ladestatus",
-    "binary_sensor.echo_dot_badezimmer_bewegung",
-    "binary_sensor.rpi_power_status",
-    "binary_sensor.panel_tabeltop_nextion_display",
-    "climate.pm_wohnzimmer",
-    "climate.pm_kuche",
-    "climate.pm_badezimmer",
-    "climate.pm_schlafzimmer",
-]
+# Außenluftfeuchte: der erste verfügbare Sensor gilt (lokale Wetterstation, DWD als Rückfall)
+STANDARD_AUSSEN_FEUCHTE = ["sensor.wetter_outdoor_module_luftfeuchtigkeit", "sensor.zuhause_relative_luftfeuchtigkeit"]
 
 
 @dataclass
@@ -185,7 +144,12 @@ class Einstellungen:
     szenen_aus: list[str] = field(default_factory=list)  # erscheinen nicht unter den Lieblingsszenen
     animationen: bool = True
     raum_schalter: dict[str, list[str]] = field(default_factory=lambda: {k: list(v) for k, v in STANDARD_RAUM_SCHALTER.items()})
-    wartung_entitaeten: list[str] = field(default_factory=lambda: list(STANDARD_WARTUNG))
+    wartung_ignorieren: list[str] = field(default_factory=list)  # Entitäten, deren Gerät der Systemzustand nicht prüft
+    material_modus: str = "auto"  # Verbrauchsmaterial: "auto" (erkannt) oder "manuell" (nur material_fest)
+    material_fest: list[str] = field(default_factory=list)
+    aussen_feuchte: list[str] = field(default_factory=lambda: list(STANDARD_AUSSEN_FEUCHTE))
+    gruss: bool = True  # Begrüßung unten links (Ankunft, Morgen, Nacht)
+    gruss_anrede: dict[str, str] = field(default_factory=lambda: {"person.dominik": "Sir"})
     ton_hoch: bool = True  # Hinweiston bei Meldungen mit Priorität hoch (Lautsprecher des Panels)
     ton_lautstaerke: int = 70
 
@@ -227,7 +191,23 @@ class Einstellungen:
                     if re.match(r"^[a-z0-9_]{1,64}$", str(b)) and _entities(ids)
                 }
             elif key == "wartung_entitaeten":
-                self.wartung_entitaeten = _entities(val)[:200]
+                pass  # frühere Jarvis-Liste, ersetzt durch die automatische Geräteprüfung
+            elif key in ("wartung_ignorieren", "material_fest", "aussen_feuchte"):
+                setattr(self, key, _entities(val)[:60])
+            elif key == "material_modus":
+                if val not in ("auto", "manuell"):
+                    abgewiesen.append(key)
+                    continue
+                self.material_modus = val
+            elif key == "gruss_anrede":
+                if not isinstance(val, dict):
+                    abgewiesen.append(key)
+                    continue
+                self.gruss_anrede = {
+                    str(p): str(n).strip()[:24]
+                    for p, n in val.items()
+                    if re.match(r"^person\.[a-z0-9_]+$", str(p)) and str(n).strip()
+                }
             elif key in ("szenen_angeheftet", "szenen_aus"):
                 setattr(self, key, [e for e in _entities(val) if e.startswith("scene.")][:60])
             elif key == "schnellzugriff":
@@ -238,7 +218,7 @@ class Einstellungen:
             elif key in ("bereiche_reihenfolge", "bereiche_ausblenden", "start_raeume", "karten_aus"):
                 vals = val if isinstance(val, list) else []
                 setattr(self, key, [s for s in dict.fromkeys(str(v).strip() for v in vals) if re.match(r"^[a-z0-9_]{1,64}$", s)])
-            elif key in ("animationen", "ton_hoch"):
+            elif key in ("animationen", "ton_hoch", "gruss"):
                 setattr(self, key, bool(val))
             else:
                 abgewiesen.append(key)
