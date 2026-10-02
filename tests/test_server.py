@@ -212,3 +212,21 @@ async def test_aufnahmen_und_video(ingress):
     assert r.status == 206 and r.headers["Content-Range"] == "bytes 100-199/10240" and len(await r.read()) == 100
     r = await ingress.get("/api/video", params={"id": "media-source://media_source/local/x.mp4"})
     assert r.status == 400
+
+
+async def test_server_schalter_nur_mit_freigabe(ingress, fake):
+    ws = await ingress.ws_connect("/api/ws")
+    await _init(ws)
+    befehl = {"typ": "dienst", "domain": "switch", "service": "turn_off", "data": {"entity_id": ["switch.buro_buro"]}}
+    await ws.send_json({**befehl, "id": 41})
+    a = await _warte_auf(ws, "antwort", lambda m: m["id"] == 41)
+    assert not a["ok"] and "Freigabe" in a["fehler"]
+    await ws.send_json({**befehl, "id": 42, "domain": "homeassistant", "service": "turn_off"})
+    a = await _warte_auf(ws, "antwort", lambda m: m["id"] == 42)
+    assert not a["ok"]
+    fake.set_state("input_boolean.burostrom_schaltfreigabe", "on")
+    await _warte_auf(ws, "diff", lambda m: "input_boolean.burostrom_schaltfreigabe" in m["zustaende"])
+    await ws.send_json({**befehl, "id": 43})
+    a = await _warte_auf(ws, "antwort", lambda m: m["id"] == 43)
+    assert a["ok"]
+    await ws.close()

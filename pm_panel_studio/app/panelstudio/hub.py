@@ -519,6 +519,18 @@ class Hub:
 
     # ------------------------------------------------------------ Anfragen der Panels
 
+    def ohne_freigabe(self, domain: str, data: dict[str, Any]) -> str | None:
+        """Erste Ziel-Entität, deren Freigabe-Helfer nicht an ist (Server-Hauptschalter im Büro u. a.)."""
+        if domain not in ("switch", "homeassistant", "input_boolean", "light", "fan"):
+            return None
+        ziel = data.get("entity_id")
+        ziele = [ziel] if isinstance(ziel, str) else ziel if isinstance(ziel, list) else []
+        for eid in ziele:
+            frei = self.einstellungen.freigaben.get(str(eid))
+            if frei and (self.states.get(frei) or {}).get("state") != "on":
+                return str(eid)
+        return None
+
     async def _durchsuchen(self, media_id: str) -> dict[str, Any]:
         res = await self.client.ws_command({"type": "media_source/browse_media", "media_content_id": media_id}, timeout=30)
         return res if isinstance(res, dict) else {}
@@ -570,6 +582,8 @@ class Hub:
             if not dienst_erlaubt(domain, service):
                 raise ValueError(f"Dienst {domain}.{service} ist am Panel nicht erlaubt")
             data = msg.get("data") if isinstance(msg.get("data"), dict) else {}
+            if gesperrt := self.ohne_freigabe(domain, data):
+                raise ValueError(f"{gesperrt} ist ohne Freigabe gesperrt")
             return await self.client.call_service(domain, service, data, return_response=bool(msg.get("antwort")))
         if typ == "ws":
             befehl = msg.get("befehl") if isinstance(msg.get("befehl"), dict) else {}

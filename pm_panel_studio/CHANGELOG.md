@@ -1,5 +1,15 @@
 # Änderungen
 
+## 0.1.11 – 2026-10-02
+
+- Büro: Server-Hauptschalter (`switch.buro_buro`, in HA jetzt „Main Switch Server“ mit Symbol Server) nur mit
+  Freigabe schaltbar. Antippen öffnet den Dialog: erst „Freigabe erteilen“ (2 s halten, setzt
+  `input_boolean.burostrom_schaltfreigabe`), dann Ein- bzw. Ausschalten (2 s halten). Das Backend weist Schaltbefehle
+  ohne Freigabe ab. Der Freigabe-Helfer erscheint nicht mehr als eigene Kachel. Zuordnung im Editor-Feld `freigaben`.
+- Büro: Wake on LAN („Main PC starten“, `button.buro_wol_main_pc`) als erste Kachel unter „Geräte“.
+- Thermostat-Dialog: Heizphasen (hvac_action „heizt“) als Bänder im 24-h-Verlauf, darunter Gesamtdauer und Zeiten.
+  Ohne Raumsensor zeigt der Verlauf die Isttemperatur des Thermostats.
+
 ## 0.1.10 – 2026-10-02
 
 - Pollen-Karte mit Ring: Stufe 0–4 des Österreichischen Pollenwarndienstes („3 von 4“ bei „hoch“).

@@ -1,3 +1,3 @@
 """PM Panel Studio: Wandpanel-Oberfläche für Home Assistant."""
 
-__version__ = "0.1.10"
+__version__ = "0.1.11"

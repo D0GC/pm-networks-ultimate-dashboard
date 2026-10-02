@@ -361,6 +361,11 @@ def default_states(jetzt: datetime) -> list[dict[str, Any]]:
             friendly_name="Dominiks Zahnbürste Dauer",
             unit_of_measurement="s",
         ),
+        # Büro: Server-Hauptschalter mit Freigabe, Wake on LAN
+        s("switch.buro_buro", "on", "buro", friendly_name="Main Switch Server", icon="mdi:server"),
+        s("input_boolean.burostrom_schaltfreigabe", "off", "buro", friendly_name="Bürostrom Schaltfreigabe"),
+        s("timer.burostrom_schaltfreigabe", "idle", "buro", friendly_name="Bürostrom Schaltfreigabe"),
+        s("button.buro_wol_main_pc", "unknown", "buro", friendly_name="Main PC starten", icon="mdi:desktop-tower-monitor"),
         s("binary_sensor.panel_tabeltop_nextion_display", "unavailable", None, friendly_name="Panel Tabletop Display"),
         s("sensor.panel_tabeltop_temperatur", "unavailable", None, friendly_name="Panel Tabletop Temperatur"),
     ]
@@ -671,6 +676,22 @@ class FakeHA:
         if typ == "history/history_during_period":
             eid = req["entity_ids"][0]
             start = datetime.fromisoformat(req["start_time"]).timestamp()
+            if eid.startswith("climate."):  # Heizphasen: 5–7 Uhr und 17–18 Uhr nach Beginn
+                return ok(
+                    {
+                        eid: [
+                            {
+                                "s": "heat",
+                                "a": {
+                                    "hvac_action": "heating" if 5 <= i < 7 or 17 <= i < 18 else "idle",
+                                    "current_temperature": round(20 + math.sin(i / 4), 1),
+                                },
+                                "lu": start + i * 3600,
+                            }
+                            for i in range(24)
+                        ]
+                    }
+                )
             return ok({eid: [{"s": str(round(300 + 120 * math.sin(i / 6), 1)), "lu": start + i * 1800} for i in range(48)]})
         return {
             "id": mid,
