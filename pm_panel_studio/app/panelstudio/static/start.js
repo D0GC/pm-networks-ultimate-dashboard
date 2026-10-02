@@ -161,8 +161,12 @@
     const e = PS.opt.hinweise_entitaet || "";
     return e.includes("bad") ? "Bad" : e.includes("buero") ? "Büro" : e.includes("flur") ? "Flur" : "";
   }
-  function restText(sek) {
+  // HA-Timer (Kohle, Duschmodus, Spa) zählen wie an den Panels Bad und Büro sekundengenau („12:34“); Geräte mit
+  // geschätzter Restzeit (Waschmaschine, Spüler) bleiben bei Minuten
+  const SEKUNDEN = ["kohle", "dusche", "spa"];
+  function restText(sek, sekunden = false) {
     if (sek == null) return null;
+    if (sekunden && sek < 3600) { const g = Math.ceil(Math.max(0, sek)); return { zahl: `${Math.floor(g / 60)}:${String(g % 60).padStart(2, "0")}`, einheit: "min" }; }
     const min = Math.ceil(Math.max(0, sek) / 60);
     return min >= 60 ? { zahl: `${Math.floor(min / 60)}:${String(min % 60).padStart(2, "0")}`, einheit: "h" } : { zahl: String(min), einheit: "min" };
   }
@@ -174,7 +178,7 @@
       m.kopf = AKT_KOPF[k.schluessel] || "Aktivität"; m.h2 = k.titel; m.anteil = k.ring;
       const sek = k.ende ? (new Date(k.ende).getTime() - Date.now()) / 1000 : null;
       const hm = String(k.wert).match(/^(\d+):(\d\d)( h)?$/);
-      const r = sek != null ? restText(sek) : hm ? (hm[3] ? { zahl: `${hm[1]}:${hm[2]}`, einheit: "h" } : restText(Number(hm[1]) * 60 + Number(hm[2]))) : null;
+      const r = sek != null ? restText(sek, SEKUNDEN.includes(k.schluessel)) : hm ? (hm[3] ? { zahl: `${hm[1]}:${hm[2]}`, einheit: "h" } : restText(Number(hm[1]) * 60 + Number(hm[2]))) : null;
       const pct = /%/.test(k.wert) ? zahlAus(k.wert) : null;
       if (r) { m.zahl = r.zahl; m.einheit = r.einheit; } else if (pct != null) { m.zahl = String(pct); m.einheit = "%"; } else if (k.wert && k.wert !== "–") { m.zahl = k.wert; m.einheit = ""; }
       // Fertigzeit wie im Konzept („Waschen 35 % · fertig gegen 17:24“), aus Ende oder Restzeit
@@ -313,7 +317,7 @@
       if (!k.ende) continue;
       const el = elemente.get(k.id); if (!el) continue;
       const rest = Math.max(0, (new Date(k.ende).getTime() - Date.now()) / 1000);
-      const t = el.querySelector(".wert-txt"), r = restText(rest);
+      const t = el.querySelector(".wert-txt"), r = restText(rest, SEKUNDEN.includes(k.schluessel));
       if (t && r && !t._zaehlt) { t.textContent = r.zahl; const e = el.querySelector(".einheit"); if (e) e.textContent = r.einheit; }
       if (k.dauer_s) PS.ringSetzen(el.querySelector(".ring svg"), rest / k.dauer_s);
     }
