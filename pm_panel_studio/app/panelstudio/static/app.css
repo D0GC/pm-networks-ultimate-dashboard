@@ -417,10 +417,6 @@ body.ruhe .gruss.an{opacity:.6}
 /* Der Feed: leichter Halo nur um den Kreis */
 .karte .ring .wert{filter:drop-shadow(0 0 .55rem color-mix(in srgb,var(--farbe,var(--lavender)) 45%,transparent))}
 
-/* Raumreiter unter dem Modulband */
-.sheet-inhalt.raumseite.mit-reitern{flex-direction:column;gap:1.1rem}
-.r-raumreiter{flex:none}
-.sheet-inhalt.mit-reitern .raum-ansicht{flex:1;min-height:0}
 
 /* Aufnahmen */
 .dialog video.aufnahme{width:100%;aspect-ratio:16/9;border-radius:1rem;background:#000}
@@ -439,3 +435,21 @@ body.ruhe .gruss.an{opacity:.6}
 .diagramm rect.heizt{fill:var(--warn);opacity:.16}
 .heiz-legende{display:flex;align-items:center;gap:.6rem;font-size:1rem;color:var(--leise);margin-top:.4rem}
 .heiz-legende i{width:1rem;height:1rem;border-radius:.25rem;background:var(--warn);opacity:.45;flex:none}
+
+/* Luftqualität in der Raumansicht: Skalen mit Eskalationsfarben */
+.luft-kopf{display:flex;align-items:center;gap:1rem}
+.luft-urteil{display:inline-flex;align-items:center;gap:.5rem;padding:.45rem 1rem;border-radius:99px;font-weight:600;font-size:1.15rem;
+  color:var(--stufe);background:color-mix(in srgb,var(--stufe) 14%,transparent)}
+.luft-urteil .mdi{font-size:1.4rem}
+.luft-gruende{flex:1;min-width:0;font-size:.95rem;color:var(--leise);line-height:1.35}
+.luft-werte{display:grid;grid-template-columns:repeat(auto-fit,minmax(15rem,1fr));gap:.9rem 1.4rem}
+.luft-wert{display:grid;grid-template-columns:1fr auto;gap:.15rem .8rem;align-items:baseline;cursor:pointer}
+.luft-wert .n{font-size:1rem;color:var(--lavender)}
+.luft-wert .v{font-size:1.5rem;font-weight:600;font-variant-numeric:tabular-nums;text-align:right}
+.luft-wert .v small{font-size:.85rem;font-weight:500;color:var(--leise);margin-left:.25rem}
+.luft-wert .st{grid-column:1/-1;font-size:.9rem;font-weight:600;color:var(--stufe)}
+.skala{grid-column:1/-1;position:relative;display:flex;gap:3px;height:.55rem;margin-top:.25rem}
+.skala i{height:100%;border-radius:3px;background:var(--f);opacity:.28;transition:opacity .6s}
+.skala i.jetzt{opacity:1}
+.skala b{position:absolute;top:50%;width:1.05rem;height:1.05rem;border-radius:50%;background:#fff;transform:translate(-50%,-50%);
+  box-shadow:0 0 0 .2rem var(--stufe),0 0 .7rem var(--stufe);transition:left .8s var(--ease)}

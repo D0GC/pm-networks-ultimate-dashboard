@@ -1,5 +1,13 @@
 # Änderungen
 
+## 0.1.13 – 2026-10-02
+
+- Raumansicht: Die Raumreiter unter dem Modulband entfallen; Räume wählen Sie über die Übersicht „Räume“.
+- Raumansicht: neue Box „Luftqualität“ unter dem Licht. Oben das Urteil von PM Klima (gut, mittel, schlecht) mit
+  den Gründen und dem Taupunkt, darunter je Messwert eine Skala mit Eskalationsfarben von Grün bis Rot und
+  Einstufung: CO₂ (ppm), Feinstaub PM2,5 und PM10, VOC, AQI, Allergen-Index und Luftfeuchte. Antippen zeigt den
+  Verlauf. Die Luftwerte stehen nicht mehr unter „Zustand“.
+
 ## 0.1.12 – 2026-10-02
 
 - Karussell: Kohle, Duschmodus und Spa zählen wie an den Panels Bad und Büro sekundengenau („7:12 min“); Geräte mit
