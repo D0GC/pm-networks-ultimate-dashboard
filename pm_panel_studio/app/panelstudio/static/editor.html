@@ -42,6 +42,7 @@
       <label>Lautstärke Hinweiston <span><input id="ton_lautstaerke" type="number" min="5" max="100"> %</span></label>
       <label class="haken"><input id="animationen" type="checkbox"> Animationen</label>
       <label class="haken"><input id="ton_hoch" type="checkbox"> Ton bei Meldungen mit Priorität hoch</label>
+      <label class="haken"><input id="gruss" type="checkbox"> Begrüßung unten links (Ankunft, morgens, nachts)</label>
     </div>
 
     <h2>Schnellzugriff</h2>
@@ -69,6 +70,19 @@
     <div class="spalten">
       <label>Angeheftet<textarea id="szenen_angeheftet" rows="4" spellcheck="false"></textarea></label>
       <label>Ausgeblendet<textarea id="szenen_aus" rows="4" spellcheck="false"></textarea></label>
+    </div>
+
+    <h2>Verbrauchsmaterial</h2>
+    <p>Automatisch erkennt das Panel Filter, Bürsten und Sensoren (Luftreiniger, Roborock). Manuell zeigt es nur die hier eingetragenen Sensoren, einen je Zeile.</p>
+    <div class="spalten">
+      <label>Auswahl<select id="material_modus"><option value="auto">Automatisch</option><option value="manuell">Manuell (feste Einträge)</option></select></label>
+      <label>Feste Einträge<textarea id="material_fest" rows="4" spellcheck="false"></textarea></label>
+    </div>
+
+    <h2>Wartung und Außenwerte</h2>
+    <div class="spalten">
+      <label>Systemzustand: nicht prüfen (je Zeile eine Entität des Geräts)<textarea id="wartung_ignorieren" rows="4" spellcheck="false"></textarea></label>
+      <label>Außenluftfeuchte (der erste verfügbare Sensor gilt)<textarea id="aussen_feuchte" rows="4" spellcheck="false"></textarea></label>
     </div>
 
     <h2>Karten im Karussell</h2>

@@ -51,8 +51,22 @@
     $("#dialog-grund").classList.remove("offen"); offenFuer = null;
     document.querySelectorAll("#dialog img").forEach(PS.kameraStoppen);
     PS.kameraLiveStoppen($("#dialog"));
+    document.querySelectorAll("#dialog video.aufnahme").forEach((v) => { v.pause(); v.removeAttribute("src"); v.load(); });
   }
   PS.dialogSchliessen = schliessen;
+  // Kameraaufnahme (Reolink-Medienquelle) im Dialog abspielen; die App reicht das Video samt Spulen durch
+  PS.aufnahmeZeigen = (titel, unter, id) => {
+    delete $("#dialog").dataset.popup; offenFuer = null;
+    const dlg = $("#dialog");
+    dlg.querySelectorAll("img").forEach(PS.kameraStoppen);
+    PS.kameraLiveStoppen(dlg);
+    dlg.innerHTML = `<div class="kopf">${PS.ic("filmstrip", "gr")}<h2>${PS.esc(titel)}<small>${PS.esc(unter)}</small></h2><button class="zu" aria-label="Schließen">${PS.ic("close")}</button></div>
+      <video class="aufnahme" controls autoplay playsinline preload="auto" src="api/video?id=${encodeURIComponent(id)}"></video>`;
+    dlg.querySelector(".zu").addEventListener("click", schliessen);
+    const v = dlg.querySelector("video");
+    v.addEventListener("error", () => v.insertAdjacentHTML("afterend", '<div class="leer">Die Aufnahme lässt sich nicht laden. Die Kamera schläft möglicherweise; ein zweiter Versuch hilft meist.</div>'), { once: true });
+    $("#dialog-grund").classList.add("offen");
+  };
   // Panel-Meldung wie an den Panels Büro und Bad: Symbol, Titel, Text, Zeit und Priorität, Bestätigen/Später bzw. OK.
   // Ein Browser-Mod-Popup mit gleicher Kennung liefert den ausführlichen Text und ggf. eine Kamera dazu.
   const M_ICON = { info: "information-outline", kohle: "fire", alarm: "shield-alert-outline", tuer: "door-open", lueften: "window-open-variant",

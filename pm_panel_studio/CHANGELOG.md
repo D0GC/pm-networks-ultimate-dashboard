@@ -1,5 +1,22 @@
 # Änderungen
 
+## 0.1.10 – 2026-10-02
+
+- Pollen-Karte mit Ring: Stufe 0–4 des Österreichischen Pollenwarndienstes („3 von 4“ bei „hoch“).
+- Der Feed (Karussell): leichter Halo um den Ring, sonst unverändert.
+- Begrüßung unten links, höchstens zwei Sätze: nach dem Heimkommen („Willkommen zuhause, Sir.“, „Willkommen daheim,
+  Gina.“), morgens 6–10 Uhr mit Termin oder Wetter, nachts 0–1:30 Uhr mit kurzem Abschluss (offene Fenster, Müll,
+  Alarmanlage). Abschaltbar im Editor.
+- Modulband auch auf der Seite Räume; die Raumreiter stehen als eigene Zeile darunter.
+- Klima → Luft: ein einziger Außenwert (lokale Wetterstation, DWD als Rückfall), innen ein Wert je Raum.
+- Sicherheit → Aufnahmen der Reolink-Kamera: die letzten fünf von heute und gestern, „Alle Aufnahmen“ mit
+  Tagesauswahl (14 Tage). Antippen spielt die Aufnahme im Dialog ab, Spulen eingeschlossen.
+- Wartung → Systemzustand ohne Jarvis-Liste: geprüft werden automatisch alle Geräte; eines gilt als nicht
+  erreichbar, wenn alle seine Entitäten „nicht verfügbar“ sind. Ausnahmen im Editor.
+- Wartung → Verbrauchsmaterial: nur echtes Material (Filter des Luftreinigers, Bürsten, Filter und Sensoren des
+  Roborock) mit Restanteil; Roborock-Stunden gemessen an den Herstellerwerten (Hauptbürste 300 h, Seitenbürste 200 h,
+  Filter 150 h, Sensoren 30 h). Im Editor umschaltbar zwischen automatischer Auswahl und festen Einträgen.
+
 ## 0.1.9 – 2026-10-01
 
 - Karussell 1:1 nach dem Konzept: Kopf mit Punkt und Kategorie, Ring mit Zahl und Einheit (Stärke, Größe und

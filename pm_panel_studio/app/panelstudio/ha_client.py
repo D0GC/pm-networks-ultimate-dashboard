@@ -107,13 +107,13 @@ class HAClient:
         except TimeoutError as err:
             raise HAError(f"GET {path}: Zeitüberschreitung") from err
 
-    async def stream_oeffnen(self, path: str) -> aiohttp.ClientResponse:
-        """GET ohne Gesamt-Zeitlimit für Datenströme (MJPEG). Der Aufrufer gibt die Antwort mit ``release()`` frei."""
+    async def stream_oeffnen(self, path: str, headers: dict[str, str] | None = None) -> aiohttp.ClientResponse:
+        """GET ohne Gesamt-Zeitlimit für Datenströme (MJPEG, Video). Der Aufrufer gibt die Antwort mit ``release()`` frei."""
         url = f"{self.api_url}/{path.lstrip('/')}"
         try:
             resp = await self._session.get(
                 url,
-                headers={"Authorization": f"Bearer {self._token}"},
+                headers={"Authorization": f"Bearer {self._token}", **(headers or {})},
                 timeout=aiohttp.ClientTimeout(total=None, sock_connect=10, sock_read=30),
             )
         except aiohttp.ClientError as err:

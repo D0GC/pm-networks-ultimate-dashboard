@@ -232,6 +232,37 @@ async def hls(request: web.Request) -> web.StreamResponse:
     return ziel
 
 
+async def video(request: web.Request) -> web.StreamResponse:
+    """Kameraaufnahme abspielen: Medienquelle auflösen und das Video samt Range-Anfragen (Spulen) durchreichen."""
+    hub = request.app[K_HUB]
+    try:
+        pfad = await hub.aufnahme_pfad(request.query.get("id", ""))
+    except ValueError as err:
+        raise web.HTTPBadRequest(text=str(err)) from err
+    except HAError as err:
+        raise web.HTTPBadGateway(text=str(err)) from err
+    bereich = {"Range": request.headers["Range"]} if "Range" in request.headers else None
+    try:
+        quelle = await hub.client.stream_oeffnen(pfad.removeprefix("/api"), headers=bereich)
+    except HAError as err:
+        raise web.HTTPBadGateway(text=str(err)) from err
+    try:
+        kopf = {
+            k: quelle.headers[k]
+            for k in ("Content-Type", "Content-Length", "Content-Range", "Accept-Ranges")
+            if k in quelle.headers
+        }
+        ziel = web.StreamResponse(status=quelle.status, headers={**kopf, "Cache-Control": "no-store"})
+        await ziel.prepare(request)
+        async for block in quelle.content.iter_chunked(64 * 1024):
+            await ziel.write(block)
+    except (ConnectionResetError, aiohttp.ClientError, asyncio.CancelledError):
+        pass
+    finally:
+        quelle.release()
+    return ziel
+
+
 async def einstellungen_get(request: web.Request) -> web.Response:
     hub = request.app[K_HUB]
     return web.json_response(
@@ -285,6 +316,7 @@ def _gemeinsam(app: web.Application) -> None:
     app.router.add_get("/api/bild", bild)
     app.router.add_get("/api/kamera", kamera)
     app.router.add_get("/api/hls/{pfad:.+}", hls)
+    app.router.add_get("/api/video", video)
     app.router.add_static("/static/", STATIC_DIR, show_index=False)
 
 

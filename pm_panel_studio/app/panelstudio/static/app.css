@@ -407,3 +407,21 @@ body.ohne-animation *,body.ohne-animation *::before,body.ohne-animation *::after
 .punkte{gap:.6rem}
 .punkte span,.punkte span.jetzt{height:.5rem;width:1.6rem}
 .punkte span.vorbei{background:rgba(197,192,211,.5)}
+
+/* Begrüßung unten links */
+.gruss{margin:auto 0 0;font-size:1.55rem;line-height:1.4;color:var(--lavender);font-weight:500;max-width:30rem;text-wrap:pretty;
+  opacity:0;transform:translateY(.6rem);transition:opacity .6s ease,transform .8s var(--ease)}
+.gruss.an{opacity:.92;transform:none}
+body.ruhe .gruss.an{opacity:.6}
+
+/* Der Feed: leichter Halo nur um den Kreis */
+.karte .ring .wert{filter:drop-shadow(0 0 .55rem color-mix(in srgb,var(--farbe,var(--lavender)) 45%,transparent))}
+
+/* Raumreiter unter dem Modulband */
+.sheet-inhalt.raumseite.mit-reitern{flex-direction:column;gap:1.1rem}
+.r-raumreiter{flex:none}
+.sheet-inhalt.mit-reitern .raum-ansicht{flex:1;min-height:0}
+
+/* Aufnahmen */
+.dialog video.aufnahme{width:100%;aspect-ratio:16/9;border-radius:1rem;background:#000}
+.r-aufnahmen .zeile{cursor:pointer}
