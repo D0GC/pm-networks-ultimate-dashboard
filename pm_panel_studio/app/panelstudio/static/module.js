@@ -215,7 +215,7 @@
     const k = E(`<div class="raum" style="--i:${i}"><div class="oben">${PS.ic(b.icon || "texture-box")}<b>${PS.esc(b.name)}</b></div>
       <div class="werte">${w.temp != null ? `<span>${PS.ic("thermometer")} ${PS.zahl(w.temp, 1)}°</span>` : ""}${w.feuchte != null ? `<span>${PS.ic("water-percent")} ${PS.zahl(w.feuchte, 0)} %</span>` : ""}</div>
       <div class="chips">${chips.join("")}</div></div>`);
-    k.addEventListener("click", () => PS.unterseite(b.name, (el) => raumKompakt(el, b.id)));
+    k.addEventListener("click", () => PS.mitUebergang(k, () => PS.unterseite(b.name, (el) => raumKompakt(el, b.id))));
     return k;
   }
 

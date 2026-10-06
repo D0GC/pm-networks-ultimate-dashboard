@@ -1,5 +1,28 @@
 # Änderungen
 
+## 2026.10.2 – 2026-10-07
+
+Bewegungskonzept vollständig umgesetzt (Stufen 1–3), dazu Unwetterwarnung, neue Feed-Regeln und animierte
+Wettersymbole. Alle Animationen nutzen gemeinsame Tokens (`static/bewegung.css`) und folgen dem Schalter
+„Animationen“ sowie `prefers-reduced-motion`.
+
+- Stufe 1: Komet-Ring für alle Ringe (Verlauf in der Ringfarbe, leuchtender Kopfpunkt). Zahlenwalze statt
+  Hochzählen, auch über die Tausenderstelle (999 → 1.000 rollt die neue Stelle herein, der Punkt blendet ein).
+  Kacheln geben beim Tippen nach, Licht blüht vom Finger aus, beim Einschalten streicht ein Glanz darüber.
+- Laufende Timer atmen im Sekundentakt: Die Zahl hebt und senkt sich, Ring und Kopfpunkt glimmen mit.
+- Stufe 2: Kartenwechsel „Schichtwechsel“ (alte Karte tritt unscharf in die Tiefe, neue wird aufgedeckt; Kopf,
+  Ring, Überschrift und Zeile folgen im Abstand von 80 ms). Halten mit Ring um den Finger und Federimpuls zur
+  Bestätigung. Meldungen mit Priorität hoch fallen mit Feder herein und lassen den Bildschirmrand dreimal glühen.
+- Stufe 3: Räume öffnen sich aus ihrer Kachel (View Transitions), Inhalte gestaffelt. Polarlicht im Ruhezustand
+  (nachts aus), Weckstrahl beim Aufwachen. Lichtteilchen im Energiefluss, ihre Dichte folgt der aktuellen Leistung.
+- Unwetterwarnung des DWD als eigene Feed-Karte vorn: Farbe nach Stufe (gelb, orange, rot, violett), Ring = Stufe
+  von 4, im Ring das animierte Warnsymbol, ab Stufe 3 glüht der Kartenrand. Vorabinformationen folgen den aktiven
+  Warnungen. Die knappe Warnzeile der Hinweisvorlage entfällt dafür.
+- Feed-Regeln: Das Wetter erscheint nur noch vor einem Wechsel in den nächsten 3 Stunden („Regen ab 15 Uhr“,
+  „Regen hört gegen 16 Uhr auf“). Ohne Hinweise bleibt der Feed im Ruhezustand leer; wach zeigt er „Alles in
+  Ordnung“ und, falls vorhanden, den nächsten Termin der kommenden 24 Stunden.
+- Wettersymbole links animiert: Regen fällt, Sonne pulsiert, Wolken ziehen, Nebelstriche wandern, Blitz schlägt ein.
+
 ## 2026.10.1 – 2026-10-07
 
 Erste stabile Version (nicht mehr als experimentell gekennzeichnet). Versionen folgen ab jetzt dem Schema

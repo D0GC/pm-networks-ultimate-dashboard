@@ -97,3 +97,41 @@ def test_musik_karte_gruppen_einmal():
     assert k["wert"] == "2:30"
     assert k["unter"] == "Band · Wohnung"
     assert abs(k["ring"] - 0.75) < 0.01
+
+
+def test_unwetter_aus_dwd_sensoren_ersetzt_warnzeile():
+    jetzt = datetime(2026, 10, 7, 12, 0, tzinfo=UTC)
+    states = {
+        "sensor.kreis_x_aktuelle_warnstufe": {
+            "state": "2",
+            "attributes": {
+                "region_name": "Kreis X",
+                "warning_count": 2,
+                "warning_1_name": "Windböen",
+                "warning_1_level": 1,
+                "warning_1_headline": "Amtliche Warnung vor Windböen",
+                "warning_1_end": jetzt + timedelta(hours=6),
+                "warning_2_name": "Sturmböen",
+                "warning_2_level": 2,
+                "warning_2_end": (jetzt + timedelta(hours=3)).isoformat(),
+            },
+        },
+        "sensor.kreis_x_vorwarnstufe": {
+            "state": "3",
+            "attributes": {"region_name": "Kreis X", "warning_count": 1, "warning_1_name": "Orkanböen", "warning_1_level": 3},
+        },
+        "sensor.panel_bad_hinweise": {
+            "state": "1",
+            "attributes": {"zeilen": "warnung|Warnung|Sturm|DWD bis 18 Uhr\nwetter|Wetter|9–20°|sonnig"},
+        },
+    }
+    karten = kt.berechne(states, "sensor.panel_bad_hinweise", jetzt)
+    warn = [k for k in karten if k["art"] == "warnung"]
+    assert [k["titel"] for k in warn] == ["Sturmböen", "Windböen", "Orkanböen"]  # aktiv vor vorab, höchste Stufe zuerst
+    assert warn[0]["stufe"] == 2 and warn[0]["ring"] == 0.5 and not warn[0]["vorab"] and warn[2]["vorab"]
+    assert all(k["schluessel"] != "warnung" for k in karten)  # Warnzeile der Vorlage entfällt
+    assert karten[0]["art"] == "warnung"
+    # abgelaufene Warnung entfällt; ausgeblendet über „warnung“
+    states["sensor.kreis_x_aktuelle_warnstufe"]["attributes"]["warning_2_end"] = (jetzt - timedelta(minutes=1)).isoformat()
+    assert "Sturmböen" not in [k["titel"] for k in kt.berechne(states, "sensor.panel_bad_hinweise", jetzt)]
+    assert not [k for k in kt.berechne(states, "sensor.panel_bad_hinweise", jetzt, aus=["warnung"]) if k["art"] == "warnung"]

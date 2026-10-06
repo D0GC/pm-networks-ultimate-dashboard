@@ -24,11 +24,11 @@
     const aussen = PS.opt.aussentemperatur && PS.z[PS.opt.aussentemperatur] ? PS.s(PS.opt.aussentemperatur) : st.a.temperature;
     const heute = vorhersage[0] || {};
     const regen = heute.precipitation_probability != null ? ` · Regen ${heute.precipitation_probability} %` : "";
-    el.innerHTML = `${PS.ic(PS.wetterIcon(st.s))}<div><b class="tabular">${PS.zahl(aussen, 1)}°</b><small>${PS.esc(PS.text(w))}${heute.temperature != null ? ` · ${PS.zahl(heute.templow, 0)}–${PS.zahl(heute.temperature, 0)}°` : ""}${regen}</small></div>`;
+    el.innerHTML = `${PS.wetterSvg ? PS.wetterSvg(st.s) : PS.ic(PS.wetterIcon(st.s))}<div><b class="tabular">${PS.zahl(aussen, 1)}°</b><small>${PS.esc(PS.text(w))}${heute.temperature != null ? ` · ${PS.zahl(heute.templow, 0)}–${PS.zahl(heute.temperature, 0)}°` : ""}${regen}</small></div>`;
     const tage = vorhersage.slice(1, 4);
     $("#vorschau").innerHTML = tage.map((t) => {
       const d = new Date(t.datetime);
-      return `<div>${d.toLocaleDateString("de-DE", { weekday: "short" })}${PS.ic(PS.wetterIcon(t.condition))}<span class="tabular">${PS.zahl(t.templow, 0)}–${PS.zahl(t.temperature, 0)}°</span></div>`;
+      return `<div>${d.toLocaleDateString("de-DE", { weekday: "short" })}${PS.wetterSvg ? PS.wetterSvg(t.condition) : PS.ic(PS.wetterIcon(t.condition))}<span class="tabular">${PS.zahl(t.templow, 0)}–${PS.zahl(t.temperature, 0)}°</span></div>`;
     }).join("");
   }
 
@@ -147,10 +147,11 @@
     fertig: ["check-circle-outline", "var(--gut)"], offen: ["door-open", "var(--warn)"], lueften: ["window-open-variant", "var(--warn)"],
     pollen: ["flower-pollen-outline", "#f6d36b"], eigen: ["information-outline", "var(--lavender)"], neutral: ["information-outline", "var(--lavender)"],
     dusche: ["shower-head", "var(--info)"], spa: ["hot-tub", "var(--akzent)"], kohle: ["fire", "#ff9a5c"], waesche: ["washing-machine", "var(--info)"],
+    unwetter: ["alert-outline", "#f0964c"], wetterwechsel: ["weather-partly-cloudy", "var(--info)"], ok: ["shield-check-outline", "var(--gut)"],
+    naechstes: ["calendar-arrow-right", "#c99bf0"],
     meldung: ["bell-ring-outline", "var(--warn)"], spueler: ["dishwasher", "var(--info)"], robo: ["robot-vacuum", "var(--gut)"], musik: ["music-note-outline", "#c99bf0"], ruhig: ["leaf", "var(--gut)"],
   };
   PS.kartenIcon = (k) => (KARTE[k] || KARTE.neutral)[0];
-  const LEER = { id: "leer", art: "hinweis", schluessel: "ruhig", titel: "Hinweise", wert: "Alles ruhig", hinweis: "Keine Hinweise und keine laufenden Geräte.", ring: null };
   let aktuell = 0, liste = [], wechselZeit = 0;
   const elemente = new Map();
 
@@ -188,6 +189,18 @@
       if (k.schluessel === "musik" && m.zahl === "♪") { m.zahl = null; }
       return m;
     }
+    if (k.art === "warnung") {
+      // Amtliche Warnung des DWD: Stufe 1 gelb, 2 orange, 3 rot, 4 violett; Ring = Stufe von 4, im Ring das
+      // animierte Warnsymbol (Blitz, Wind, Regen …)
+      const stufe = Math.max(1, Math.min(4, Number(k.stufe) || 1));
+      const bis = k.bis ? new Date(k.bis) : null;
+      const heute = bis && bis.toDateString() === new Date().toDateString();
+      const bisText = bis && !isNaN(bis) ? `bis ${heute ? "" : bis.toLocaleDateString("de-DE", { weekday: "short" }) + " "}${bis.getHours()} Uhr` : "";
+      return { ...m, kopf: `${k.vorab ? "Vorabinformation" : WARN_NAME[stufe]} · DWD`, farbe: WARN_FARBE[stufe], anteil: stufe / 4,
+        svg: PS.warnSvg ? PS.warnSvg(PS.warnTyp(k.titel), "warn-ring") : null, icon: "alert-outline", einheit: `Stufe ${stufe} von 4`,
+        h2: k.titel, p: [bisText, k.hinweis && k.hinweis !== k.titel ? k.hinweis : ""].filter(Boolean).join(" · "), glut: stufe >= 3 && !k.vorab };
+    }
+    if (k.art === "praktisch") return { ...m, ...k.modell };
     if (k.art === "meldung") {
       return { ...m, kopf: k.prio === "high" ? "Meldung · wichtig" : "Meldung", farbe: PS.meldungFarbe(k.prio), icon: PS.meldungIcon(k.icon), h2: k.titel, p: k.hinweis };
     }
@@ -242,26 +255,30 @@
     }
     return m;
   }
+  const WARN_FARBE = { 1: "#f0d34c", 2: "#f0964c", 3: "#ef6a7a", 4: "#b05bd6" };
+  const WARN_NAME = { 1: "Wetterwarnung", 2: "Markante Warnung", 3: "Unwetterwarnung", 4: "Extreme Unwetterwarnung" };
   function ringAnteil(k) { return modell(k).anteil; }
   PS.ringAnteil = ringAnteil;
   function karteInhalt(k) {
     const m = modell(k);
-    const innen = m.zahl != null
-      ? `<b class="wert-txt tabular" data-zahl="${/^\d+$/.test(m.zahl) ? m.zahl : ""}">${PS.esc(m.zahl)}</b><small class="einheit">${PS.esc(m.einheit)}</small>`
-      : PS.ic(m.icon);
-    return { farbe: m.farbe, html: `<div class="kopf"><i class="punkt"></i><span>${PS.esc(m.kopf)}</span></div><div class="ring">${PS.ringSVG(m.anteil)}<div class="innen">${innen}</div></div><h2>${PS.esc(m.h2 || "")}</h2><p>${PS.esc(m.p || "")}</p>` };
+    const laeuft = !!k.ende;
+    let innen;
+    if (m.svg) innen = `${m.svg}<small class="einheit">${PS.esc(m.einheit)}</small>`;
+    else if (m.zahl != null && laeuft) innen = `<b class="wert-txt tabular">${PS.esc(m.zahl)}</b><small class="einheit">${PS.esc(m.einheit)}</small>`;
+    else if (m.zahl != null) innen = `<b class="wert-txt tabular" data-text="${PS.esc(m.zahl)}"></b><small class="einheit">${PS.esc(m.einheit)}</small>`;
+    else innen = PS.ic(m.icon);
+    return { farbe: m.farbe, glut: !!m.glut, html: `<div class="kopf"><i class="punkt"></i><span>${PS.esc(m.kopf)}</span></div><div class="ring${laeuft ? " laeuft atmet" : ""}">${PS.ringSVG(m.anteil)}<div class="innen">${innen}</div></div><h2>${PS.esc(m.h2 || "")}</h2><p>${PS.esc(m.p || "")}</p>` };
   }
-  // Zahl im Ring hochzählen (wie im Konzept), nur bei ganzen Zahlen
-  function hochzaehlen(b) {
-    const ziel = Number(b && b.dataset.zahl);
-    if (!b || !b.dataset.zahl || !isFinite(ziel) || document.body.classList.contains("ohne-animation")) return;
-    const t0 = performance.now();
-    const schritt = (t) => { const p = Math.min(1, (t - t0) / 1400), e = 1 - Math.pow(1 - p, 3); b.textContent = String(Math.round(ziel * e)); if (p < 1) requestAnimationFrame(schritt); };
-    requestAnimationFrame(schritt);
+  // Zahl im Ring rollt wie ein Zählwerk auf den Wert (Konzept Stufe 1); bei jedem Zeigen aus dem Leeren
+  function walzeStarten(el, neu) {
+    const b = el && el.querySelector(".wert-txt[data-text]"); if (!b) return;
+    if (neu) { b._walze = null; b.textContent = ""; }
+    PS.walze(b, b.dataset.text);
   }
   function kartenSetzen(karten) {
     const alt = liste[aktuell] && liste[aktuell].id;
-    liste = karten && karten.length ? karten : [LEER];
+    liste = karten || [];
+    $(".mitte").classList.toggle("leer", !liste.length);
     const box = $("#karussell");
     const ids = new Set(liste.map((k) => k.id));
     for (const [id, el] of elemente) if (!ids.has(id)) { el.remove(); elemente.delete(id); }
@@ -273,11 +290,17 @@
         el.addEventListener("click", () => { const kk = el._karte; if (kk && kk.art === "meldung") PS.popupZeigen(kk.id); else weiter(); });
         box.appendChild(el); elemente.set(k.id, el);
         el.innerHTML = inhalt.html;
+        walzeStarten(el, true);
       } else if (el._html !== inhalt.html) {
-        // Teile tauschen, den Ring aber behalten, damit er weich zum neuen Wert gleitet
+        // Teile tauschen, den Ring aber behalten, damit er weich zum neuen Wert gleitet; Zahlen rollen
         const neu = document.createElement("div"); neu.innerHTML = inhalt.html;
         el.querySelector(".kopf").replaceWith(neu.querySelector(".kopf"));
-        el.querySelector(".ring .innen").replaceWith(neu.querySelector(".ring .innen"));
+        const altB = el.querySelector(".ring .innen .wert-txt[data-text]"), neuB = neu.querySelector(".ring .innen .wert-txt[data-text]");
+        if (altB && neuB) {
+          altB.dataset.text = neuB.dataset.text; PS.walze(altB, neuB.dataset.text);
+          el.querySelector(".ring .innen .einheit").textContent = neu.querySelector(".ring .innen .einheit").textContent;
+        } else el.querySelector(".ring .innen").replaceWith(neu.querySelector(".ring .innen"));
+        el.querySelector(".ring").className = neu.querySelector(".ring").className;
         el.querySelector("h2").replaceWith(neu.querySelector("h2"));
         el.querySelector("p").replaceWith(neu.querySelector("p"));
         PS.ringSetzen(el.querySelector(".ring svg"), ringAnteil(k));
@@ -285,6 +308,7 @@
       el._html = inhalt.html; el._karte = k;
       el.style.setProperty("--farbe", inhalt.farbe);
       el.classList.toggle("eil", k.schluessel === "eil");
+      el.classList.toggle("glut", inhalt.glut);
     }
     const pos = liste.findIndex((k) => k.id === alt);
     aktuell = pos >= 0 ? pos : Math.min(aktuell, liste.length - 1);
@@ -302,7 +326,7 @@
       if (el) {
         const svg = el.querySelector(".ring svg"); PS.ringSetzen(svg, 0);
         requestAnimationFrame(() => requestAnimationFrame(() => PS.ringSetzen(svg, ringAnteil(k))));
-        hochzaehlen(el.querySelector(".wert-txt"));
+        walzeStarten(el, true);
       }
     }
     const pk = $("#punkte");
@@ -323,6 +347,85 @@
     }
   }
 
+
+  // ------------------------------------------------------------ Feed: was gerade zählt
+  // Das Wetter steht links; der Feed zeigt es nur kurz vor einem Wetterwechsel (nächste 3 Stunden). Ohne Hinweise
+  // bleibt der Feed im Ruhezustand leer; wach zeigt er, was gerade praktisch ist.
+  let stuendlich = [], naechsterTermin = null;
+  async function stuendlichLaden() {
+    const w = PS.opt.wetter_entitaet; if (!w || !PS.z[w]) return;
+    try {
+      const r = await PS.anfrage({ typ: "dienst", domain: "weather", service: "get_forecasts", data: { entity_id: w, type: "hourly" }, antwort: true });
+      stuendlich = ((r || {})[w] || {}).forecast || [];
+    } catch { stuendlich = []; }
+    feedAufbauen();
+  }
+  async function termineLaden() {
+    const kals = Object.keys(PS.z).filter((e) => e.startsWith("calendar.") && PS.sichtbar(e));
+    const start = new Date(), ende = new Date(Date.now() + 24 * 3600e3), alle = [];
+    await Promise.all(kals.map(async (k) => {
+      try {
+        const r = await PS.anfrage({ typ: "rest", pfad: `calendars/${k}?start=${encodeURIComponent(start.toISOString())}&end=${encodeURIComponent(ende.toISOString())}` });
+        (r || []).forEach((t) => { if (t.start && t.start.dateTime) alle.push({ titel: t.summary, start: new Date(t.start.dateTime) }); });
+      } catch { /* einzelne Kalender dürfen fehlen */ }
+    }));
+    naechsterTermin = alle.filter((t) => t.start > new Date()).sort((a, b) => a.start - b.start)[0] || null;
+    feedAufbauen();
+  }
+  const NASS = ["rainy", "pouring", "lightning-rainy", "snowy", "snowy-rainy", "hail"];
+  const nass = (f) => NASS.includes(f.condition) || f.condition === "lightning" || (f.precipitation_probability || 0) >= 60;
+  function wetterwechsel() {
+    const jetzt = Date.now(), w = PS.opt.wetter_entitaet;
+    const naechste = stuendlich.filter((f) => { const t = Date.parse(f.datetime); return t > jetzt - 30 * 60e3 && t <= jetzt + 3 * 3600e3; });
+    if (naechste.length < 2) return null;
+    const nun = { condition: PS.s(w), precipitation_probability: (naechste[0] || {}).precipitation_probability };
+    const art = (f) => (/lightning/.test(f.condition) ? "Gewitter" : /snow/.test(f.condition) ? "Schnee" : f.condition === "hail" ? "Hagel" : "Regen");
+    const uhr = (f) => `${new Date(f.datetime).getHours()} Uhr`;
+    const karte = (h2, p, prozent, zustand) => ({ id: "ww", art: "praktisch", schluessel: "wetterwechsel", titel: "Wetterwechsel", wert: "", hinweis: "",
+      modell: { kopf: "Wetterwechsel", farbe: "var(--info)", h2, p, zahl: String(prozent), einheit: "% Regen", anteil: Math.max(0.02, prozent / 100), zustand } });
+    if (!nass(nun)) {
+      const f = naechste.slice(1).find(nass);
+      if (f) return karte(`${art(f)} ab ${uhr(f)}`, `Wahrscheinlichkeit ${f.precipitation_probability ?? "–"} % · dann ${PS.zahl(f.temperature, 0)}°`, f.precipitation_probability || 60, f.condition);
+    } else {
+      const f = naechste.slice(1).find((x) => !nass(x) && (x.precipitation_probability || 0) < 30);
+      if (f) return karte(`${art(nun)} hört gegen ${uhr(f)} auf`, `danach ${PS.text(w, f.condition)} · ${PS.zahl(f.temperature, 0)}°`, f.precipitation_probability || 0, f.condition);
+    }
+    return null;
+  }
+  function praktisch() {
+    const out = [];
+    const offen = offeneZugaenge().length, al = PS.opt.alarm_entitaet;
+    const teile = [offen ? `${offen} offen` : "Fenster und Türen zu"];
+    if (al && PS.z[al]) teile.push(PS.s(al).startsWith("armed") ? "Alarm scharf" : "Alarm aus");
+    teile.push("keine Geräte aktiv");
+    out.push({ id: "ok", art: "praktisch", schluessel: "ok", titel: "Zuhause", wert: "", hinweis: "",
+      modell: { kopf: "Zuhause", farbe: "var(--gut)", icon: "shield-check-outline", anteil: 1, h2: "Alles in Ordnung", p: teile.join(" · ") } });
+    if (naechsterTermin) {
+      const t = naechsterTermin.start, min = (t - Date.now()) / 60e3, heute = t.toDateString() === new Date().toDateString();
+      out.push({ id: "naechstes", art: "praktisch", schluessel: "naechstes", titel: "Als Nächstes", wert: "", hinweis: "",
+        modell: { kopf: "Als Nächstes", farbe: "#c99bf0", h2: naechsterTermin.titel || "Termin", p: `${heute ? "heute" : "morgen"} um ${PS.uhrzeit(t)}`,
+          zahl: PS.uhrzeit(t), einheit: "Uhr", anteil: Math.max(0.02, 1 - min / 1440) } });
+    }
+    return out;
+  }
+  function feedAufbauen() {
+    let k = (PS.karten || []).filter((x) => x.schluessel !== "wetter");
+    const ww = (PS.einst.karten_aus || []).includes("wetter") ? null : wetterwechsel(); if (ww) k.push(ww);
+    if (!k.length && PS.modus !== "ruhe") k = praktisch();
+    kartenSetzen(k);
+  }
+
+  // Kachel wird Seite (Konzept Stufe 3): View Transitions, ohne Unterstützung einfach öffnen
+  PS.mitUebergang = (quelle, fn) => {
+    if (!document.startViewTransition || !quelle || document.body.classList.contains("ohne-animation")) { fn(); return; }
+    quelle.style.viewTransitionName = "raum-kopf";
+    const vt = document.startViewTransition(() => {
+      quelle.style.viewTransitionName = "";
+      fn();
+      $("#sheet-titel").style.viewTransitionName = "raum-kopf";
+    });
+    vt.finished.finally(() => { $("#sheet-titel").style.viewTransitionName = ""; });
+  };
 
   // ------------------------------------------------------------ Schnellzugriff und Räume
   function schnellzugriff() {
@@ -352,7 +455,7 @@
       teile.push(w.lichterAn ? `${w.lichterAn} Licht${w.lichterAn > 1 ? "er" : ""}` : "Licht aus");
       return `<div data-b="${PS.esc(b)}"><span>${PS.esc(PS.bereichName(b))}</span><span>${teile.join(" · ")}</span></div>`;
     }).join("");
-    box.querySelectorAll("[data-b]").forEach((el) => el.addEventListener("click", () => PS.oeffnen("raeume", el.dataset.b)));
+    box.querySelectorAll("[data-b]").forEach((el) => el.addEventListener("click", () => PS.mitUebergang(el, () => PS.oeffnen("raeume", el.dataset.b))));
   }
 
   // ------------------------------------------------------------ Modulleiste und Sheet
@@ -432,8 +535,17 @@
   function alles() {
     uhr(); wetter(); personen(); statusZeile(); schnellzugriff(); raeumeKurz(); dock(); gruss();
   }
-  PS.on("init", () => { alles(); vorhersageLaden(); if (stapel.length) PS.neuZeichnen(); });
-  PS.on("karten", (k) => { kartenSetzen(k); statusZeile(); gruss(); });
+  PS.on("init", () => { alles(); vorhersageLaden(); stuendlichLaden(); termineLaden(); feedAufbauen(); if (stapel.length) PS.neuZeichnen(); });
+  let letzterModus = null;
+  PS.on("modus", () => {
+    // Weckstrahl beim Aufwachen (Konzept Stufe 3), Feed neu: in Ruhe ohne leere Karte
+    if (letzterModus === "ruhe" && PS.modus === "wach" && !document.body.classList.contains("ohne-animation")) {
+      const w = $(".weckstrahl"); w.classList.remove("an"); void w.offsetWidth; w.classList.add("an");
+    }
+    letzterModus = PS.modus;
+    feedAufbauen();
+  });
+  PS.on("karten", () => { feedAufbauen(); statusZeile(); gruss(); });
   PS.on("popups", (neu) => {
     statusZeile();
     if (stapel.length && stapel[0].modul === "hinweise") PS.neuZeichnen();
@@ -468,6 +580,9 @@
     setInterval(gruss, 30000);
     setInterval(takt, 1000);
     setInterval(vorhersageLaden, 30 * 60 * 1000);
+    setInterval(stuendlichLaden, 30 * 60 * 1000);
+    setInterval(termineLaden, 15 * 60 * 1000);
+    setInterval(feedAufbauen, 60 * 1000);
     setInterval(() => {
       // In Klima Studio (eingebettet) kommen Berührungen nicht beim Panel an: dort erst nach 10 Minuten zurück
       const frist = stapel[0] && stapel[0].modul === "studio" ? 600 : PS.einst.bedienung_zurueck_s || 60;
