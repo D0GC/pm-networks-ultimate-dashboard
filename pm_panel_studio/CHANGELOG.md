@@ -1,5 +1,27 @@
 # Änderungen
 
+## 2026.10.1 – 2026-10-07
+
+Erste stabile Version (nicht mehr als experimentell gekennzeichnet). Versionen folgen ab jetzt dem Schema
+Jahr.Monat.Nummer.
+
+- Eigenes App-Symbol und Logo (Wandpanel mit Ringtimer) statt der Bilder von Klima Studio.
+- Energie: neuer Energiefluss wie im Energie-Dashboard von Home Assistant. Gesamtverbrauch → Geräte → enthaltene
+  Geräte, je Ebene mit „Nicht erfasst“; mit Netz, Solar oder Batterie im Energie-Dashboard zählt der Hausverbrauch.
+  Grundlage sind allein die Energie-Einstellungen von Home Assistant; neue Zähler und Kaskaden („Vorgelagertes Gerät“)
+  erscheinen ohne Änderung am Panel.
+- PM Klima Studio als eigene Seite (Modulleiste und Knopf auf der Seite Klima). Die App reicht Klima Studio über das
+  interne App-Netz durch; nötig ist derselbe Schlüssel in beiden Apps (`klima_studio_schluessel` hier,
+  `panel_schluessel` in Klima Studio ab 1.2.2).
+- Shisha: Shishas und Kohlezähler stehen jetzt beide als waagerechte Reihe rechts neben der Kohle.
+- Behoben: Bei Halte-Knöpfen (z. B. Schloss auf der Startseite) öffnete ein langes Drücken auf dem Touchscreen nach
+  etwa 0,6 s den Dialog, bevor der Balken voll war. Halten löst jetzt erst mit vollem Balken aus; kurzes Antippen
+  öffnet die Mehr-Infos.
+- Behoben: Aufnahmen der Reolink-Kamera ließen sich nicht abspielen. Die App lädt die Aufnahme jetzt vollständig
+  und liefert sie selbst mit Länge und Spulen (Range) aus; die letzten vier bleiben im Speicher.
+- Editor: Speichern prüft das Ergebnis durch erneutes Lesen und meldet Fehler sichtbar; das Protokoll der App nennt
+  bei jedem Speichern die geänderten Felder.
+
 ## 0.1.14 – 2026-10-02
 
 - Neue Seite „Shisha“ (Dock und Modulband, vor „Wartung“; bestehende Einstellungen nehmen sie einmalig auf):

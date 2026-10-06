@@ -29,6 +29,12 @@ configuration:
   klima_praefix:
     name: PM Klima prefix
     description: Only thermostats with this prefix are shown (default climate.pm_). Thermostats without an area are matched to an area by name.
+  klima_studio_url:
+    name: PM Klima Studio address
+    description: Internal address of the PM Klima Studio app (default http://bdf1cc64-pm-klima-studio:8099).
+  klima_studio_schluessel:
+    name: PM Klima Studio key
+    description: At least 16 characters, the same value as panel_schluessel in PM Klima Studio. The panel then shows Klima Studio as its own page.
   log_level:
     name: Log level
     description: debug, info, warning or error.

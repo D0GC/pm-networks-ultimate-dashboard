@@ -469,3 +469,26 @@ body.ruhe .gruss.an{opacity:.6}
 .zaehler-knoepfe{justify-content:center;align-items:center;flex-wrap:nowrap;gap:.6rem}
 .zaehler-knoepfe .knopf.rund{width:3.2rem;height:3.2rem;flex:none}
 .zaehler-knoepfe .zuruecksetzen{margin-left:.6rem;opacity:.8}
+
+/* PM Klima Studio eingebettet */
+.sheet-inhalt.studio-seite{padding:0;position:relative}
+.studio-rahmen{flex:1;width:100%;height:100%;border:0;background:transparent;opacity:0;transition:opacity .6s ease}
+.studio-laden.weg+.studio-rahmen{opacity:1}
+.studio-laden{position:absolute;inset:0;display:grid;place-content:center;justify-items:center;gap:1rem;color:var(--lavender);font-size:1.3rem;transition:opacity .5s}
+.studio-laden .mdi{font-size:3.4rem;animation:puls 1.6s ease-in-out infinite}
+.studio-laden.weg{opacity:0;pointer-events:none}
+
+/* Energiefluss (Sankey) */
+.sankey-svg{width:100%;height:auto;display:block;overflow:visible}
+.sankey .band{fill:var(--farbe);opacity:.38;clip-path:inset(0 100% 0 0);animation:band-auf 1.1s var(--ease-aus) forwards;animation-delay:calc(var(--t) * .28s)}
+.sankey .band:hover{opacity:.6}
+@keyframes band-auf{to{clip-path:inset(0 0 0 0)}}
+.sankey .knoten{transform-box:fill-box;transform-origin:center;transform:scaleY(0);animation:knoten-auf .7s var(--ease-aus) forwards;animation-delay:calc(var(--t) * .28s)}
+.sankey .knoten.klick{cursor:pointer}
+@keyframes knoten-auf{to{transform:scaleY(1)}}
+.sankey .fluss-text{fill:var(--cloud);font-size:14px;font-weight:500;paint-order:stroke;stroke:#1c1745;stroke-width:4px;stroke-linejoin:round;opacity:0;animation:text-auf .6s ease forwards;animation-delay:calc(var(--t) * .28s + .5s)}
+.sankey .fluss-text tspan{fill:var(--leise);font-weight:400}
+.sankey .fluss-text.rest{fill:var(--leise);font-style:italic}
+@keyframes text-auf{to{opacity:1}}
+.raum-ansicht.zwei{grid-template-columns:31% minmax(0,1fr)}
+.raum-ansicht.zwei .zaehler-reihe{grid-template-columns:repeat(2,minmax(0,1fr))}

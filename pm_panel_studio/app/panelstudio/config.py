@@ -18,9 +18,22 @@ DATA_DIR = Path(os.environ.get("PMPS_DATA_DIR", "/data"))
 
 ENTITY_RE = re.compile(r"^[a-z_]+\.[a-z0-9_]+$")
 
-MODULE = ("start", "raeume", "klima", "licht", "sicherheit", "medien", "listen", "energie", "shisha", "wartung", "suche")
+MODULE = (
+    "start",
+    "raeume",
+    "klima",
+    "studio",
+    "licht",
+    "sicherheit",
+    "medien",
+    "listen",
+    "energie",
+    "shisha",
+    "wartung",
+    "suche",
+)
 # Module, die nach dem ersten Release hinzukamen: gespeicherte Einstellungen ohne „module_bekannt“ kennen sie noch nicht
-MODULE_NACHTRAG = ("shisha",)
+MODULE_NACHTRAG = ("shisha", "studio")
 
 
 def _entity(value: Any) -> str:
@@ -57,6 +70,9 @@ class Options:
     ereignis_kamera: str = "camera.wohnungstuer_standardauflosung"
     tueroeffner: str = "button.haustur_tur_offnen"
     klima_praefix: str = "climate.pm_"
+    # PM Klima Studio im Panel: interne Adresse der App und derselbe Schlüssel wie dort (panel_schluessel)
+    klima_studio_url: str = "http://bdf1cc64-pm-klima-studio:8099"
+    klima_studio_schluessel: str = ""
     log_level: str = "info"
 
     @classmethod
@@ -82,14 +98,23 @@ class Options:
             cur = getattr(opts, f.name)
             if isinstance(cur, list):
                 setattr(opts, f.name, _entities(val))
-            elif f.name in ("log_level", "klima_praefix"):
+            elif f.name in ("log_level", "klima_praefix", "klima_studio_url", "klima_studio_schluessel"):
                 setattr(opts, f.name, str(val or "").strip())
             else:
                 setattr(opts, f.name, _entity(val))
         return opts
 
+    @property
+    def klima_studio(self) -> bool:
+        return len(self.klima_studio_schluessel) >= 16 and self.klima_studio_url.startswith(("http://", "https://"))
+
     def public(self) -> dict[str, Any]:
-        return asdict(self)
+        """Für Panels und Editor: ohne Schlüssel, dafür nur die Angabe, ob Klima Studio eingebunden ist."""
+        d = asdict(self)
+        d.pop("klima_studio_schluessel", None)
+        d.pop("klima_studio_url", None)
+        d["klima_studio"] = self.klima_studio
+        return d
 
 
 # ---------------------------------------------------------------- Einstellungen

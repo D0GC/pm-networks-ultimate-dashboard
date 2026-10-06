@@ -92,6 +92,11 @@ class HAClient:
         except TimeoutError as err:
             raise HAError(f"{method} {path}: Zeitüberschreitung") from err
 
+    @property
+    def session(self) -> aiohttp.ClientSession:
+        """Gemeinsame HTTP-Sitzung (auch für Anfragen außerhalb von Home Assistant, z. B. PM Klima Studio)."""
+        return self._session
+
     async def rest_raw(self, path: str, timeout: float = 15) -> tuple[bytes, str]:
         """GET mit Binärantwort (Kamerabilder, Cover), Rückgabe ``(daten, content_type)``."""
         url = f"{self.api_url}/{path.lstrip('/')}"

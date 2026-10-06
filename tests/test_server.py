@@ -230,3 +230,45 @@ async def test_server_schalter_nur_mit_freigabe(ingress, fake):
     a = await _warte_auf(ws, "antwort", lambda m: m["id"] == 43)
     assert a["ok"]
     await ws.close()
+
+
+async def test_klima_studio_durchgereicht(ingress, hub, panel, token):
+    # Ohne Schlüssel: nicht eingebunden
+    r = await ingress.get("/api/hassio_ingress/klimastudio/")
+    assert r.status == 404
+    assert hub.opts.public()["klima_studio"] is False
+    basis = hub.client.api_url.removesuffix("/core/api")
+    hub.opts.klima_studio_url = f"{basis}/klima"
+    hub.opts.klima_studio_schluessel = "panel-schluessel-0123456789"
+    assert hub.opts.public()["klima_studio"] is True and "klima_studio_schluessel" not in hub.opts.public()
+    r = await ingress.get("/api/hassio_ingress/klimastudio/api/info?x=1")
+    j = await r.json()
+    assert j == {
+        "pfad": "api/info",
+        "methode": "GET",
+        "query": {"x": "1"},
+        "ingress": "/api/hassio_ingress/klimastudio",
+        "schluessel": "panel-schluessel-0123456789",
+        "body": "",
+    }
+    assert r.headers["Content-Security-Policy"] == "frame-ancestors 'self'"
+    r = await ingress.post("/api/hassio_ingress/klimastudio/api/steuerung/bad", json={"modus": "auto"})
+    assert (await r.json())["body"] == '{"modus": "auto"}'
+    # Panel-Port nur mit Zugangsschlüssel
+    r = await panel.get("/api/hassio_ingress/klimastudio/", allow_redirects=False)
+    assert r.status in (401, 403)
+    await panel.get(f"/?token={token[0]}")
+    r = await panel.get("/api/hassio_ingress/klimastudio/")
+    assert (await r.json())["pfad"] == ""
+
+
+async def test_einstellungen_speichern_protokolliert(ingress, caplog):
+    import logging
+
+    caplog.set_level(logging.INFO)
+    r = await ingress.post("/api/einstellungen", json={"ton_lautstaerke": 100, "gruss": False})
+    assert r.status == 200
+    r = await ingress.get("/api/einstellungen")
+    e = (await r.json())["einstellungen"]
+    assert e["ton_lautstaerke"] == 100 and e["gruss"] is False
+    assert any("geändert: gruss, ton_lautstaerke" in m for m in caplog.messages)

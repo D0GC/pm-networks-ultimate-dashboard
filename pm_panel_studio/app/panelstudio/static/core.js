@@ -297,20 +297,30 @@
     const d = PS.domain(eid);
     return (d === "lock" && PS.s(eid) !== "unlocked" && PS.s(eid) !== "open") || eid === PS.opt.tueroeffner;
   };
+  // Modul vorhanden und nutzbar (Klima Studio z. B. nur mit eingerichtetem Schlüssel)
+  PS.modulDa = (m) => !!PS.module[m] && (!PS.module[m].verfuegbar || PS.module[m].verfuegbar());
   // Schalter mit Freigabe (Server-Hauptschalter im Büro): schaltbar nur, solange der Freigabe-Helfer an ist
   PS.freigabe = (eid) => (PS.einst.freigaben || {})[eid] || null;
-  PS.halten = (el, ms, aktion, bedingung) => {
-    let t = null, sofort = false;
+  // Halten: Aktion erst, wenn der Balken voll ist. Ein langes Drücken öffnet kein Kontextmenü und keinen Dialog
+  // (Touch löst sonst nach ~0,6 s „contextmenu“ aus). Optional „kurz“: kurzes Antippen (< 350 ms), z. B. Mehr Infos.
+  PS.halten = (el, ms, aktion, bedingung, kurz) => {
+    let t = null, sofort = false, ab0 = 0;
     const ab = () => { clearTimeout(t); t = null; el.classList.remove("haelt"); };
     if (!el.querySelector(".halten")) el.insertAdjacentHTML("afterbegin", '<span class="halten"></span>');
     el.style.setProperty("--halte", ms + "ms");
+    el.addEventListener("contextmenu", (ev) => { ev.preventDefault(); ev.stopPropagation(); });
     el.addEventListener("pointerdown", (ev) => {
       sofort = !!bedingung && !bedingung();
       if (sofort) return;
-      ev.preventDefault(); el.classList.add("haelt");
-      t = setTimeout(() => { ab(); aktion(); }, ms);
+      ev.preventDefault(); ab0 = Date.now(); el.classList.add("haelt");
+      t = setTimeout(() => { t = null; el.classList.remove("haelt"); aktion(); }, ms + 40);
     });
-    ["pointerup", "pointerleave", "pointercancel"].forEach((n) => el.addEventListener(n, () => { if (t) { ab(); PS.toast("Zum Auslösen 2 Sekunden halten"); } }));
+    ["pointerup", "pointerleave", "pointercancel"].forEach((n) => el.addEventListener(n, (ev) => {
+      if (!t) return;
+      const dauer = Date.now() - ab0; ab();
+      if (n === "pointerup" && kurz && dauer < 350) { kurz(ev); return; }
+      PS.toast(`Zum Auslösen ${Math.round(ms / 100) / 10} Sekunden halten`.replace(".", ","));
+    }));
     el.addEventListener("click", () => { if (sofort) { sofort = false; aktion(); } });
   };
   // Tippen und langes Drücken unterscheiden (lang = Mehr Infos)
@@ -387,8 +397,7 @@
     const eid = el.dataset.eid;
     if (el._verdrahtet) return; el._verdrahtet = true;
     if (PS.domain(eid) === "lock" || eid === PS.opt.tueroeffner) {
-      PS.halten(el, 2000, () => PS.umschalten(eid), () => PS.kritisch(eid));
-      el.addEventListener("contextmenu", (ev) => { ev.preventDefault(); PS.mehrInfos(eid); });
+      PS.halten(el, 2000, () => PS.umschalten(eid), () => PS.kritisch(eid), () => PS.mehrInfos(eid));
       return;
     }
     PS.tippen(el, (ev) => {
