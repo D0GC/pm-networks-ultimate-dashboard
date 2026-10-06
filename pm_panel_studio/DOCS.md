@@ -44,7 +44,8 @@ bisher nur über die Seitenleiste erreichbar.
 Die Seite Energie zeigt den Verbrauch kaskadiert wie das Energie-Dashboard von Home Assistant. Grundlage sind
 allein dessen Einstellungen (Einstellungen → Dashboards → Energie): Geräte unter „Einzelne Geräte“, die
 Kaskade über „Vorgelagertes Gerät“ (`included_in_stat`), dazu Netzbezug, Solar und Batterie. Neue Zähler dort
-eintragen genügt; am Panel ist nichts zu ändern.
+eintragen genügt; am Panel ist nichts zu ändern. Ist die Seite Energie offen, übernimmt sie Änderungen dort
+innerhalb einer Minute.
 
 ## Schutz am Panel
 

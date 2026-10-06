@@ -27,6 +27,8 @@
 @keyframes ring-atmen{0%,100%{opacity:1}45%{opacity:.72}}
 @keyframes kopf-atmen{0%,100%{r:4.5}45%{r:6}}
 .ring.atmet .innen b{animation:atmen 1s ease-in-out infinite;transform-origin:center}
+/* Laufende Timer: die Ziffern rollen; nur der Kopfpunkt glimmt im Sekundentakt (kein Pulsieren der Zahl) */
+.ring.glimmt svg.komet .kopfpunkt{animation:kopf-atmen 1s ease-in-out infinite}
 .ring.atmet svg.komet .wert{animation:ring-atmen 1s ease-in-out infinite}
 .ring.atmet svg.komet .kopfpunkt{animation:kopf-atmen 1s ease-in-out infinite}
 
@@ -132,3 +134,10 @@ body.ohne-animation .bg .aurora i,body.ohne-animation .weckstrahl,body.ohne-anim
 @keyframes warn-glut{50%{opacity:.35}}
 body.ohne-animation .karussell .karte.glut::after{animation:none}
 .ring .innen .wi svg{transform:none}
+
+/* Energie: Energiefluss über die ganze Breite unter den drei Spalten, Seite scrollt */
+.sheet-inhalt.raumseite.energie-seite{overflow-y:auto;display:block}
+.raum-ansicht.energie{grid-template-rows:auto auto;align-content:start}
+.raum-ansicht.energie .r-spalte{overflow:visible}
+.raum-ansicht.energie>.volle-breite{grid-column:1/-1;animation:auftauchen .6s var(--e-auftakt) .18s both}
+.raum-ansicht.energie .sankey .fluss-text{font-size:15px}

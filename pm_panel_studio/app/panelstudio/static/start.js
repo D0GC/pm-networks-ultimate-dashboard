@@ -264,10 +264,9 @@
     const laeuft = !!k.ende;
     let innen;
     if (m.svg) innen = `${m.svg}<small class="einheit">${PS.esc(m.einheit)}</small>`;
-    else if (m.zahl != null && laeuft) innen = `<b class="wert-txt tabular">${PS.esc(m.zahl)}</b><small class="einheit">${PS.esc(m.einheit)}</small>`;
     else if (m.zahl != null) innen = `<b class="wert-txt tabular" data-text="${PS.esc(m.zahl)}"></b><small class="einheit">${PS.esc(m.einheit)}</small>`;
     else innen = PS.ic(m.icon);
-    return { farbe: m.farbe, glut: !!m.glut, html: `<div class="kopf"><i class="punkt"></i><span>${PS.esc(m.kopf)}</span></div><div class="ring${laeuft ? " laeuft atmet" : ""}">${PS.ringSVG(m.anteil)}<div class="innen">${innen}</div></div><h2>${PS.esc(m.h2 || "")}</h2><p>${PS.esc(m.p || "")}</p>` };
+    return { farbe: m.farbe, glut: !!m.glut, html: `<div class="kopf"><i class="punkt"></i><span>${PS.esc(m.kopf)}</span></div><div class="ring${laeuft ? " laeuft glimmt" : ""}">${PS.ringSVG(m.anteil)}<div class="innen">${innen}</div></div><h2>${PS.esc(m.h2 || "")}</h2><p>${PS.esc(m.p || "")}</p>` };
   }
   // Zahl im Ring rollt wie ein Zählwerk auf den Wert (Konzept Stufe 1); bei jedem Zeigen aus dem Leeren
   function walzeStarten(el, neu) {
@@ -342,7 +341,8 @@
       const el = elemente.get(k.id); if (!el) continue;
       const rest = Math.max(0, (new Date(k.ende).getTime() - Date.now()) / 1000);
       const t = el.querySelector(".wert-txt"), r = restText(rest, SEKUNDEN.includes(k.schluessel));
-      if (t && r && !t._zaehlt) { t.textContent = r.zahl; const e = el.querySelector(".einheit"); if (e) e.textContent = r.einheit; }
+      // Restzeit rollt wie ein Zählwerk herunter (nur die sichtbare Karte, die anderen werden beim Zeigen gefüllt)
+      if (t && r) { t.dataset.text = r.zahl; if (el.classList.contains("an")) PS.walze(t, r.zahl); const e = el.querySelector(".einheit"); if (e) e.textContent = r.einheit; }
       if (k.dauer_s) PS.ringSetzen(el.querySelector(".ring svg"), rest / k.dauer_s);
     }
   }
@@ -500,7 +500,7 @@
     inhalt.querySelectorAll("img").forEach(PS.kameraStoppen);
     PS.emit("seite");
     inhalt.classList.toggle("still", !!still);
-    inhalt.classList.remove("raumseite");
+    inhalt.classList.remove("raumseite", "energie-seite", "studio-seite");
     inhalt.innerHTML = ""; inhalt.scrollTop = 0;
     seite.render(inhalt);
     PS.kachelnBinden(inhalt);

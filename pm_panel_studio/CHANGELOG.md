@@ -1,5 +1,14 @@
 # Änderungen
 
+## 2026.10.3 – 2026-10-07
+
+- Energie: Geräte und Kaskaden folgen dem Energie-Dashboard von Home Assistant ohne Neustart. Ist die Seite offen,
+  prüft sie jede Minute, ob dort etwas geändert wurde (neues Gerät, anderes vorgelagertes Gerät), und baut sich dann
+  neu auf; die Verbrauchswerte erneuert sie alle 5 Minuten.
+- Energie: Der Energiefluss steht über die ganze Breite unter den drei Spalten; die Seite scrollt.
+- Laufende Timer (Kohle, Duschmodus, Spa, Geräte) rollen wie ein Zählwerk herunter, immer auf dem kürzeren Weg
+  (0 → 9 rollt einen Schritt zurück). Die Zahl pulsiert dabei nicht mehr; nur der Kopfpunkt glimmt im Sekundentakt.
+
 ## 2026.10.2 – 2026-10-07
 
 Bewegungskonzept vollständig umgesetzt (Stufen 1–3), dazu Unwetterwarnung, neue Feed-Regeln und animierte

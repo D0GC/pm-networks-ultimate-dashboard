@@ -469,8 +469,14 @@
   };
 
   // Zahlenwalze (Konzept Stufe 1): Ziffern rollen wie ein Zählwerk auf den neuen Wert, jede Stelle mit 60 ms
-  // Versatz von rechts. Wird die Zahl länger (z. B. 999 → 1.000), rollen neue Stellen aus dem Leeren herein und der
+  // Versatz von rechts, immer auf dem kürzeren Weg (beim Herunterzählen rollt 0 → 9 einen Schritt zurück, nicht
+  // einmal durch alle Ziffern). Wird die Zahl länger (999 → 1.000), rollen neue Stellen aus dem Leeren herein und der
   // Tausenderpunkt blendet ein; wird sie kürzer, rollen Stellen ins Leere und schließen sich.
+  // Band je Stelle: Index 0 = leer, 1–10 = Ziffern 0–9, 11–20 = Ziffern 0–9 ein zweites Mal (für den Übertrag).
+  const bandSetzen = (band, p, ohneUebergang) => {
+    if (ohneUebergang) { band.style.transition = "none"; band.style.transform = `translateY(-${p}em)`; void band.offsetHeight; band.style.transition = ""; }
+    else band.style.transform = `translateY(-${p}em)`;
+  };
   PS.walze = (el, text) => {
     text = String(text ?? "");
     if (!el) return;
@@ -478,21 +484,20 @@
     if (!el._walze) { el.textContent = ""; el.classList.add("walze"); el._walze = []; }
     const slots = el._walze;  // von rechts gezählt: slots[0] = letzte Stelle
     const zeichen = [...text].reverse();
-    const ziffer = (c) => /\d/.test(c);
     const neuSlot = (art) => {
       const s = document.createElement("span");
       s.className = art === "z" ? "stelle neu" : "fest neu";
-      if (art === "z") s.innerHTML = `<span class="band"><span>&nbsp;</span>${[...Array(10).keys()].map((d) => `<span>${d}</span>`).join("")}</span>`;
-      s._art = art;
+      const ziffern = [...Array(10).keys()].map((d) => `<span>${d}</span>`).join("");
+      if (art === "z") s.innerHTML = `<span class="band"><span>&nbsp;</span>${ziffern}${ziffern}</span>`;
+      s._art = art; s._p = 0;
       el.insertBefore(s, el.firstChild);
       return s;
     };
     zeichen.forEach((c, i) => {
-      const art = ziffer(c) ? "z" : "f";
+      const art = /\d/.test(c) ? "z" : "f";
       let s = slots[i];
       if (s && s._art !== art) { s.remove(); slots[i] = s = null; }
       if (!s) {
-        // neue Stelle links anfügen (oder an ihrer Position, falls sich die Art geändert hat)
         s = neuSlot(art);
         const rechts = slots.slice(0, i).reverse().find(Boolean);
         if (rechts) el.insertBefore(s, rechts);
@@ -500,17 +505,33 @@
         requestAnimationFrame(() => requestAnimationFrame(() => s.classList.remove("neu")));
       }
       s.classList.remove("geht");
-      if (art === "z") {
-        const band = s.firstChild;
-        band.style.transitionDelay = `${i * 60}ms`;
-        band.style.transform = `translateY(-${Number(c) + 1}em)`;
-      } else s.textContent = c;
+      if (art === "f") { s.textContent = c; return; }
+      const band = s.firstChild, n = Number(c), p = s._p;
+      band.style.transitionDelay = `${i * 60}ms`;
+      if (!p) { s._p = n + 1; bandSetzen(band, s._p); return; }
+      // kürzester Weg: Start im ersten oder zweiten Ziffernsatz, Ziel ebenso
+      let best = null;
+      for (const start of [p, p + 10, p - 10]) {
+        if (start < 1 || start > 20) continue;
+        for (const ziel of [n + 1, n + 11]) {
+          const d = Math.abs(ziel - start);
+          if (!best || d < best.d) best = { start, ziel, d };
+        }
+      }
+      if (best.start !== p) bandSetzen(band, best.start, true);
+      bandSetzen(band, best.ziel);
+      s._p = best.ziel;
+      if (best.ziel > 10) {
+        // nach dem Rollen unbemerkt in den ersten Satz zurück (gleiche Ziffer)
+        clearTimeout(s._zurueck);
+        s._zurueck = setTimeout(() => { if (s._p === best.ziel) { s._p = best.ziel - 10; bandSetzen(band, s._p, true); } }, 700 + i * 60);
+      }
     });
     // überzählige Stellen (Zahl wurde kürzer) ins Leere rollen und entfernen
     for (let i = zeichen.length; i < slots.length; i++) {
       const s = slots[i]; if (!s) continue;
       s.classList.add("geht");
-      if (s._art === "z") s.firstChild.style.transform = "translateY(0)";
+      if (s._art === "z") { s._p = 0; bandSetzen(s.firstChild, 0); }
       setTimeout(() => { if (s.classList.contains("geht")) s.remove(); }, 650);
     }
     slots.length = zeichen.length;
