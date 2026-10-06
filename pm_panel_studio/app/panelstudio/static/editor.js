@@ -3,13 +3,13 @@
   "use strict";
   const $ = (s) => document.querySelector(s);
   const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-  const MODULE = { raeume: "Räume", klima: "Klima", licht: "Licht", sicherheit: "Sicherheit", medien: "Medien", listen: "Listen", energie: "Energie", shisha: "Shisha", wartung: "Wartung", suche: "Suche" };
+  const MODULE = { raeume: "Räume", klima: "Klima", studio: "Klima Studio", licht: "Licht", sicherheit: "Sicherheit", medien: "Medien", listen: "Listen", energie: "Energie", shisha: "Shisha", wartung: "Wartung", suche: "Suche" };
   const KARTEN = { meldung: "Panel-Meldungen", eil: "Eilmeldung", warnung: "Warnung", termin: "Termin", arbeit: "Fahrten", wetter: "Wetter", muell: "Müll", fertig: "Gerät fertig", offen: "Offen", lueften: "Lüften", pollen: "Pollen", eigen: "Eigener Hinweis", dusche: "Duschmodus", spa: "Spa", kohle: "Kohle", waesche: "Waschmaschine", spueler: "Spülmaschine", robo: "Roborock", musik: "Musik" };
   const ZAHLEN = ["verweildauer_s", "ruhe_nach_s", "bedienung_zurueck_s", "ruhe_helligkeit", "nacht_helligkeit", "ereignis_dauer_s", "ton_lautstaerke"];
   let daten = null, bereiche = [], ws = null, wsId = 1, moduleReihe = [];
 
   async function laden(nurStatus = false) {
-    const r = await fetch("api/einstellungen");
+    const r = await fetch("api/einstellungen", { cache: "no-store" });
     if (!r.ok) throw new Error("HTTP " + r.status);
     const neu = await r.json();
     if (nurStatus && daten) { daten.verbunden = neu.verbunden; daten.panels = neu.panels; status(); return; }
@@ -66,6 +66,7 @@
 
   async function speichern(ev) {
     ev.preventDefault();
+    if (!$("#form").reportValidity()) { $("#gespeichert").textContent = "Bitte die markierten Felder prüfen."; return; }
     const neu = {};
     ZAHLEN.forEach((k) => { neu[k] = Number($("#" + k).value); });
     neu.animationen = $("#animationen").checked;
@@ -84,12 +85,23 @@
     neu.module = moduleReihe.filter((x) => x.an).map((x) => x.m);
     neu.karten_aus = Object.keys(KARTEN).filter((k) => !gewaehlt("#karten_aus").includes(k));
     if (bereiche.length) { neu.start_raeume = gewaehlt("#start_raeume"); neu.bereiche_ausblenden = gewaehlt("#bereiche_ausblenden"); }
-    const r = await fetch("api/einstellungen", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(neu) });
     const out = $("#gespeichert");
-    if (!r.ok) { out.textContent = "Nicht gespeichert: HTTP " + r.status; return; }
-    const j = await r.json();
-    daten.einstellungen = j.einstellungen; zeigen();
-    out.textContent = j.abgewiesen && j.abgewiesen.length ? `Gespeichert. Nicht übernommen: ${j.abgewiesen.join(", ")}` : `Gespeichert um ${new Date().toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })}. Die Panels übernehmen es sofort.`;
+    out.textContent = "Wird gespeichert …";
+    try {
+      const r = await fetch("api/einstellungen", { method: "POST", cache: "no-store", headers: { "Content-Type": "application/json" }, body: JSON.stringify(neu) });
+      if (!r.ok) throw new Error(`HTTP ${r.status} ${(await r.text()).slice(0, 120)}`);
+      const j = await r.json();
+      // Gegenprobe: frisch vom Server lesen, damit „gespeichert“ nur erscheint, wenn es wirklich angekommen ist
+      const pruef = await (await fetch("api/einstellungen", { cache: "no-store" })).json();
+      const fehlt = Object.keys(neu).filter((k) => JSON.stringify(pruef.einstellungen[k]) !== JSON.stringify(j.einstellungen[k]));
+      daten.einstellungen = pruef.einstellungen; zeigen();
+      if (fehlt.length) throw new Error(`nicht übernommen: ${fehlt.join(", ")}`);
+      out.textContent = j.abgewiesen && j.abgewiesen.length ? `Gespeichert. Nicht übernommen: ${j.abgewiesen.join(", ")}` : `Gespeichert um ${new Date().toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })}. Die Panels übernehmen es sofort.`;
+      out.className = "klein ok";
+    } catch (e) {
+      out.textContent = `Nicht gespeichert: ${e.message}`;
+      out.className = "klein fehler";
+    }
   }
 
   // WebSocket nur für Entitätsliste, Bereiche und den Ereignistest

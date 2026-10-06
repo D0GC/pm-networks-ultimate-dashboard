@@ -79,6 +79,7 @@
     if (aussenF || innenLuft.length) r.appendChild(b4);
     const ger = alle().filter((e) => (dom("fan")(e) || dom("humidifier")(e)) && PS.sichtbar(e));
     if (ger.length) { const b5 = box("Geräte"); b5.appendChild(raster(ger.sort(nameSort))); r.appendChild(b5); }
+    if (PS.modulDa("studio")) r.appendChild(knopf("PM Klima Studio öffnen", "thermometer-lines", () => PS.oeffnen("studio"), "r-alles"));
     r.appendChild(alleKnopf("Alle Klimawerte", "klima"));
   }
 
@@ -240,13 +241,25 @@
     const legende = E('<div class="r-legende"></div>');
     b2.append(dia, legende);
     m.appendChild(b2);
+    const bFluss = box("Energiefluss", ZEITRAUM[zeitraum]);
+    const fluss = E('<div class="sankey"><div class="leer">Wird geladen …</div></div>');
+    bFluss.appendChild(fluss);
+    m.appendChild(bFluss);
     // Rechts: Geräte mit Verbrauch und Leistung (Hierarchie wie im Energie-Dashboard)
     const b3 = box("Geräte", "Verbrauch · Leistung");
     r.appendChild(b3);
     r.appendChild(alleKnopf("Alle Zähler und Leistungen", "energie"));
 
     const [start, ende, periode] = grenzen(zeitraum);
-    const ids = [...geraete.map((g) => g.stat_consumption), ...wasser.map((w) => w.stat_energy_from), ...gas.map((g) => g.stat_energy_from)];
+    // Quellen wie im Energie-Dashboard: Netzbezug, Solar, Batterie (für den Gesamtverbrauch im Energiefluss)
+    const quellen = (prefs && prefs.energy_sources) || [];
+    const netzIn = netz.flatMap((n) => (n.flow_from || []).map((f) => f.stat_energy_from)).concat(netz.map((n) => n.stat_energy_from)).filter(Boolean);
+    const netzAus = netz.flatMap((n) => (n.flow_to || []).map((f) => f.stat_energy_to)).concat(netz.map((n) => n.stat_energy_to)).filter(Boolean);
+    const solar = quellen.filter((q) => q.type === "solar").map((q) => q.stat_energy_from).filter(Boolean);
+    const battAus = quellen.filter((q) => q.type === "battery").map((q) => q.stat_energy_from).filter(Boolean);
+    const battEin = quellen.filter((q) => q.type === "battery").map((q) => q.stat_energy_to).filter(Boolean);
+    const ids = [...geraete.map((g) => g.stat_consumption), ...wasser.map((w) => w.stat_energy_from), ...gas.map((g) => g.stat_energy_from),
+      ...netzIn, ...netzAus, ...solar, ...battAus, ...battEin];
     let stats = {};
     try {
       stats = (await PS.anfrage({ typ: "ws", befehl: { type: "recorder/statistics_during_period", start_time: start.toISOString(), end_time: ende.toISOString(), statistic_ids: ids, period: periode, types: ["change"] } })) || {};
@@ -276,6 +289,7 @@
       b3.appendChild(zeile(g, false));
       geraete.filter((k) => k.included_in_stat === g.stat_consumption).forEach((k) => b3.appendChild(zeile(k, true)));
     });
+    energieFluss(fluss, { geraete, oben, summe, name, farbe, netzIn, netzAus, solar, battAus, battEin });
     // Gestapeltes Säulendiagramm je Stunde bzw. Tag (oberste Ebene, wie im Energie-Dashboard)
     const zeiten = [...new Set(oben.flatMap((g) => (stats[g.stat_consumption] || []).map((p) => p.start)))].sort((a, b) => a - b);
     if (!zeiten.length) { dia.innerHTML = '<div class="leer">Für diesen Zeitraum liegen keine Werte vor.</div>'; return; }
@@ -293,6 +307,59 @@
     svg += `<text x="2" y="11">${PS.zahl(hoch, 2)} kWh</text>`;
     dia.innerHTML = `<svg class="diagramm saeulen" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">${svg}</svg>`;
     legende.innerHTML = oben.map((g, j) => `<span><i style="background:${FARBEN[j % FARBEN.length]}"></i>${PS.esc(name(g))}</span>`).join("");
+  }
+
+  // Energiefluss (Sankey) wie im eingebauten Energie-Dashboard: Gesamtverbrauch → Geräte → enthaltene Geräte, je
+  // Ebene mit „Nicht erfasst“ für den Rest. Grundlage sind allein die Energie-Einstellungen von Home Assistant
+  // (Geräte und „Vorgelagertes Gerät“); neue Zähler erscheinen dort eingetragen ohne Änderung am Panel.
+  function energieFluss(box, d) {
+    const { geraete, oben, summe, name, farbe } = d;
+    const sum = (ids) => ids.reduce((a, id) => a + Math.max(0, summe(id)), 0);
+    const knoten = (g, f) => {
+      const kinder = geraete.filter((k) => k.included_in_stat === g.stat_consumption).map((k) => knoten(k, f));
+      const wert = Math.max(0, summe(g.stat_consumption));
+      const rest = wert - kinder.reduce((a, k) => a + k.wert, 0);
+      if (kinder.length && rest > wert * 0.005) kinder.push({ name: "Nicht erfasst", wert: rest, farbe: "var(--leise)", rest: true, kinder: [] });
+      return { name: name(g), wert, farbe: f, eid: PS.z[g.stat_consumption] ? g.stat_consumption : null, kinder: kinder.sort((a, b) => !!a.rest - !!b.rest || b.wert - a.wert) };
+    };
+    const geraeteKnoten = oben.map((g) => knoten(g, farbe.get(g.stat_consumption) || "var(--lavender)"));
+    const geraeteSumme = geraeteKnoten.reduce((a, k) => a + k.wert, 0);
+    const haus = d.netzIn.length || d.solar.length
+      ? sum(d.netzIn) + sum(d.solar) + sum(d.battAus) - sum(d.netzAus) - sum(d.battEin) : geraeteSumme;
+    const wurzel = { name: d.netzIn.length || d.solar.length ? "Hausverbrauch" : "Erfasster Verbrauch", wert: haus, farbe: "#f0b44c", kinder: geraeteKnoten.sort((a, b) => b.wert - a.wert) };
+    if (haus - geraeteSumme > haus * 0.005) wurzel.kinder.push({ name: "Nicht erfasster Verbrauch", wert: haus - geraeteSumme, farbe: "var(--leise)", rest: true, kinder: [] });
+    if (!(wurzel.wert > 0)) { box.innerHTML = '<div class="leer">Für diesen Zeitraum liegen keine Werte vor.</div>'; return; }
+    // Spalten je Tiefe
+    const spalten = [];
+    (function sammeln(k, t) { (spalten[t] = spalten[t] || []).push(k); k.kinder.forEach((c) => sammeln(c, t + 1)); })(wurzel, 0);
+    const W = 640, H = 300, KB = 10, LABEL = 150, LUECKE = 8;
+    const maxN = Math.max(...spalten.map((c) => c.length));
+    const skala = (H - LUECKE * (maxN - 1)) / wurzel.wert;
+    const hoehe = (k) => Math.max(1.5, k.wert * skala);
+    const x = (t) => 4 + (spalten.length > 1 ? t * ((W - LABEL - KB - 4) / (spalten.length - 1)) : 0);
+    spalten.forEach((c, t) => {
+      const gesamt = c.reduce((a, k) => a + hoehe(k), 0) + LUECKE * (c.length - 1);
+      let y = Math.max(0, (H - gesamt) / 2);
+      c.forEach((k) => { k.x = x(t); k.y = y; k.h = hoehe(k); k.t = t; y += k.h + LUECKE; });
+    });
+    let baender = "", knotenSvg = "", texte = "", ix = 0;
+    const kWh = (v) => `${PS.zahl(v, v < 10 ? 2 : 1)} kWh`;
+    spalten.forEach((c) => c.forEach((k) => {
+      let off = 0;
+      k.kinder.forEach((ch) => {
+        const h = Math.min(ch.h, Math.max(0, k.h - off)) || ch.h;
+        const x0 = k.x + KB, y0 = k.y + off, x1 = ch.x, y1 = ch.y, xm = (x0 + x1) / 2;
+        baender += `<path class="band" style="--t:${ch.t};--farbe:${ch.farbe}" d="M${x0},${y0}C${xm},${y0} ${xm},${y1} ${x1},${y1}L${x1},${y1 + h}C${xm},${y1 + h} ${xm},${y0 + h} ${x0},${y0 + h}Z"/>`;
+        off += h;
+      });
+      knotenSvg += `<rect class="knoten${k.eid ? " klick" : ""}" data-i="${ix}" style="--t:${k.t};fill:${k.farbe}" x="${k.x}" y="${k.y}" width="${KB}" height="${k.h}" rx="2"/>`;
+      const ty = k.y + k.h / 2;
+      texte += `<text class="fluss-text${k.rest ? " rest" : ""}" style="--t:${k.t}" x="${k.x + KB + 6}" y="${ty}" dy=".35em">${PS.esc(k.name)} <tspan>${kWh(k.wert)}</tspan></text>`;
+      k.i = ix++;
+    }));
+    box.innerHTML = `<svg class="sankey-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">${baender}${knotenSvg}${texte}</svg>`;
+    const alleK = spalten.flat();
+    box.querySelectorAll("rect.klick").forEach((r) => r.addEventListener("click", () => PS.mehrInfos(alleK[Number(r.dataset.i)].eid)));
   }
 
   // ------------------------------------------------------------ Medien
@@ -410,7 +477,11 @@
     return { rest, dauer, pausiert: st === "paused" };
   }
   function shisha(el) {
-    const [l, m, r] = seite(el, "shisha");
+    // Zwei Spalten: links die Kohle, rechts Shishas und Kohlezähler je als waagerechte Reihe
+    el.classList.add("raumseite");
+    const g = E('<div class="raum-ansicht zwei"><div class="r-spalte"></div><div class="r-spalte"></div></div>');
+    el.appendChild(g);
+    const [l, m] = g.children;
     // Links: Kohle anzünden
     const b1 = box("Kohle", PS.z[KOHLE.leistung] && num(KOHLE.leistung) > 0 ? `${PS.zahl(num(KOHLE.leistung), 0)} W` : "");
     const an = PS.s(KOHLE.schalter) === "on", rest = kohleRest();
@@ -445,7 +516,7 @@
     const g3 = E('<div class="zaehler-reihe"></div>');
     KOHLE_ZAEHLER.filter((z) => PS.z[z.eid]).forEach((z) => g3.appendChild(zaehlerKarte(z)));
     b3.appendChild(g3);
-    r.appendChild(b3);
+    m.appendChild(b3);
   }
   // Zähler und Kohle an Ort und Stelle: Seite still neu zeichnen, wenn sich ein beteiligter Wert ändert
   const SHISHA_IDS = new Set([...Object.values(KOHLE), ...SHISHA_ZAEHLER.map((z) => z.eid), ...KOHLE_ZAEHLER.map((z) => z.eid)]);
@@ -455,6 +526,18 @@
     shishaTimer = setTimeout(() => { shishaTimer = null; if (document.querySelector(".zaehler-reihe")) PS.neuZeichnen(); }, 250);
   });
   PS.module.shisha = { titel: "Shisha", icon: "smoke", render: (el) => shisha(el) };
+
+  // ------------------------------------------------------------ PM Klima Studio (durch die App gereicht)
+  PS.module.studio = {
+    titel: "Klima Studio", icon: "thermometer-lines", verfuegbar: () => !!PS.opt.klima_studio,
+    render(el) {
+      el.classList.add("raumseite", "studio-seite");
+      const rahmen = E('<iframe class="studio-rahmen" title="PM Klima Studio" src="api/hassio_ingress/klimastudio/" referrerpolicy="same-origin"></iframe>');
+      const laden = E(`<div class="studio-laden">${PS.ic("thermometer-lines")}<span>Klima Studio wird geladen …</span></div>`);
+      rahmen.addEventListener("load", () => laden.classList.add("weg"), { once: true });
+      el.append(laden, rahmen);
+    },
+  };
 
   // ------------------------------------------------------------ Luftqualität je Raum
   // Skalen mit Eskalationsfarben. Grenzen: CO₂ nach Pettenkofer/UBA-Leitwerten, Feinstaub nach dem Europäischen

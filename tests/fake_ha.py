@@ -474,6 +474,7 @@ class FakeHA:
         r.add_get("/core/api/hls/{token}/{datei}", self.rest_hls)
         r.add_get("/core/api/calendars/{eid}", self.rest_calendar)
         r.add_get("/core/api/reolink/video/{rest:.+}", self.rest_video)
+        r.add_route("*", "/klima/{rest:.*}", self.klima_studio)
         r.add_get("/core/api/logbook/{start}", self.rest_logbook)
         r.add_get("/core/websocket", self.ws)
 
@@ -523,6 +524,20 @@ class FakeHA:
                 headers={"Content-Range": f"bytes {a}-{b}/{len(VIDEO)}", "Accept-Ranges": "bytes"},
             )
         return web.Response(body=VIDEO, content_type="video/mp4", headers={"Accept-Ranges": "bytes"})
+
+    async def klima_studio(self, request):
+        # Nachbau von PM Klima Studio: gibt zurück, was ankam (Pfad, Methode, Kopfzeilen, Nutzdaten)
+        return web.json_response(
+            {
+                "pfad": request.match_info["rest"],
+                "methode": request.method,
+                "query": dict(request.query),
+                "ingress": request.headers.get("X-Ingress-Path"),
+                "schluessel": request.headers.get("X-PM-Panel-Schluessel"),
+                "body": (await request.text()) if request.can_read_body else "",
+            },
+            headers={"Content-Security-Policy": "frame-ancestors 'self'"},
+        )
 
     async def rest_calendar(self, request):
         self._auth(request)

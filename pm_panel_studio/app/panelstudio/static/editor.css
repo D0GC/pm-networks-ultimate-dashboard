@@ -43,3 +43,6 @@ textarea{width:100%;font-family:ui-monospace,Consolas,monospace;font-size:.85rem
 .optionen{display:grid;grid-template-columns:auto 1fr;gap:4px 18px;margin:0;font-size:.85rem}
 .optionen dt{color:var(--leise)}
 .optionen dd{margin:0;overflow-wrap:anywhere;font-family:ui-monospace,Consolas,monospace}
+
+#gespeichert.ok{color:#5fd3a0}
+#gespeichert.fehler{color:#ef6a7a;font-weight:600}

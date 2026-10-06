@@ -24,6 +24,27 @@ Der Zugangsschlüssel liegt in `/data/panel_token`. „Neuen Schlüssel erzeugen
 | `ereignis_ausloeser` | Wird eine dieser Entitäten „an“, erscheint die Kamera im Vollbild |
 | `ereignis_kamera`, `tueroeffner` | Kamera und Türöffner im Overlay |
 | `klima_praefix` | Nur Thermostate mit diesem Präfix (Standard `climate.pm_`); ohne Bereich Zuordnung über den Namen |
+| `klima_studio_url` | Interne Adresse von PM Klima Studio (Standard `http://bdf1cc64-pm-klima-studio:8099`) |
+| `klima_studio_schluessel` | Mindestens 16 Zeichen; derselbe Wert wie `panel_schluessel` in PM Klima Studio (ab 1.2.2). Dann erscheint „Klima Studio“ als Seite im Panel |
+
+### PM Klima Studio im Panel
+
+Das Panel läuft ohne Anmeldung bei Home Assistant und kann Klima Studio daher nicht über Ingress öffnen. PM Panel
+Studio reicht Klima Studio deshalb selbst durch:
+
+1. Einen zufälligen Schlüssel mit mindestens 16 Zeichen wählen.
+2. In PM Klima Studio unter Konfiguration als `panel_schluessel` eintragen und die App neu starten.
+3. In PM Panel Studio als `klima_studio_schluessel` eintragen und die App neu starten.
+
+Danach erscheint „Klima Studio“ in der Modulleiste und auf der Seite Klima. Ohne Schlüssel bleibt Klima Studio wie
+bisher nur über die Seitenleiste erreichbar.
+
+### Energiefluss
+
+Die Seite Energie zeigt den Verbrauch kaskadiert wie das Energie-Dashboard von Home Assistant. Grundlage sind
+allein dessen Einstellungen (Einstellungen → Dashboards → Energie): Geräte unter „Einzelne Geräte“, die
+Kaskade über „Vorgelagertes Gerät“ (`included_in_stat`), dazu Netzbezug, Solar und Batterie. Neue Zähler dort
+eintragen genügt; am Panel ist nichts zu ändern.
 
 ## Schutz am Panel
 

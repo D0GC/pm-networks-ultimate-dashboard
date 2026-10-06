@@ -359,7 +359,7 @@
   const stapel = [];
   let zuletztBeruehrt = Date.now();
   function dock() {
-    const mods = ["start", ...(PS.einst.module || [])].filter((m) => PS.module[m] || m === "start");
+    const mods = ["start", ...(PS.einst.module || [])].filter((m) => PS.modulDa(m) || m === "start");
     $("#dock").innerHTML = mods.map((m) => {
       const def = m === "start" ? { titel: "Start", icon: "home" } : PS.module[m];
       const zahl = def.zaehler ? def.zaehler() : 0;
@@ -405,7 +405,7 @@
   PS.neuZeichnen = () => { if (stapel.length) { const y = $("#sheet-inhalt").scrollTop; zeichnen(true); $("#sheet-inhalt").scrollTop = y; } };
   // Modulband im Seitenkopf, auf allen Modulseiten gleich (Seiten mit eigenen Reitern ersetzen es über PS.tabs)
   function modulBand(aktiv) {
-    const mods = (PS.einst.module || []).filter((m) => PS.module[m] && m !== "suche");
+    const mods = (PS.einst.module || []).filter((m) => PS.modulDa(m) && m !== "suche");
     PS.tabs(mods.map((m) => [m, PS.module[m].titel]), aktiv, (k) => PS.oeffnen(k));
   }
   PS.tabs = (eintraege, aktiv, beiWahl, box = $("#sheet-tabs")) => {
@@ -469,7 +469,9 @@
     setInterval(takt, 1000);
     setInterval(vorhersageLaden, 30 * 60 * 1000);
     setInterval(() => {
-      if (document.body.classList.contains("offen") && Date.now() - zuletztBeruehrt > (PS.einst.bedienung_zurueck_s || 60) * 1000) PS.schliessen();
+      // In Klima Studio (eingebettet) kommen Berührungen nicht beim Panel an: dort erst nach 10 Minuten zurück
+      const frist = stapel[0] && stapel[0].modul === "studio" ? 600 : PS.einst.bedienung_zurueck_s || 60;
+      if (document.body.classList.contains("offen") && Date.now() - zuletztBeruehrt > frist * 1000) PS.schliessen();
     }, 5000);
     // Wischen im Sheet nach unten (am Kopf) schließt
     let y0 = null;

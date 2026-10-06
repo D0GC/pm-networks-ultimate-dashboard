@@ -232,35 +232,100 @@ async def hls(request: web.Request) -> web.StreamResponse:
     return ziel
 
 
-async def video(request: web.Request) -> web.StreamResponse:
-    """Kameraaufnahme abspielen: Medienquelle auflösen und das Video samt Range-Anfragen (Spulen) durchreichen."""
+VIDEO_CACHE_MAX = 4  # Aufnahmen im Speicher (je 1–3 MB in niedriger Auflösung)
+_video_cache: dict[str, tuple[bytes, str]] = {}
+_video_sperre = asyncio.Lock()
+
+
+async def _video_laden(hub: Hub, media_id: str) -> tuple[bytes, str]:
+    """Aufnahme vollständig von Home Assistant holen und zwischenspeichern. Reolink liefert die Datei ohne Länge und
+    ohne Range-Unterstützung (oft mit dem Index am Ende); der Browser kann sie so erst abspielen und spulen, wenn
+    die App sie vollständig hat und selbst mit Range ausliefert."""
+    async with _video_sperre:
+        if media_id in _video_cache:
+            return _video_cache[media_id]
+        pfad = await hub.aufnahme_pfad(media_id)
+        daten, ctype = await hub.client.rest_raw(pfad.removeprefix("/api"), timeout=150)
+        if not daten or not (ctype.startswith("video/") or ctype == "application/octet-stream"):
+            raise HAError(f"Aufnahme ohne Videodaten ({ctype}, {len(daten)} Bytes)")
+        eintrag = (daten, "video/mp4" if ctype == "application/octet-stream" else ctype)
+        _video_cache[media_id] = eintrag
+        while len(_video_cache) > VIDEO_CACHE_MAX:
+            _video_cache.pop(next(iter(_video_cache)))
+        return eintrag
+
+
+async def video(request: web.Request) -> web.Response:
+    """Kameraaufnahme abspielen: vollständig laden, dann mit Range-Anfragen (Spulen) ausliefern."""
     hub = request.app[K_HUB]
+    media_id = request.query.get("id", "")
     try:
-        pfad = await hub.aufnahme_pfad(request.query.get("id", ""))
+        daten, ctype = await _video_laden(hub, media_id)
     except ValueError as err:
         raise web.HTTPBadRequest(text=str(err)) from err
     except HAError as err:
+        _LOGGER.warning("Aufnahme nicht abrufbar: %s", err)
         raise web.HTTPBadGateway(text=str(err)) from err
-    bereich = {"Range": request.headers["Range"]} if "Range" in request.headers else None
+    gesamt = len(daten)
+    kopf = {"Accept-Ranges": "bytes", "Cache-Control": "no-store"}
+    rng = re.match(r"^bytes=(\d*)-(\d*)$", request.headers.get("Range", ""))
+    if not rng or (not rng.group(1) and not rng.group(2)):
+        return web.Response(body=daten, content_type=ctype, headers=kopf)
+    if rng.group(1):
+        von = int(rng.group(1))
+        bis = min(int(rng.group(2)), gesamt - 1) if rng.group(2) else gesamt - 1
+    else:  # Suffix: die letzten n Bytes
+        von, bis = max(0, gesamt - int(rng.group(2))), gesamt - 1
+    if von >= gesamt or von > bis:
+        raise web.HTTPRequestRangeNotSatisfiable(headers={"Content-Range": f"bytes */{gesamt}"})
+    return web.Response(
+        status=206,
+        body=daten[von : bis + 1],
+        content_type=ctype,
+        headers={**kopf, "Content-Range": f"bytes {von}-{bis}/{gesamt}"},
+    )
+
+
+# ------------------------------------------------------------------ PM Klima Studio durchreichen
+# Das Panel läuft ohne Anmeldung bei Home Assistant und kann Ingress nicht nutzen. Die App holt Klima Studio deshalb
+# selbst über das interne App-Netz, mit dem Schlüssel, der in beiden Apps eingetragen ist. Der Pfad entspricht dem
+# Ingress-Muster, damit Klima Studio seine Basis-URL wie gewohnt aus X-Ingress-Path bildet.
+STUDIO_PFAD = "/api/hassio_ingress/klimastudio"
+STUDIO_KOEPFE_HIN = ("Content-Type", "Accept", "Accept-Language", "If-None-Match", "If-Modified-Since")
+STUDIO_KOEPFE_ZURUECK = ("Content-Type", "Cache-Control", "ETag", "Last-Modified", "Content-Security-Policy")
+
+
+async def klima_studio(request: web.Request) -> web.StreamResponse:
+    hub = request.app[K_HUB]
+    if not hub.opts.klima_studio:
+        raise web.HTTPNotFound(text="PM Klima Studio ist nicht eingebunden (Option klima_studio_schluessel).")
+    rest = request.match_info.get("rest", "")
+    if ".." in rest:
+        raise web.HTTPBadRequest(text="Pfad ungültig")
+    ziel = f"{hub.opts.klima_studio_url.rstrip('/')}/{rest}"
+    kopf = {k: request.headers[k] for k in STUDIO_KOEPFE_HIN if k in request.headers}
+    kopf |= {"X-Ingress-Path": STUDIO_PFAD, "X-PM-Panel-Schluessel": hub.opts.klima_studio_schluessel}
+    daten = await request.read() if request.method == "POST" else None
     try:
-        quelle = await hub.client.stream_oeffnen(pfad.removeprefix("/api"), headers=bereich)
-    except HAError as err:
-        raise web.HTTPBadGateway(text=str(err)) from err
-    try:
-        kopf = {
-            k: quelle.headers[k]
-            for k in ("Content-Type", "Content-Length", "Content-Range", "Accept-Ranges")
-            if k in quelle.headers
-        }
-        ziel = web.StreamResponse(status=quelle.status, headers={**kopf, "Cache-Control": "no-store"})
-        await ziel.prepare(request)
-        async for block in quelle.content.iter_chunked(64 * 1024):
-            await ziel.write(block)
-    except (ConnectionResetError, aiohttp.ClientError, asyncio.CancelledError):
-        pass
-    finally:
-        quelle.release()
-    return ziel
+        async with hub.client.session.request(
+            request.method,
+            ziel,
+            params=request.query,
+            headers=kopf,
+            data=daten,
+            timeout=aiohttp.ClientTimeout(total=180, sock_connect=10),
+            allow_redirects=False,
+        ) as quelle:
+            antwort = web.StreamResponse(
+                status=quelle.status, headers={k: quelle.headers[k] for k in STUDIO_KOEPFE_ZURUECK if k in quelle.headers}
+            )
+            await antwort.prepare(request)
+            async for block in quelle.content.iter_chunked(64 * 1024):
+                await antwort.write(block)
+            return antwort
+    except aiohttp.ClientError as err:
+        _LOGGER.warning("PM Klima Studio nicht erreichbar (%s): %s", ziel, err)
+        raise web.HTTPBadGateway(text="PM Klima Studio nicht erreichbar.") from err
 
 
 async def einstellungen_get(request: web.Request) -> web.Response:
@@ -286,7 +351,10 @@ async def einstellungen_post(request: web.Request) -> web.Response:
         raise web.HTTPBadRequest(text="JSON erwartet") from err
     if not isinstance(raw, dict):
         raise web.HTTPBadRequest(text="Objekt erwartet")
-    abgewiesen = hub.einstellungen_setzen(raw)
+    try:
+        abgewiesen = hub.einstellungen_setzen(raw)
+    except OSError as err:
+        raise web.HTTPInternalServerError(text=f"Einstellungen nicht gespeichert: {err}") from err
     return web.json_response({"einstellungen": hub.einstellungen.to_dict(), "abgewiesen": abgewiesen})
 
 
@@ -317,6 +385,8 @@ def _gemeinsam(app: web.Application) -> None:
     app.router.add_get("/api/kamera", kamera)
     app.router.add_get("/api/hls/{pfad:.+}", hls)
     app.router.add_get("/api/video", video)
+    app.router.add_route("GET", STUDIO_PFAD + "/{rest:.*}", klima_studio)
+    app.router.add_route("POST", STUDIO_PFAD + "/{rest:.*}", klima_studio)
     app.router.add_static("/static/", STATIC_DIR, show_index=False)
 
 

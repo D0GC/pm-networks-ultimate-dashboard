@@ -510,8 +510,19 @@ class Hub:
             self.clients.discard(ws)
 
     def einstellungen_setzen(self, raw: dict[str, Any]) -> list[str]:
+        vorher = self.einstellungen.to_dict()
         abgewiesen = self.einstellungen.aktualisieren(raw)
-        self.speicher.speichern(self.einstellungen)
+        geaendert = [k for k, v in self.einstellungen.to_dict().items() if vorher.get(k) != v]
+        try:
+            self.speicher.speichern(self.einstellungen)
+        except OSError as err:
+            _LOGGER.error("Einstellungen nicht gespeichert (%s): %s", self.speicher.pfad, err)
+            raise
+        _LOGGER.info(
+            "Einstellungen gespeichert, geändert: %s%s",
+            ", ".join(geaendert) or "nichts",
+            f"; abgewiesen: {', '.join(abgewiesen)}" if abgewiesen else "",
+        )
         self._karten_json = ""
         self._karten_neu()
         self.spawn(self.senden_alle({"typ": "einstellungen", "einstellungen": self.einstellungen.to_dict()}))
