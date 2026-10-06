@@ -321,9 +321,82 @@ def berechne(
     aus = aus or []
     hinweise = parse_hinweise(_attr(states, hinweise_entitaet, "zeilen")) if hinweise_entitaet else []
     akt = [k for fn in AKTIVITAETEN if (k := fn(states, jetzt))] + akt_musik(states, jetzt, musik or [])
-    vorn = [k for k in hinweise if k["schluessel"] in VORRANG]
+    unwetter = unwetter_karten(states, jetzt)
+    if any(k["id"].startswith("warn:") for k in unwetter) or _dwd_vorhanden(states):
+        # Die DWD-Sensoren ersetzen die knappe Warnzeile der Hinweisvorlage
+        hinweise = [k for k in hinweise if k["schluessel"] != "warnung"]
+    vorn = [k for k in hinweise if k["schluessel"] == "eil"] + unwetter + [k for k in hinweise if k["schluessel"] == "warnung"]
     rest = [k for k in hinweise if k["schluessel"] not in VORRANG]
+    aus = [*aus, *(["unwetter"] if "warnung" in aus else [])]
     return [k for k in (*vorn, *akt, *rest) if k["schluessel"] not in aus]
+
+
+def _iso(value: Any) -> str | None:
+    if isinstance(value, datetime):
+        return value.isoformat()
+    return str(value) if value not in INAKTIV else None
+
+
+def _dwd_vorhanden(states: States) -> bool:
+    return any(
+        e.startswith("sensor.")
+        and "region_name" in (st.get("attributes") or {})
+        and "warning_count" in (st.get("attributes") or {})
+        for e, st in states.items()
+    )
+
+
+def unwetter_karten(states: States, jetzt: datetime) -> list[dict]:
+    """Amtliche Warnungen des DWD (Integration dwd_weather_warnings) als eigene Karten.
+
+    Erkannt werden die Sensoren der Integration an ihren Attributen (``region_name``, ``warning_count``); der Sensor
+    „Aktuelle Warnstufe“ liefert aktive Warnungen, „Vorwarnstufe“ die Vorabinformationen. Je Warnung eine Karte,
+    höchste Stufe zuerst, höchstens drei."""
+    out: list[dict] = []
+    for eid, st in states.items():
+        a = st.get("attributes") or {}
+        if not eid.startswith("sensor.") or "region_name" not in a or "warning_count" not in a:
+            continue
+        vorab = "vorwarn" in eid
+        for i in range(1, int(_num(a.get("warning_count")) or 0) + 1):
+            name = a.get(f"warning_{i}_name")
+            if not name:
+                continue
+            ende = a.get(f"warning_{i}_end")
+            ende_dt = ende if isinstance(ende, datetime) else _zeit_oder_none(ende)
+            if ende_dt and ende_dt < jetzt:
+                continue
+            stufe = int(_num(a.get(f"warning_{i}_level")) or 1)
+            out.append(
+                {
+                    "id": f"warn:{'vorab' if vorab else 'aktiv'}:{name}",
+                    "art": "warnung",
+                    "schluessel": "unwetter",
+                    "titel": str(name),
+                    "wert": str(stufe),
+                    "hinweis": str(a.get(f"warning_{i}_headline") or ""),
+                    "stufe": max(1, min(4, stufe)),
+                    "vorab": vorab,
+                    "region": a.get("region_name"),
+                    "start": _iso(a.get(f"warning_{i}_start")),
+                    "bis": _iso(ende),
+                    "ring": max(1, min(4, stufe)) / 4,
+                    "ende": None,
+                    "dauer_s": None,
+                }
+            )
+    out.sort(key=lambda k: (k["vorab"], -k["stufe"]))
+    return out[:3]
+
+
+def _zeit_oder_none(value: Any) -> datetime | None:
+    if not isinstance(value, str) or not value:
+        return None
+    try:
+        dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return dt if dt.tzinfo else None
 
 
 def relevante_entitaeten(hinweise_entitaet: str) -> set[str]:

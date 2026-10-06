@@ -76,6 +76,7 @@
     PS.modus = m.modus || "wach"; PS.nacht = !!m.nacht; PS.verbunden = !!m.verbunden;
     document.body.classList.toggle("ruhe", PS.modus === "ruhe" && !document.body.classList.contains("offen"));
     document.body.classList.toggle("getrennt", !PS.verbunden);
+    document.body.classList.toggle("nacht", PS.nacht);
     const e = PS.einst || {};
     const dunkel = PS.modus === "ruhe" ? (PS.nacht ? e.nacht_helligkeit : e.ruhe_helligkeit) : (PS.nacht ? Math.round((e.nacht_helligkeit || 0) / 3) : 0);
     document.documentElement.style.setProperty("--abdunkeln", ((dunkel || 0) / 100).toFixed(2));
@@ -284,6 +285,26 @@
     el.textContent = text; el.classList.toggle("fehler", fehler); el.classList.add("zeigen");
     clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove("zeigen"), fehler ? 5000 : 2600);
   };
+  // Licht blüht vom Berührungspunkt aus (an) bzw. zieht sich dorthin zurück (aus); beim Einschalten streicht ein
+  // feiner Glanz über die Kachel (Konzept Stufe 1)
+  PS.bluete = (el, ev, an, warm) => {
+    if (!el || document.body.classList.contains("ohne-animation")) return;
+    const r = el.getBoundingClientRect();
+    const x = (ev && ev.clientX ? ev.clientX : r.left + r.width / 2) - r.left, y = (ev && ev.clientY ? ev.clientY : r.top + r.height / 2) - r.top;
+    const b = document.createElement("span");
+    b.className = "bluete" + (warm ? " warm" : ""); b.style.left = `${x}px`; b.style.top = `${y}px`;
+    el.appendChild(b);
+    const gross = Math.hypot(r.width, r.height) / 12;
+    b.animate(an ? [{ transform: "scale(0)", opacity: 1 }, { transform: `scale(${gross})`, opacity: 0 }]
+      : [{ transform: `scale(${gross})`, opacity: 0.6 }, { transform: "scale(0)", opacity: 0 }],
+    { duration: 700, easing: "cubic-bezier(.16,1,.3,1)" }).onfinish = () => b.remove();
+    if (an) {
+      let g = el.querySelector(":scope > .glanz");
+      if (!g) { g = document.createElement("span"); g.className = "glanz"; el.appendChild(g); }
+      el.classList.remove("glanzt"); void el.offsetWidth; el.classList.add("glanzt");
+      setTimeout(() => el.classList.remove("glanzt"), 800);
+    }
+  };
   PS.welle = (el, ev) => {
     if (!el || !ev || document.body.classList.contains("ohne-animation")) return;
     const r = el.getBoundingClientRect(), s = Math.max(r.width, r.height), w = document.createElement("span");
@@ -312,8 +333,21 @@
     el.addEventListener("pointerdown", (ev) => {
       sofort = !!bedingung && !bedingung();
       if (sofort) return;
-      ev.preventDefault(); ab0 = Date.now(); el.classList.add("haelt");
-      t = setTimeout(() => { t = null; el.classList.remove("haelt"); aktion(); }, ms + 40);
+      ev.preventDefault(); ab0 = Date.now();
+      // Fortschritt dort, wo der Finger liegt (Konzept Stufe 2)
+      let ring = el.querySelector(":scope > .fingerring");
+      if (!ring) {
+        el.insertAdjacentHTML("beforeend", '<svg class="fingerring" viewBox="0 0 84 84" aria-hidden="true"><circle class="s" cx="42" cy="42" r="36"/><circle class="w" cx="42" cy="42" r="36"/></svg>');
+        ring = el.lastElementChild;
+      }
+      const r = el.getBoundingClientRect();
+      ring.style.left = `${ev.clientX - r.left}px`; ring.style.top = `${ev.clientY - r.top}px`;
+      el.classList.remove("fertig"); el.classList.add("haelt");
+      t = setTimeout(() => {
+        t = null; el.classList.remove("haelt"); el.classList.add("fertig");
+        setTimeout(() => el.classList.remove("fertig"), 650);
+        aktion();
+      }, ms + 40);
     });
     ["pointerup", "pointerleave", "pointercancel"].forEach((n) => el.addEventListener(n, (ev) => {
       if (!t) return;
@@ -401,9 +435,10 @@
       return;
     }
     PS.tippen(el, (ev) => {
-      PS.welle(el, ev);
-      if (PS.freigabe(eid)) PS.mehrInfos(eid);
-      else if (PS.direktBedienbar(eid)) PS.umschalten(eid); else PS.mehrInfos(eid);
+      if (PS.freigabe(eid)) { PS.welle(el, ev); PS.mehrInfos(eid); return; }
+      if (["light", "switch", "input_boolean", "fan", "siren", "humidifier"].includes(PS.domain(eid))) PS.bluete(el, ev, !PS.istAn(eid), PS.domain(eid) === "light");
+      else PS.welle(el, ev);
+      if (PS.direktBedienbar(eid)) PS.umschalten(eid); else PS.mehrInfos(eid);
     }, () => PS.mehrInfos(eid));
   };
   // Alle Kacheln im Container an Zustandsänderungen koppeln
@@ -416,14 +451,70 @@
     });
   });
 
+  // Komet-Ring (Konzept Stufe 1): Verlauf in der Ringfarbe und leuchtender Kopfpunkt an der Spitze.
+  // Jede Instanz hat eine eigene Verlaufs-ID; die Farbe kommt über --farbe vom Ring-Element.
+  let ringNr = 0;
   PS.ringSVG = (anteil, extraKlasse = "") => {
-    const R = 52, U = 2 * Math.PI * R, a = anteil == null ? 1 : Math.max(0, Math.min(1, anteil));
-    return `<svg viewBox="0 0 120 120" class="${extraKlasse}"><circle class="spur" cx="60" cy="60" r="${R}"/><circle class="wert" cx="60" cy="60" r="${R}" stroke-dasharray="${U.toFixed(1)}" stroke-dashoffset="${(U * (1 - a)).toFixed(1)}"/></svg>`;
+    const R = 52, U = 2 * Math.PI * R, a = anteil == null ? 1 : Math.max(0, Math.min(1, anteil)), id = `komet${++ringNr}`;
+    return `<svg viewBox="0 0 120 120" class="komet ${extraKlasse}"><defs><linearGradient id="${id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" class="k0"/><stop offset=".55" class="k1"/><stop offset="1" class="k2"/></linearGradient></defs>`
+      + `<circle class="spur" cx="60" cy="60" r="${R}"/><circle class="wert" cx="60" cy="60" r="${R}" style="stroke:url(#${id})" stroke-dasharray="${U.toFixed(1)}" stroke-dashoffset="${(U * (1 - a)).toFixed(1)}"/>`
+      + `<circle class="kopfpunkt" cx="112" cy="60" r="4.5" style="transform:rotate(${(a * 360).toFixed(1)}deg);opacity:${a > 0.004 && a < 0.996 ? 1 : 0}"/></svg>`;
   };
   PS.ringSetzen = (svg, anteil) => {
     const c = svg && svg.querySelector(".wert"); if (!c) return;
     const U = 2 * Math.PI * 52, a = anteil == null ? 1 : Math.max(0, Math.min(1, anteil));
     c.style.strokeDashoffset = (U * (1 - a)).toFixed(1);
+    const k = svg.querySelector(".kopfpunkt");
+    if (k) { k.style.transform = `rotate(${(a * 360).toFixed(1)}deg)`; k.style.opacity = a > 0.004 && a < 0.996 ? 1 : 0; }
+  };
+
+  // Zahlenwalze (Konzept Stufe 1): Ziffern rollen wie ein Zählwerk auf den neuen Wert, jede Stelle mit 60 ms
+  // Versatz von rechts. Wird die Zahl länger (z. B. 999 → 1.000), rollen neue Stellen aus dem Leeren herein und der
+  // Tausenderpunkt blendet ein; wird sie kürzer, rollen Stellen ins Leere und schließen sich.
+  PS.walze = (el, text) => {
+    text = String(text ?? "");
+    if (!el) return;
+    if (document.body.classList.contains("ohne-animation") || !/\d/.test(text)) { el.textContent = text; el._walze = null; return; }
+    if (!el._walze) { el.textContent = ""; el.classList.add("walze"); el._walze = []; }
+    const slots = el._walze;  // von rechts gezählt: slots[0] = letzte Stelle
+    const zeichen = [...text].reverse();
+    const ziffer = (c) => /\d/.test(c);
+    const neuSlot = (art) => {
+      const s = document.createElement("span");
+      s.className = art === "z" ? "stelle neu" : "fest neu";
+      if (art === "z") s.innerHTML = `<span class="band"><span>&nbsp;</span>${[...Array(10).keys()].map((d) => `<span>${d}</span>`).join("")}</span>`;
+      s._art = art;
+      el.insertBefore(s, el.firstChild);
+      return s;
+    };
+    zeichen.forEach((c, i) => {
+      const art = ziffer(c) ? "z" : "f";
+      let s = slots[i];
+      if (s && s._art !== art) { s.remove(); slots[i] = s = null; }
+      if (!s) {
+        // neue Stelle links anfügen (oder an ihrer Position, falls sich die Art geändert hat)
+        s = neuSlot(art);
+        const rechts = slots.slice(0, i).reverse().find(Boolean);
+        if (rechts) el.insertBefore(s, rechts);
+        slots[i] = s;
+        requestAnimationFrame(() => requestAnimationFrame(() => s.classList.remove("neu")));
+      }
+      s.classList.remove("geht");
+      if (art === "z") {
+        const band = s.firstChild;
+        band.style.transitionDelay = `${i * 60}ms`;
+        band.style.transform = `translateY(-${Number(c) + 1}em)`;
+      } else s.textContent = c;
+    });
+    // überzählige Stellen (Zahl wurde kürzer) ins Leere rollen und entfernen
+    for (let i = zeichen.length; i < slots.length; i++) {
+      const s = slots[i]; if (!s) continue;
+      s.classList.add("geht");
+      if (s._art === "z") s.firstChild.style.transform = "translateY(0)";
+      setTimeout(() => { if (s.classList.contains("geht")) s.remove(); }, 650);
+    }
+    slots.length = zeichen.length;
+    el.setAttribute("aria-label", text);
   };
 
   // Kleines, sicheres Markdown (Text wird zuerst maskiert): Überschriften, fett, kursiv, Listen, Absätze

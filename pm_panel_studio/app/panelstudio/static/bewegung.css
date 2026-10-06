@@ -1,0 +1,134 @@
+/* PM Panel Studio – Bewegungssprache nach dem Konzept „Bewegungskonzept Flurpanel“ (Stufen 1–3).
+   Alle Animationen greifen auf diese Tokens zurück. Animiert werden nur transform, opacity, clip-path und
+   stroke-dashoffset. Der Schalter „Animationen“ (body.ohne-animation) und prefers-reduced-motion schalten alles ab. */
+
+:root{
+  --t-tipp:140ms; --t-kurz:280ms; --t-mittel:520ms; --t-lang:900ms; --t-ring:1400ms;
+  --e-auftakt:cubic-bezier(.16,1,.3,1); --e-gleit:cubic-bezier(.65,0,.35,1); --e-feder:cubic-bezier(.34,1.56,.64,1);
+  --staffel:80ms;
+}
+
+/* ------------------------------------------------------------ Stufe 1 · Komet-Ring */
+.ring{--rf:var(--ringfarbe,var(--farbe,var(--lavender)))}
+.thermo .ring{--ringfarbe:var(--warn)}
+.thermo .ring.kalt{--ringfarbe:var(--info)}
+.ring svg.komet .k0{stop-color:#784295}
+.ring svg.komet .k1{stop-color:color-mix(in srgb,var(--rf) 70%,#c99bf0)}
+.ring svg.komet .k2{stop-color:var(--rf)}
+.ring svg.komet .wert{transition:stroke-dashoffset var(--t-ring) var(--e-auftakt)}
+.ring svg.komet .kopfpunkt{fill:#fff;transform-origin:60px 60px;filter:drop-shadow(0 0 3px var(--rf)) drop-shadow(0 0 6px var(--rf));
+  transition:transform var(--t-ring) var(--e-auftakt),opacity var(--t-kurz) ease}
+/* Laufende Timer: Sekundentakt linear, damit Ring und Kopf gleichmäßig wandern */
+.ring.laeuft svg.komet .wert{transition:stroke-dashoffset 1s linear}
+.ring.laeuft svg.komet .kopfpunkt{transition:transform 1s linear,opacity var(--t-kurz) ease}
+
+/* Atmen im Sekundentakt: Zahl hebt und senkt sich, Ring und Kopf glimmen mit */
+@keyframes atmen{0%,100%{transform:scale(1);opacity:1}45%{transform:scale(1.045);opacity:.8}}
+@keyframes ring-atmen{0%,100%{opacity:1}45%{opacity:.72}}
+@keyframes kopf-atmen{0%,100%{r:4.5}45%{r:6}}
+.ring.atmet .innen b{animation:atmen 1s ease-in-out infinite;transform-origin:center}
+.ring.atmet svg.komet .wert{animation:ring-atmen 1s ease-in-out infinite}
+.ring.atmet svg.komet .kopfpunkt{animation:kopf-atmen 1s ease-in-out infinite}
+
+/* ------------------------------------------------------------ Stufe 1 · Zahlenwalze */
+.walze{display:inline-flex;align-items:flex-start;font-variant-numeric:tabular-nums;line-height:1;white-space:nowrap}
+.walze .stelle{display:inline-block;height:1em;overflow:hidden;width:.64em;transition:width var(--t-mittel) var(--e-auftakt)}
+.walze .stelle .band{display:flex;flex-direction:column;align-items:center;transition:transform var(--t-mittel) var(--e-auftakt)}
+.walze .stelle .band span{height:1em;line-height:1;display:block}
+.walze .fest{display:inline-block;overflow:hidden;max-width:.5em;transition:max-width var(--t-mittel) var(--e-auftakt),opacity var(--t-mittel) ease}
+.walze .stelle.neu{width:0}
+.walze .fest.neu{max-width:0;opacity:0}
+.walze .stelle.geht{width:0}
+.walze .fest.geht{max-width:0;opacity:0}
+
+/* ------------------------------------------------------------ Stufe 1 · Kacheln: Nachgeben, Licht vom Finger, Glanz */
+.kachel{transition:transform var(--t-tipp) var(--e-gleit),background-color var(--t-mittel) ease,border-color var(--t-mittel) ease}
+.kachel:active{transform:scale(.965)}
+.kachel .bluete{position:absolute;width:2rem;height:2rem;margin:-1rem 0 0 -1rem;border-radius:50%;pointer-events:none;transform:scale(0);
+  background:radial-gradient(circle,rgba(201,155,240,.5),rgba(120,66,149,.45) 60%,transparent 72%)}
+.kachel .bluete.warm{background:radial-gradient(circle,rgba(255,213,138,.6),rgba(120,66,149,.5) 60%,transparent 72%)}
+.kachel>.glanz{position:absolute;inset:0;pointer-events:none;background:linear-gradient(105deg,transparent 30%,rgba(255,255,255,.12) 50%,transparent 70%);transform:translateX(-120%)}
+.kachel.glanzt>.glanz{transition:transform .7s var(--e-gleit);transform:translateX(120%)}
+.kachel>.mdi,.kachel small{transition:color var(--t-mittel) ease}
+
+/* ------------------------------------------------------------ Stufe 2 · Kartenwechsel „Schichtwechsel“ */
+.karussell .karte{transform:translateX(4%);opacity:0;clip-path:inset(0 0 0 100% round 2rem);filter:none;
+  transition:transform var(--t-lang) var(--e-auftakt),opacity var(--t-mittel) ease,filter var(--t-lang) var(--e-auftakt),clip-path var(--t-lang) var(--e-auftakt)}
+.karussell .karte.an{transform:none;opacity:1;clip-path:inset(-3rem -3rem -3rem -3rem round 2rem)}
+.karussell .karte.weg{transform:translateZ(-120px) scale(.9);opacity:0;filter:blur(6px);clip-path:inset(-3rem -3rem -3rem -3rem round 2rem)}
+/* Kopf, Ring, Überschrift und Zeile folgen gestaffelt im Abstand von 80 ms */
+.karussell .karte>.kopf,.karussell .karte>.ring,.karussell .karte>h2,.karussell .karte>p{opacity:0;transform:translateY(10px);
+  transition:opacity .5s ease,transform .6s var(--e-auftakt)}
+.karussell .karte.an>.kopf,.karussell .karte.an>.ring,.karussell .karte.an>h2,.karussell .karte.an>p{opacity:1;transform:none}
+.karussell .karte.an>.ring{transition-delay:var(--staffel)}
+.karussell .karte.an>h2{transition-delay:calc(var(--staffel) * 2)}
+.karussell .karte.an>p{transition-delay:calc(var(--staffel) * 3)}
+.karussell .karte>.ring{align-self:center}
+
+/* ------------------------------------------------------------ Stufe 2 · Halten mit Ring um den Finger */
+.kachel>.fingerring,.knopf>.fingerring,.halten-feld>.fingerring{position:absolute;width:4.4rem;height:4.4rem;margin:-2.2rem 0 0 -2.2rem;opacity:0;pointer-events:none;z-index:2;overflow:visible}
+.haelt>.fingerring{opacity:1}
+.fingerring circle{fill:none;stroke-width:4}
+.fingerring .s{stroke:rgba(236,235,242,.15)}
+.fingerring .w{stroke:var(--krit);stroke-linecap:round;stroke-dasharray:226.2;stroke-dashoffset:226.2;transform:rotate(-90deg);transform-origin:42px 42px}
+.haelt>.fingerring .w{stroke-dashoffset:0;transition:stroke-dashoffset var(--halte,2s) linear}
+.knopf{position:relative;overflow:hidden}
+.fertig{animation:bestaetigt .6s var(--e-feder)}
+@keyframes bestaetigt{30%{transform:scale(1.04)}100%{transform:none}}
+
+/* ------------------------------------------------------------ Stufe 2 · Meldungen mit Gewicht */
+.rahmen-glut{position:fixed;inset:0;z-index:45;pointer-events:none;box-shadow:inset 0 0 0 0 rgba(239,106,122,0)}
+.rahmen-glut.an{animation:rahmenpuls 1.6s ease-in-out 3}
+@keyframes rahmenpuls{50%{box-shadow:inset 0 0 0 .35rem rgba(239,106,122,.7),inset 0 0 6rem rgba(239,106,122,.25)}}
+.dialog-grund.offen .dialog.meldung-hoch{animation:fallen .8s var(--e-feder) both}
+@keyframes fallen{from{transform:translateY(-120%);opacity:0}to{transform:none;opacity:1}}
+.dialog-grund.offen .dialog.meldung-normal{animation:gleiten var(--t-mittel) var(--e-auftakt) both}
+@keyframes gleiten{from{transform:translateY(2.4rem);opacity:0}to{transform:none;opacity:1}}
+
+/* ------------------------------------------------------------ Stufe 3 · Kachel wird Seite (View Transitions) */
+::view-transition-group(raum-kopf){animation-duration:600ms;animation-timing-function:cubic-bezier(.16,1,.3,1)}
+::view-transition-old(root),::view-transition-new(root){animation-duration:420ms}
+.raum-ansicht .r-spalte>*{animation:auftauchen .6s var(--e-auftakt) both}
+.raum-ansicht .r-spalte>*:nth-child(2){animation-delay:60ms}
+.raum-ansicht .r-spalte>*:nth-child(3){animation-delay:120ms}
+.raum-ansicht .r-spalte>*:nth-child(4){animation-delay:180ms}
+.raum-ansicht .r-spalte:nth-child(2)>*{animation-delay:calc(60ms + var(--d,0ms))}
+.raum-ansicht .r-spalte:nth-child(3)>*{animation-delay:calc(120ms + var(--d,0ms))}
+
+/* ------------------------------------------------------------ Stufe 3 · Polarlicht im Ruhezustand, Weckstrahl */
+.bg .aurora{position:absolute;inset:0;overflow:hidden;opacity:0;transition:opacity 2.4s ease}
+.bg .aurora i{position:absolute;width:70%;aspect-ratio:1;border-radius:50%;filter:blur(4rem);opacity:.55;mix-blend-mode:screen;animation-play-state:paused}
+.bg .aurora i:nth-child(1){background:#784295;left:-10%;top:30%;animation:schweben1 22s ease-in-out infinite alternate}
+.bg .aurora i:nth-child(2){background:#443171;right:-15%;top:-20%;animation:schweben2 28s ease-in-out infinite alternate}
+.bg .aurora i:nth-child(3){background:#5a3b8a;left:30%;bottom:-40%;animation:schweben3 34s ease-in-out infinite alternate}
+@keyframes schweben1{to{transform:translate(30%,-25%) scale(1.15)}}
+@keyframes schweben2{to{transform:translate(-25%,30%) scale(.9)}}
+@keyframes schweben3{to{transform:translate(-20%,-30%) scale(1.2)}}
+body.ruhe:not(.nacht) .bg .aurora{opacity:1}
+body.ruhe:not(.nacht) .bg .aurora i{animation-play-state:running}
+/* Ruhe heißt Ruhe: im Ruhezustand steht der übrige Hintergrund, nachts läuft gar nichts */
+body.ruhe .bg::before{animation-play-state:paused}
+.weckstrahl{position:fixed;left:0;right:0;bottom:-40%;height:40%;z-index:41;pointer-events:none;opacity:0;
+  background:linear-gradient(0deg,transparent,rgba(236,235,242,.16),transparent)}
+.weckstrahl.an{animation:strahl 1.1s var(--e-gleit)}
+@keyframes strahl{0%{opacity:1;transform:none}100%{opacity:1;transform:translateY(-360%)}}
+
+/* ------------------------------------------------------------ Abschaltbar */
+body.ohne-animation .bg .aurora i,body.ohne-animation .weckstrahl,body.ohne-animation .rahmen-glut{animation:none!important}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
+}
+
+/* ------------------------------------------------------------ Feed: leer im Ruhezustand, Unwetterwarnung */
+.mitte .karussell,.mitte .punkte{transition:opacity var(--t-lang) ease}
+.mitte.leer .karussell,.mitte.leer .punkte{opacity:0;pointer-events:none}
+/* Warnsymbol im Ring, darunter „Stufe 2 von 4“ */
+.karte .ring .innen .wi.warn-ring{font-size:6.6rem;color:var(--cloud);display:block;margin:0 auto}
+.karte .ring .innen .wi.warn-ring+.einheit{margin-top:.2rem;font-size:.9rem}
+/* Stufe 3 und 4: Kartenrand glüht in der Warnfarbe */
+.karussell .karte.glut::after{content:"";position:absolute;inset:-1px;border-radius:inherit;pointer-events:none;
+  box-shadow:0 0 0 1px color-mix(in srgb,var(--farbe) 60%,transparent),0 0 2.4rem color-mix(in srgb,var(--farbe) 35%,transparent);
+  animation:warn-glut 2.4s ease-in-out infinite}
+@keyframes warn-glut{50%{opacity:.35}}
+body.ohne-animation .karussell .karte.glut::after{animation:none}
+.ring .innen .wi svg{transform:none}

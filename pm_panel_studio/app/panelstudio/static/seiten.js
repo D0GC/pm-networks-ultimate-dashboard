@@ -319,8 +319,11 @@
       const kinder = geraete.filter((k) => k.included_in_stat === g.stat_consumption).map((k) => knoten(k, f));
       const wert = Math.max(0, summe(g.stat_consumption));
       const rest = wert - kinder.reduce((a, k) => a + k.wert, 0);
-      if (kinder.length && rest > wert * 0.005) kinder.push({ name: "Nicht erfasst", wert: rest, farbe: "var(--leise)", rest: true, kinder: [] });
-      return { name: name(g), wert, farbe: f, eid: PS.z[g.stat_consumption] ? g.stat_consumption : null, kinder: kinder.sort((a, b) => !!a.rest - !!b.rest || b.wert - a.wert) };
+      // Aktuelle Leistung (W) für die Teilchen; „Nicht erfasst“ bekommt den Rest
+      const watt = g.stat_rate && PS.z[g.stat_rate] && isFinite(num(g.stat_rate)) ? Math.max(0, num(g.stat_rate)) : null;
+      const wattKinder = kinder.reduce((a, k) => a + (k.watt || 0), 0);
+      if (kinder.length && rest > wert * 0.005) kinder.push({ name: "Nicht erfasst", wert: rest, farbe: "var(--leise)", rest: true, kinder: [], watt: watt != null ? Math.max(0, watt - wattKinder) : null });
+      return { name: name(g), wert, watt: watt ?? (wattKinder || null), farbe: f, eid: PS.z[g.stat_consumption] ? g.stat_consumption : null, kinder: kinder.sort((a, b) => !!a.rest - !!b.rest || b.wert - a.wert) };
     };
     const geraeteKnoten = oben.map((g) => knoten(g, farbe.get(g.stat_consumption) || "var(--lavender)"));
     const geraeteSumme = geraeteKnoten.reduce((a, k) => a + k.wert, 0);
@@ -343,6 +346,7 @@
       c.forEach((k) => { k.x = x(t); k.y = y; k.h = hoehe(k); k.t = t; y += k.h + LUECKE; });
     });
     let baender = "", knotenSvg = "", texte = "", ix = 0;
+    const teilchenBaender = [];
     const kWh = (v) => `${PS.zahl(v, v < 10 ? 2 : 1)} kWh`;
     spalten.forEach((c) => c.forEach((k) => {
       let off = 0;
@@ -350,6 +354,7 @@
         const h = Math.min(ch.h, Math.max(0, k.h - off)) || ch.h;
         const x0 = k.x + KB, y0 = k.y + off, x1 = ch.x, y1 = ch.y, xm = (x0 + x1) / 2;
         baender += `<path class="band" style="--t:${ch.t};--farbe:${ch.farbe}" d="M${x0},${y0}C${xm},${y0} ${xm},${y1} ${x1},${y1}L${x1},${y1 + h}C${xm},${y1 + h} ${xm},${y0 + h} ${x0},${y0 + h}Z"/>`;
+        teilchenBaender.push({ x0, y0, x1, y1, h, farbe: ch.farbe, watt: ch.watt, anteilWert: ch.wert / wurzel.wert });
         off += h;
       });
       knotenSvg += `<rect class="knoten${k.eid ? " klick" : ""}" data-i="${ix}" style="--t:${k.t};fill:${k.farbe}" x="${k.x}" y="${k.y}" width="${KB}" height="${k.h}" rx="2"/>`;
@@ -359,6 +364,12 @@
     }));
     box.innerHTML = `<svg class="sankey-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">${baender}${knotenSvg}${texte}</svg>`;
     const alleK = spalten.flat();
+    // Lichtteilchen (Konzept Stufe 3): Dichte nach aktueller Leistung, ohne Leistungssensor nach dem Anteil am Verbrauch
+    if (PS.flussTeilchen) {
+      const maxW = Math.max(0, ...teilchenBaender.map((b) => b.watt || 0));
+      PS.flussTeilchen(box, box.querySelector("svg"), teilchenBaender.map((b) => ({ ...b,
+        anteil: maxW > 0 ? (b.watt != null ? b.watt / maxW : 0) : 0.3 * b.anteilWert })));
+    }
     box.querySelectorAll("rect.klick").forEach((r) => r.addEventListener("click", () => PS.mehrInfos(alleK[Number(r.dataset.i)].eid)));
   }
 
@@ -454,7 +465,7 @@
   function zaehlerKarte(z) {
     const e = z.eid, n = num(e), max = z.max(e), schritt = Number(PS.a(e).step) || 1;
     const k = E(`<div class="zaehler-karte">
-      <div class="ring r-ring r-gross" style="--farbe:${z.farbe(e)}">${PS.ringSVG(Math.max(0.005, Math.min(1, n / max)))}<div class="innen"><b class="tabular${tausender(n).length > 4 ? " lang" : ""}">${tausender(n)}</b><small>${z.marke ? `bis ${tausender(max)}` : `von ${tausender(max)}`}</small></div></div>
+      <div class="ring r-ring r-gross" style="--farbe:${z.farbe(e)}">${PS.ringSVG(Math.max(0.005, Math.min(1, n / max)))}<div class="innen"><b class="tabular${tausender(n).length > 4 ? " lang" : ""}"></b><small>${z.marke ? `bis ${tausender(max)}` : `von ${tausender(max)}`}</small></div></div>
       <div class="zaehler-titel">${PS.esc(z.titel)}${n > max && !z.marke ? `<small>${tausender(n - max)} über der Marke</small>` : ""}</div>
       <div class="reihe zaehler-knoepfe"></div></div>`);
     const r = k.querySelector(".zaehler-knoepfe");
@@ -466,7 +477,20 @@
     PS.halten(zurueck, 2000, () => PS.dienst("counter", "reset", { entity_id: e }).then(() => PS.toast(`${z.titel}: zurückgesetzt`)));
     r.append(minus, plus, zurueck);
     k.querySelector(".ring").addEventListener("click", () => PS.mehrInfos(e));
+    k.dataset.eid = e; k._z = z;
+    PS.walze(k.querySelector(".innen b"), tausender(n));  // Zahlenwalze, auch über die Tausenderstelle
     return k;
+  }
+  // Zähler an Ort und Stelle nachführen: Zahl rollt, Ring gleitet, Farbe und Marke folgen
+  function zaehlerAktualisieren(k) {
+    const z = k._z, e = z.eid, n = num(e), max = z.max(e);
+    const ring = k.querySelector(".ring");
+    ring.style.setProperty("--farbe", z.farbe(e));
+    PS.ringSetzen(ring.querySelector("svg"), Math.max(0.005, Math.min(1, n / max)));
+    const b = ring.querySelector(".innen b");
+    b.classList.toggle("lang", tausender(n).length > 4);
+    PS.walze(b, tausender(n));
+    ring.querySelector(".innen small").textContent = z.marke ? `bis ${tausender(max)}` : `von ${tausender(max)}`;
   }
   function kohleRest() {
     const t = KOHLE.timer, st = PS.s(t);
@@ -486,7 +510,7 @@
     const b1 = box("Kohle", PS.z[KOHLE.leistung] && num(KOHLE.leistung) > 0 ? `${PS.zahl(num(KOHLE.leistung), 0)} W` : "");
     const an = PS.s(KOHLE.schalter) === "on", rest = kohleRest();
     const kopf = E('<div class="kohle-kopf"></div>');
-    const kr = E(`<div class="ring r-ring r-gross" style="--farbe:${an ? "#f0964c" : "var(--leise)"}">${PS.ringSVG(rest ? rest.rest / rest.dauer : an ? 1 : 0)}<div class="innen"><b class="tabular kohle-zeit">${rest ? "" : an ? PS.ic("fire") : "Aus"}</b><small>${rest ? (rest.pausiert ? "pausiert" : "bis fertig") : an ? "glüht" : "bereit"}</small></div></div>`);
+    const kr = E(`<div class="ring r-ring r-gross${rest && !rest.pausiert ? " laeuft atmet" : ""}" style="--farbe:${an ? "#f0964c" : "var(--leise)"}">${PS.ringSVG(rest ? rest.rest / rest.dauer : an ? 1 : 0)}<div class="innen"><b class="tabular kohle-zeit">${rest ? "" : an ? PS.ic("fire") : "Aus"}</b><small>${rest ? (rest.pausiert ? "pausiert" : "bis fertig") : an ? "glüht" : "bereit"}</small></div></div>`);
     kopf.appendChild(kr);
     const zeit = kr.querySelector(".kohle-zeit");
     const ticken = () => {
@@ -519,10 +543,12 @@
     m.appendChild(b3);
   }
   // Zähler und Kohle an Ort und Stelle: Seite still neu zeichnen, wenn sich ein beteiligter Wert ändert
-  const SHISHA_IDS = new Set([...Object.values(KOHLE), ...SHISHA_ZAEHLER.map((z) => z.eid), ...KOHLE_ZAEHLER.map((z) => z.eid)]);
+  const KOHLE_IDS = new Set(Object.values(KOHLE));
   let shishaTimer = null;
   PS.on("diff", (ids) => {
-    if (!document.querySelector(".zaehler-reihe") || ![...ids].some((e) => SHISHA_IDS.has(e)) || shishaTimer) return;
+    if (!document.querySelector(".zaehler-reihe")) return;
+    document.querySelectorAll(".zaehler-karte[data-eid]").forEach((k) => { if (ids.has(k.dataset.eid)) zaehlerAktualisieren(k); });
+    if (![...ids].some((e) => KOHLE_IDS.has(e)) || shishaTimer) return;
     shishaTimer = setTimeout(() => { shishaTimer = null; if (document.querySelector(".zaehler-reihe")) PS.neuZeichnen(); }, 250);
   });
   PS.module.shisha = { titel: "Shisha", icon: "smoke", render: (el) => shisha(el) };

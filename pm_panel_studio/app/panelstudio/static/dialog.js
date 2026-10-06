@@ -128,6 +128,11 @@
       r.appendChild(knopf(b.text, null, () => PS.dienst(b.domain, b.service, b.data || {}).then(() => { PS.toast(`${b.text} ausgeführt`); schliessen(); })));
     });
     dlg.appendChild(r);
+    // Meldungen mit Gewicht (Konzept Stufe 2): hoch fällt mit Feder herein und lässt den Rand dreimal glühen,
+    // normal gleitet ohne Feder ein
+    dlg.classList.remove("meldung-hoch", "meldung-normal"); void dlg.offsetWidth;
+    dlg.classList.add(m.prio === "high" ? "meldung-hoch" : "meldung-normal");
+    if (m.prio === "high") { const g = $(".rahmen-glut"); if (g) { g.classList.remove("an"); void g.offsetWidth; g.classList.add("an"); } }
     $("#dialog-grund").classList.add("offen");
     dlg.dataset.popup = m.id;
   };
@@ -137,6 +142,7 @@
   });
 
   PS.mehrInfos = (eid) => {
+    $("#dialog").classList.remove("meldung-hoch", "meldung-normal");
     delete $("#dialog").dataset.popup; offenFuer = eid; zeichnen(true); $("#dialog-grund").classList.add("offen"); };
   PS.on("diff", (ids) => {
     if (offenFuer && PS.freigabe(offenFuer) && ids.has(PS.freigabe(offenFuer))) zeichnen(true);

@@ -338,7 +338,7 @@ class Hub:
             self._diff[eid] = kompakt(neu)
         if self._flush_task is None or self._flush_task.done():
             self._flush_task = self.spawn(self._flush())
-        if eid in self._relevant:
+        if eid in self._relevant or "warnstufe" in eid:
             self._karten_neu()
         if eid in self.opts.bewegung and neu and neu.get("state") == "on":
             self.letzte_bewegung = time.monotonic()

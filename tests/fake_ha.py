@@ -361,6 +361,19 @@ def default_states(jetzt: datetime) -> list[dict[str, Any]]:
             friendly_name="Dominiks Zahnbürste Dauer",
             unit_of_measurement="s",
         ),
+        # Amtliche Warnung (DWD)
+        s(
+            "sensor.kreis_kulmbach_aktuelle_warnstufe",
+            "3",
+            None,
+            friendly_name="Kreis Kulmbach Aktuelle Warnstufe",
+            region_name="Kreis Kulmbach",
+            warning_count=1,
+            warning_1_name="Schweres Gewitter",
+            warning_1_level=3,
+            warning_1_headline="Amtliche Unwetterwarnung vor schwerem Gewitter",
+            warning_1_end=_iso(jetzt + timedelta(hours=4)),
+        ),
         # Shisha: Zähler und Kohle-Timer
         s("counter.smoked_shishas", "12", None, friendly_name="smoked Shishas", step=1, initial=0),
         s("counter.smoked_shishas_jahrlich", "386", None, friendly_name="smoked Shishas jährlich", step=1, initial=0),
@@ -616,6 +629,21 @@ class FakeHA:
                 self.set_state(eid, str(n), **a)
             elif domain == "lock" and service in ("lock", "unlock", "open"):
                 self.set_state(eid, "locked" if service == "lock" else "unlocked")
+        if domain == "weather" and service == "get_forecasts" and data.get("type") == "hourly":
+            h0 = datetime.now(UTC).replace(minute=0, second=0, microsecond=0)
+            return {
+                "weather.dwd_zuhause": {
+                    "forecast": [
+                        {
+                            "datetime": _iso(h0 + timedelta(hours=i)),
+                            "condition": "rainy" if i >= 2 else "partlycloudy",
+                            "temperature": 16 - i * 0.5,
+                            "precipitation_probability": 70 if i >= 2 else 10,
+                        }
+                        for i in range(12)
+                    ]
+                }
+            }
         if domain == "weather" and service == "get_forecasts":
             heute = datetime.now(UTC)
             return {
