@@ -486,7 +486,7 @@ body.ruhe .gruss.an{opacity:.6}
 .sankey .knoten{transform-box:fill-box;transform-origin:center;transform:scaleY(0);animation:knoten-auf .7s var(--ease-aus) forwards;animation-delay:calc(var(--t) * .28s)}
 .sankey .knoten.klick{cursor:pointer}
 @keyframes knoten-auf{to{transform:scaleY(1)}}
-.sankey .fluss-text{fill:var(--cloud);font-size:14px;font-weight:500;paint-order:stroke;stroke:#1c1745;stroke-width:4px;stroke-linejoin:round;opacity:0;animation:text-auf .6s ease forwards;animation-delay:calc(var(--t) * .28s + .5s)}
+.sankey .fluss-text{fill:var(--cloud);font-size:14px;font-weight:500;paint-order:stroke;stroke:rgba(20,16,54,.8);stroke-width:3px;stroke-linejoin:round;opacity:0;animation:text-auf .6s ease forwards;animation-delay:calc(var(--t) * .28s + .5s)}
 .sankey .fluss-text tspan{fill:var(--leise);font-weight:400}
 .sankey .fluss-text.rest{fill:var(--leise);font-style:italic}
 @keyframes text-auf{to{opacity:1}}

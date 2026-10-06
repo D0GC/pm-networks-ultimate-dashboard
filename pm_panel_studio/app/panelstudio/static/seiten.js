@@ -215,10 +215,28 @@
     if (z === "monat") { const s = new Date(t.getFullYear(), t.getMonth(), 1); return [s, new Date(t.getFullYear(), t.getMonth() + 1, 1), "day"]; }
     return [t, new Date(t.getTime() + 86400e3), "hour"];
   }
+  // Geräte und Kaskaden kommen allein aus dem Energie-Dashboard von Home Assistant. Ist die Seite offen, prüft sie
+  // jede Minute, ob dort etwas geändert wurde (neues Gerät, anderes vorgelagertes Gerät), und baut sich dann neu auf;
+  // alle 5 Minuten aktualisiert sie die Verbrauchswerte.
+  let energieWaechter = null;
+  function energieBeobachten(el, prefsJson) {
+    clearInterval(energieWaechter);
+    const seit = Date.now();
+    energieWaechter = setInterval(async () => {
+      if (!el.isConnected) { clearInterval(energieWaechter); return; }
+      let neu = null;
+      try { neu = JSON.stringify(await PS.anfrage({ typ: "ws", befehl: { type: "energy/get_prefs" } })); } catch { return; }
+      if (neu !== prefsJson || Date.now() - seit > 5 * 60e3) { clearInterval(energieWaechter); if (el.isConnected) PS.neuZeichnen(); }
+    }, 60e3);
+  }
   async function energie(el) {
     const [l, m, r] = seite(el, "energie");
+    const raster = l.parentElement;
+    raster.classList.add("energie");
+    el.classList.add("energie-seite");
     let prefs;
     try { prefs = await PS.anfrage({ typ: "ws", befehl: { type: "energy/get_prefs" } }); } catch { prefs = null; }
+    energieBeobachten(el, JSON.stringify(prefs));
     const geraete = (prefs && prefs.device_consumption) || [];
     const wasser = ((prefs && prefs.energy_sources) || []).filter((s) => s.type === "water");
     const gas = ((prefs && prefs.energy_sources) || []).filter((s) => s.type === "gas");
@@ -241,10 +259,11 @@
     const legende = E('<div class="r-legende"></div>');
     b2.append(dia, legende);
     m.appendChild(b2);
-    const bFluss = box("Energiefluss", ZEITRAUM[zeitraum]);
+    const bFluss = box("Energiefluss", `${ZEITRAUM[zeitraum]} · aus dem Energie-Dashboard`);
+    bFluss.classList.add("volle-breite");
     const fluss = E('<div class="sankey"><div class="leer">Wird geladen …</div></div>');
     bFluss.appendChild(fluss);
-    m.appendChild(bFluss);
+    raster.appendChild(bFluss);  // über die ganze Breite unter den drei Spalten
     // Rechts: Geräte mit Verbrauch und Leistung (Hierarchie wie im Energie-Dashboard)
     const b3 = box("Geräte", "Verbrauch · Leistung");
     r.appendChild(b3);
@@ -335,7 +354,7 @@
     // Spalten je Tiefe
     const spalten = [];
     (function sammeln(k, t) { (spalten[t] = spalten[t] || []).push(k); k.kinder.forEach((c) => sammeln(c, t + 1)); })(wurzel, 0);
-    const W = 640, H = 300, KB = 10, LABEL = 150, LUECKE = 8;
+    const W = 1240, H = 340, KB = 12, LABEL = 240, LUECKE = 10;
     const maxN = Math.max(...spalten.map((c) => c.length));
     const skala = (H - LUECKE * (maxN - 1)) / wurzel.wert;
     const hoehe = (k) => Math.max(1.5, k.wert * skala);
@@ -510,7 +529,7 @@
     const b1 = box("Kohle", PS.z[KOHLE.leistung] && num(KOHLE.leistung) > 0 ? `${PS.zahl(num(KOHLE.leistung), 0)} W` : "");
     const an = PS.s(KOHLE.schalter) === "on", rest = kohleRest();
     const kopf = E('<div class="kohle-kopf"></div>');
-    const kr = E(`<div class="ring r-ring r-gross${rest && !rest.pausiert ? " laeuft atmet" : ""}" style="--farbe:${an ? "#f0964c" : "var(--leise)"}">${PS.ringSVG(rest ? rest.rest / rest.dauer : an ? 1 : 0)}<div class="innen"><b class="tabular kohle-zeit">${rest ? "" : an ? PS.ic("fire") : "Aus"}</b><small>${rest ? (rest.pausiert ? "pausiert" : "bis fertig") : an ? "glüht" : "bereit"}</small></div></div>`);
+    const kr = E(`<div class="ring r-ring r-gross${rest && !rest.pausiert ? " laeuft glimmt" : ""}" style="--farbe:${an ? "#f0964c" : "var(--leise)"}">${PS.ringSVG(rest ? rest.rest / rest.dauer : an ? 1 : 0)}<div class="innen"><b class="tabular kohle-zeit">${rest ? "" : an ? PS.ic("fire") : "Aus"}</b><small>${rest ? (rest.pausiert ? "pausiert" : "bis fertig") : an ? "glüht" : "bereit"}</small></div></div>`);
     kopf.appendChild(kr);
     const zeit = kr.querySelector(".kohle-zeit");
     const ticken = () => {
@@ -519,7 +538,7 @@
       zeit._lief = zeit.isConnected;
       if (!x) return;
       const g = Math.ceil(x.rest);
-      zeit.textContent = `${Math.floor(g / 60)}:${String(g % 60).padStart(2, "0")}`;
+      PS.walze(zeit, `${Math.floor(g / 60)}:${String(g % 60).padStart(2, "0")}`);
       PS.ringSetzen(kr.querySelector("svg"), x.rest / x.dauer);
     };
     const uhr = setInterval(ticken, 1000); ticken();
