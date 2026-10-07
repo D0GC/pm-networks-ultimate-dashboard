@@ -1,7 +1,7 @@
 """Nachbildung der benötigten Home-Assistant-Schnittstellen für Tests und Vorschau.
 
 Pfade wie hinter dem Supervisor-Proxy:
-  REST  /core/api/states, /core/api/config, /core/api/services/<domain>/<service>, /core/api/camera_proxy/<eid>,
+  REST  /core/api/states, /core/api/config, /core/api/services/<domain>/<service>, /core/api/camera_proxy/<eid>, /core/api/image_proxy/<eid>,
         /core/api/calendars/<eid>, /core/api/logbook/<start>
   WS    /core/websocket  (auth_required -> auth -> auth_ok), subscribe_events, call_service, Registry-Listen,
         todo/item/list, history/history_during_period
@@ -31,6 +31,42 @@ AREAS = [
     ("schlafzimmer", "Schlafzimmer", "mdi:bed"),
     ("buro", "Büro", "mdi:desk"),
 ]
+
+def karte_png(n: int) -> bytes:
+    """Kleine Wohnungskarte (RGB) mit einem Punkt, der je Aufruf weiterwandert – zum Prüfen der Live-Karte."""
+    import struct
+    import zlib
+
+    b, h = 360, 480
+    zeilen = []
+    px = int(60 + (n * 37) % 240)
+    py = int(70 + (n * 23) % 340)
+    for y in range(h):
+        zeile = bytearray([0])
+        for x in range(b):
+            if (x < 6 or x >= b - 6 or y < 6 or y >= h - 6) or (abs(y - 190) < 3 and x % 120 > 20) or (abs(x - 180) < 3 and y > 190 and y % 120 > 20):
+                c = (236, 235, 242)
+            elif y < 190:
+                c = (120, 66, 149) if x < 180 else (68, 49, 113)
+            elif x < 180:
+                c = (38, 70, 110)
+            else:
+                c = (50, 90, 110)
+            if (x - px) ** 2 + (y - py) ** 2 < 14**2:
+                c = (255, 213, 138)
+            zeile += bytes(c)
+        zeilen.append(bytes(zeile))
+
+    def chunk(typ: bytes, daten: bytes) -> bytes:
+        return struct.pack(">I", len(daten)) + typ + daten + struct.pack(">I", zlib.crc32(typ + daten) & 0xFFFFFFFF)
+
+    return (
+        b"\x89PNG\r\n\x1a\n"
+        + chunk(b"IHDR", struct.pack(">IIBBBBB", b, h, 8, 2, 0, 0, 0))
+        + chunk(b"IDAT", zlib.compress(b"".join(zeilen), 6))
+        + chunk(b"IEND", b"")
+    )
+
 
 PNG_1PX = bytes.fromhex(
     "89504e470d0a1a0a0000000d4948445200000001000000010806000000"
@@ -239,7 +275,7 @@ def default_states(jetzt: datetime) -> list[dict[str, Any]]:
             source_list=["Spotify", "Radio"],
             source="Spotify",
         ),
-        s("vacuum.roborock_s8", "docked", "flur", friendly_name="Roborock S8"),
+        s("vacuum.roborock_s8", "cleaning", "flur", friendly_name="Roborock S8", fan_speed="max", supported_features=30524),
         s("input_boolean.alles_stumm", "off", None, friendly_name="Alles stumm"),
         s("script.morgen_briefing", "off", None, friendly_name="Morgen-Briefing"),
         s("todo.einkaufsliste", "2", None, friendly_name="Einkaufsliste"),
@@ -310,6 +346,26 @@ def default_states(jetzt: datetime) -> list[dict[str, Any]]:
         s("switch.balkon_kohlegrill", "on", None, friendly_name="Balkon Kohlegrill"),
         s("sensor.karl_die_waschmaschine_aktueller_status", "running", None, friendly_name="Karl Status"),
         s("sensor.waschmaschine_phase", "Waschen", None, friendly_name="Waschmaschine Phase"),
+        s("sensor.waschmaschine_programmende", _iso(jetzt + timedelta(minutes=60)), None,
+          friendly_name="Waschmaschine Programmende", device_class="timestamp"),
+        s("sensor.karl_die_waschmaschine_gesamtdauer", "81", None, friendly_name="Karl Gesamtdauer", unit_of_measurement="min"),
+        s("sensor.karl_die_waschmaschine_zyklen", "16", None, friendly_name="Karl Zyklen"),
+        s("sensor.karl_die_waschmaschine_energie_in_diesem_monat", "9444.0", None, friendly_name="Karl Energie Monat",
+          unit_of_measurement="Wh", device_class="energy"),
+        s("input_button.wasche_entnommen", _iso(jetzt - timedelta(days=1)), None, friendly_name="Wäsche entnommen"),
+        # Geschirrspüler (Home Connect): fertig, noch nicht ausgeräumt
+        s("sensor.dishwasher_bsh_common_status_operationstate", "Finished", None, friendly_name="Geschirrspüler OperationState"),
+        s("sensor.geschirrspuler_phase", "—", None, friendly_name="Geschirrspüler Phase"),
+        s("sensor.dishwasher_bsh_common_option_programprogress", "100", None, friendly_name="Geschirrspüler ProgramProgress", unit_of_measurement="%"),
+        s("sensor.dishwasher_bsh_common_option_remainingprogramtime", "0", None, friendly_name="Geschirrspüler RemainingProgramTime", unit_of_measurement="s"),
+        s("sensor.dishwasher_bsh_common_status_program_all_count_started", "234", None, friendly_name="Geschirrspüler Programme"),
+        s("event.dishwasher_bsh_common_event_programfinished", _iso(jetzt - timedelta(minutes=25)), None, friendly_name="Geschirrspüler ProgramFinished"),
+        s("input_button.geschirr_ausgeraumt", _iso(jetzt - timedelta(days=2)), None, friendly_name="Geschirr ausgeräumt"),
+        # Luftreiniger
+        s("fan.wohnzimmer_luftreiniger_wohnzimmer", "off", "wohnzimmer", friendly_name="Luftreiniger Wohnzimmer"),
+        s("sensor.wohnzimmer_luftreiniger_wohnzimmer_feinstaub_pm2_5", "14", "wohnzimmer", friendly_name="Luftreiniger Wohnzimmer Feinstaub PM2.5", unit_of_measurement="µg/m³"),
+        s("sensor.wohnzimmer_luftreiniger_wohnzimmer_allergen_index", "4", "wohnzimmer", friendly_name="Luftreiniger Wohnzimmer Allergen-Index"),
+        s("switch.pm_wohnzimmer_luftreiniger_automatik", "off", "wohnzimmer", friendly_name="Wohnzimmer Luftreiniger-Automatik"),
         s("sensor.waschmaschine_fortschritt", "35", None, friendly_name="Waschmaschine Fortschritt", unit_of_measurement="%"),
         s(
             "sensor.karl_die_waschmaschine_verbleibende_zeit",
@@ -318,7 +374,25 @@ def default_states(jetzt: datetime) -> list[dict[str, Any]]:
             friendly_name="Karl Restzeit",
             unit_of_measurement="min",
         ),
-        s("sensor.roborock_s8_status", "charging", "flur", friendly_name="Roborock Status"),
+        s("sensor.roborock_s8_status", "cleaning", "flur", friendly_name="Roborock Status"),
+        s("sensor.roborock_s8_batterie", "78", "flur", friendly_name="Roborock S8 Batterie", unit_of_measurement="%", device_class="battery"),
+        s("sensor.roborock_s8_aktueller_raum", "Wohnzimmer", "flur", friendly_name="Roborock S8 Aktueller Raum"),
+        s("sensor.roborock_s8_reinigungsfortschritt", "42", "flur", friendly_name="Roborock S8 Reinigungsfortschritt", unit_of_measurement="%"),
+        s("sensor.roborock_s8_reinigungsbereich", "13.4", "flur", friendly_name="Roborock S8 Reinigungsbereich", unit_of_measurement="m²"),
+        s("sensor.roborock_s8_reinigungszeit", "17.5", "flur", friendly_name="Roborock S8 Reinigungszeit", unit_of_measurement="min", device_class="duration"),
+        s("sensor.roborock_s8_letztes_reinigungsende", _iso(jetzt - timedelta(hours=26)), "flur", friendly_name="Roborock S8 Letztes Reinigungsende", device_class="timestamp"),
+        s("sensor.roborock_s8_gesamtzahl_reinigungen", "1382", "flur", friendly_name="Roborock S8 Gesamtzahl Reinigungen"),
+        s("sensor.roborock_s8_staubsauger_fehler", "none", "flur", friendly_name="Roborock S8 Staubsauger-Fehler"),
+        s("image.roborock_s8_wohnung", _iso(jetzt), "flur", friendly_name="Roborock S8 Wohnung",
+          entity_picture="/api/image_proxy/image.roborock_s8_wohnung?token=x"),
+        s("button.roborock_s8_full_clean", "unknown", "flur", friendly_name="Roborock S8 Full Clean"),
+        s("button.roborock_s8_vac_followed_by_mop", "unknown", "flur", friendly_name="Roborock S8 Vac followed by Mop"),
+        s("button.roborock_s8_deep", "unknown", "flur", friendly_name="Roborock S8 Deep"),
+        s("button.roborock_s8_end_of_day", "unknown", "flur", friendly_name="Roborock S8 End of Day"),
+        s("select.flur_roborock_s8_reinigungsmodus", "vac_and_mop", "flur", friendly_name="Roborock S8 Reinigungsmodus",
+          options=["vacuum", "vac_and_mop", "mop", "custom"]),
+        s("select.roborock_s8_wisch_intensitat", "intense", "flur", friendly_name="Roborock S8 Wisch-Intensität",
+          options=["off", "mild", "moderate", "intense", "custom"]),
         # Außenluftfeuchte (lokal und DWD) sowie Verbrauchsmaterial
         s(
             "sensor.wetter_outdoor_module_luftfeuchtigkeit",
@@ -520,6 +594,7 @@ class FakeHA:
         r.add_post("/core/api/states/{eid}", self.rest_zustand_setzen)
         r.add_get("/core/api/camera_proxy/{eid}", self.rest_camera)
         r.add_get("/core/api/media_player_proxy/{eid}", self.rest_cover)
+        r.add_get("/core/api/image_proxy/{eid}", self.rest_image)
         r.add_get("/core/api/camera_proxy_stream/{eid}", self.rest_camera_stream)
         r.add_get("/core/api/hls/{token}/{datei}", self.rest_hls)
         r.add_get("/core/api/calendars/{eid}", self.rest_calendar)
@@ -550,6 +625,12 @@ class FakeHA:
                '<stop offset="0" stop-color="#784295"/><stop offset="1" stop-color="#262252"/></linearGradient></defs>'
                '<rect width="10" height="10" fill="url(#g)"/><circle cx="5" cy="5" r="2.6" fill="#ffd58a"/></svg>')
         return web.Response(text=svg, content_type="image/svg+xml")
+
+    async def rest_image(self, request):
+        """image-Entität: bei jedem Abruf wandert der Punkt der Karte weiter."""
+        self._auth(request)
+        self.karten_abrufe = getattr(self, "karten_abrufe", 0) + 1
+        return web.Response(body=karte_png(self.karten_abrufe), content_type="image/png")
 
     async def rest_camera_stream(self, request):
         self._auth(request)
@@ -682,6 +763,8 @@ class FakeHA:
                 self.set_state(eid, "on", **attrs)
             elif service == "turn_off":
                 self.set_state(eid, "off")
+            elif domain == "input_button" and service == "press":
+                self.set_state(eid, _iso(datetime.now(UTC)))
             elif domain == "counter" and service in ("increment", "decrement", "reset"):
                 a = st["attributes"]
                 n = int(st["state"]) + {"increment": 1, "decrement": -1, "reset": 0}[service] * int(a.get("step", 1))

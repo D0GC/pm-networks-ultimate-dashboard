@@ -545,7 +545,7 @@
     $("#dock").innerHTML = mods.map((m) => {
       const def = m === "start" ? { titel: "Start", icon: "home" } : PS.module[m];
       const zahl = def.zaehler ? def.zaehler() : 0;
-      return `<button data-m="${m}">${PS.ic(def.icon)}${zahl ? `<span class="zaehler">${zahl}</span>` : ""}${PS.esc(def.titel)}</button>`;
+      return `<button data-m="${m}">${PS.ic(def.icon)}${zahl ? `<span class="zaehler">${zahl}</span>` : ""}${PS.esc(def.kurz || def.titel)}</button>`;
     }).join("");
     $("#dock").querySelectorAll("button").forEach((b) => b.addEventListener("click", () => (b.dataset.m === "start" ? PS.schliessen() : PS.oeffnen(b.dataset.m))));
     markieren();
@@ -602,13 +602,16 @@
   // Modulband im Seitenkopf, auf allen Modulseiten gleich (Seiten mit eigenen Reitern ersetzen es über PS.tabs)
   function modulBand(aktiv) {
     const mods = (PS.einst.module || []).filter((m) => PS.modulDa(m) && m !== "suche");
-    PS.tabs(mods.map((m) => [m, PS.module[m].titel]), aktiv, (k) => PS.oeffnen(k));
+    PS.tabs(mods.map((m) => [m, PS.module[m].kurz || PS.module[m].titel]), aktiv, (k) => PS.oeffnen(k));
   }
   PS.tabs = (eintraege, aktiv, beiWahl, box = $("#sheet-tabs")) => {
     box.innerHTML = eintraege.map(([k, t]) => `<button data-k="${PS.esc(k)}" class="${k === aktiv ? "aktiv" : ""}">${PS.esc(t)}</button>`).join("");
     box.querySelectorAll("button").forEach((b) => b.addEventListener("click", () => {
       box.querySelectorAll("button").forEach((x) => x.classList.toggle("aktiv", x === b)); beiWahl(b.dataset.k);
     }));
+    // Aktiven Reiter sichtbar halten, auch wenn die Leiste länger ist als der Platz
+    const akt = box.querySelector("button.aktiv");
+    if (akt && box.scrollWidth > box.clientWidth) box.scrollLeft = Math.max(0, akt.offsetLeft - (box.clientWidth - akt.offsetWidth) / 2);
   };
 
 

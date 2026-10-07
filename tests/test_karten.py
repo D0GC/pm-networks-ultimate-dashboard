@@ -58,6 +58,16 @@ def test_waesche_laeuft_nach_phase():
     assert kt.akt_waesche({"sensor.waschmaschine_phase": st("Aus")}, JETZT) is None
 
 
+def test_waesche_programmende_vor_phasen_restzeit():
+    # LG meldet nach dem Start nur die Restzeit der Phase (20 min); maßgeblich ist das Programmende (81 min)
+    states = {
+        "sensor.karl_die_waschmaschine_aktueller_status": st("running"),
+        "sensor.karl_die_waschmaschine_verbleibende_zeit": st((JETZT + kt.timedelta(minutes=20)).isoformat()),
+        "sensor.waschmaschine_programmende": st((JETZT + kt.timedelta(minutes=81)).isoformat()),
+    }
+    assert kt.akt_waesche(states, JETZT)["wert"] == "1:21 h"
+
+
 def test_roborock_nur_beim_reinigen():
     assert kt.robo_aktiv("segment_cleaning")
     assert kt.robo_aktiv("cleaning")
