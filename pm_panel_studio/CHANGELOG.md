@@ -1,5 +1,10 @@
 # Änderungen
 
+## 2026.10.7 – 2026-10-07
+
+- Energie: Die Geräteliste zeigt die Leistung jedes Geräts live; sie ändert sich mit dem Leistungssensor, ohne dass
+  die Seite neu aufgebaut wird. Der Verbrauch in kWh stammt weiter aus der Statistik.
+
 ## 2026.10.6 – 2026-10-07
 
 - Neue Sektion „Musik“ für Music Assistant: Player-Liste (nur Music-Assistant-Player, keine Alexa-Zwillinge),
