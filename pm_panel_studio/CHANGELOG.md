@@ -1,5 +1,16 @@
 # Änderungen
 
+## 2026.10.9 – 2026-10-07
+
+- Neuer Reiter „Haushaltsgeräte“: Waschmaschine und Geschirrspüler mit Fortschrittsring, rollender Restzeit, Phase,
+  „fertig um“ und Quittieren; Live-Karte des Roborock mit seiner Position (während der Reinigung alle 5 s neu, weich
+  überblendet), Status, Raum, Akku, Steuerung, Programme und Verbrauchsmaterial; weitere Geräte als Kacheln.
+- Waschmaschine: Die Restzeit kommt aus „sensor.waschmaschine_programmende“ (Programmstart plus Gesamtdauer). Die
+  LG-Integration meldet nach dem Start nur die Restzeit der aktuellen Phase; ohne den Sensor gilt der alte Wert.
+- Reiterleiste: Passen nicht alle Reiter, blendet der Rand weich aus und der aktive Reiter bleibt sichtbar. Module
+  können einen kurzen Reiternamen haben („Haushalt“).
+- Releases: Ein GitHub-Workflow legt zu jeder neuen Version Tag und Release an und hat die fehlenden nachgetragen.
+
 ## 2026.10.8 – 2026-10-07
 
 Konzept Stufe 4 nach den Apple Human Interface Guidelines, aufbauend auf dem Bewegungskonzept. Der Feed sieht aus

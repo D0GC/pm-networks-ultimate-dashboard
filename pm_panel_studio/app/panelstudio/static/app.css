@@ -149,6 +149,8 @@ body.offen .start{transform:scale(.965);opacity:.25;filter:saturate(.6)}
 .sheet-kopf .zurueck,.sheet-kopf .zu{all:unset;cursor:pointer;width:3.4rem;height:3.4rem;border-radius:50%;display:grid;place-items:center;background:var(--flaeche);font-size:1.9rem}
 .sheet-kopf .zurueck[hidden]{display:none}
 .tabs{display:flex;gap:.5rem;overflow-x:auto;scrollbar-width:none}
+/* Mehr Reiter als Platz: rechter Rand blendet weich aus, damit man sieht, dass die Leiste weitergeht */
+.sheet-kopf .tabs{-webkit-mask-image:linear-gradient(90deg,transparent,#000 1.6rem,#000 calc(100% - 3rem),transparent);mask-image:linear-gradient(90deg,transparent,#000 1.6rem,#000 calc(100% - 3rem),transparent);padding-inline:1.2rem 2.5rem}
 .tabs button{all:unset;cursor:pointer;padding:.55rem 1.1rem;border-radius:99px;font-size:1.05rem;font-weight:600;color:var(--lavender);background:var(--flaeche-tief);border:1px solid var(--linie);white-space:nowrap}
 .tabs button.aktiv{background:var(--purple);color:#fff;border-color:transparent}
 .sheet-inhalt{flex:1;overflow-y:auto;overscroll-behavior:contain;padding:calc(var(--kopf-h) + 1.6rem) 2rem 2.4rem;-webkit-overflow-scrolling:touch;scrollbar-width:thin;scrollbar-color:var(--violet) transparent}
