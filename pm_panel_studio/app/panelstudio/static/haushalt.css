@@ -72,3 +72,12 @@
 .hh-geraet .ring .innen .mdi{font-size:2.8rem}
 .hh-weitere .kachel{padding:.8rem 1rem;gap:.2rem}
 .hh-weitere .kachel>.mdi{font-size:2rem}
+
+/* Zimmerreinigung unter der Karte: Zimmer antippen, Nummer = Reihenfolge */
+.hh-zimmer{display:flex;flex-direction:column;gap:.6rem;margin-top:.9rem}
+.hh-zimmer-chips{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.5rem}
+.hh-zimmer .chip{display:inline-flex;align-items:center;justify-content:center;gap:.4rem;min-width:0}
+.hh-zimmer .chip .hh-nr{display:none;min-width:1.4rem;height:1.4rem;border-radius:50%;background:var(--cloud);color:var(--navy,#0f0c2a);font-size:.85rem;font-weight:700;line-height:1.4rem;text-align:center}
+.hh-zimmer .chip.aktiv .hh-nr{display:inline-block}
+.hh-zimmer-los{align-self:stretch;width:auto;max-width:none;box-sizing:border-box;justify-content:center;white-space:nowrap}
+.hh-zimmer-los:disabled{opacity:.45}

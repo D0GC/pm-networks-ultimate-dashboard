@@ -64,6 +64,9 @@
       ["sensor.roborock_s8_verbleibende_sensorzeit", "Sensoren", 30],
     ],
     aktualisierung: 5,  // Sekunden zwischen Kartenbildern, solange der Roboter fährt
+    // Zimmerreinigung über vacuum.clean_area: HA-Bereiche, die in den Einstellungen des Roboters Segmenten zugeordnet
+    // sind (Einstellungen → Entität → Bereiche zuordnen). Reihenfolge der Auswahl = Reihenfolge der Reinigung.
+    zimmer: ["kuche", "flur", "badezimmer", "buro", "schlafzimmer", "wohnzimmer"],
   };
   // Weitere Geräte als Kacheln: [Entität, Titel]
   const WEITERE = [
@@ -346,6 +349,38 @@
     ui.waehler.forEach(waehlerAktualisieren);
     materialAktualisieren();
   }
+  // Zimmer antippen wie in der Vacuum-Karte: Nummer zeigt die Reihenfolge, „Reinigen“ startet vacuum.clean_area
+  function zimmerBauen(box) {
+    const liste = ROBO.zimmer.filter((b) => PS.bereiche.some((x) => x.id === b));
+    if (!liste.length) return;
+    const wahl = [];
+    const zeile = E('<div class="hh-zimmer"><div class="hh-zimmer-chips"></div></div>');
+    const chips = zeile.firstChild;
+    const los = knopf("Zimmer wählen", "play", null, "primaer hh-zimmer-los");
+    los.disabled = true;
+    const neu = () => {
+      chips.querySelectorAll("[data-b]").forEach((c) => {
+        const i = wahl.indexOf(c.dataset.b);
+        c.classList.toggle("aktiv", i >= 0);
+        c.querySelector(".hh-nr").textContent = i >= 0 ? String(i + 1) : "";
+      });
+      los.disabled = !wahl.length;
+      los.querySelector("span").textContent = wahl.length ? `${wahl.length === 1 ? PS.bereichName(wahl[0]) : wahl.length + " Zimmer"} reinigen` : "Zimmer wählen";
+    };
+    liste.forEach((b) => {
+      const c = E(`<button class="knopf chip" data-b="${PS.esc(b)}"><span class="hh-nr"></span><span>${PS.esc(PS.bereichName(b))}</span></button>`);
+      c.addEventListener("click", () => { const i = wahl.indexOf(b); if (i >= 0) wahl.splice(i, 1); else wahl.push(b); neu(); });
+      chips.appendChild(c);
+    });
+    los.addEventListener("click", () => {
+      if (!wahl.length) return;
+      const ziel = [...wahl];
+      PS.dienst("vacuum", "clean_area", { entity_id: ROBO.vacuum, cleaning_area_id: ziel })
+        .then(() => { PS.toast(`Roborock reinigt ${ziel.map(PS.bereichName).join(", ")}`); wahl.length = 0; neu(); });
+    });
+    zeile.appendChild(los);
+    box.appendChild(zeile);
+  }
   function programmeBauen(box) {
     const l = ROBO.programme.filter(([e]) => PS.z[e]);
     if (!l.length) return;
@@ -419,6 +454,7 @@
       const bk = box("Karte", "");
       const buehne = E(`<div class="hh-buehne"><div class="hh-leer">${PS.ic("map-outline")}<b>Keine Karte</b><small>Der Roboter hat noch kein Bild geliefert.</small></div></div>`);
       bk.appendChild(buehne);
+      zimmerBauen(bk);
       ui.karte = { buehne, kopfKlein: bk.querySelector("small"), laedt: false, nochmal: false };
       m.appendChild(bk);
       // Rechts: Steuerung
