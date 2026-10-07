@@ -257,7 +257,11 @@ class Einstellungen:
                     continue
                 self.freigaben = {
                     **STANDARD_FREIGABEN,
-                    **{str(k): str(v) for k, v in val.items() if _entities([k]) and re.match(r"^input_boolean\.[a-z0-9_]+$", str(v))},
+                    **{
+                        str(k): str(v)
+                        for k, v in val.items()
+                        if _entities([k]) and re.match(r"^input_boolean\.[a-z0-9_]+$", str(v))
+                    },
                 }
             elif key == "gruss_anrede":
                 if not isinstance(val, dict):

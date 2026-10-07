@@ -1,8 +1,8 @@
 /* PM Panel Studio – Rams-Aktivität (Feed-Karte, Popup). Nur eigene Klassen, bestehende Karten bleiben unverändert. */
 .sport-badge{margin-left:auto;font-style:normal;font-size:.85rem;font-weight:700;letter-spacing:.14em;padding:.28rem .8rem;border-radius:99px;background:var(--badge,#003594);color:#fff;white-space:nowrap}
-.sport-badge.live{animation:sport-puls 2s ease-in-out infinite}
+.sport-badge.puls{animation:sport-puls 2s ease-in-out infinite}
 @keyframes sport-puls{0%,100%{opacity:1}50%{opacity:.55}}
-body.ohne-animation .sport-badge.live{animation:none}
+body.ohne-animation .sport-badge.puls{animation:none}
 
 .sport-marke{display:inline-grid;place-items:center;width:4.4rem;height:4.4rem;flex:none}
 .sport-marke img{width:100%;height:100%;object-fit:contain}

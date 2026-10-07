@@ -289,7 +289,7 @@
     else if (m.svg) innen = `${m.svg}<small class="einheit">${PS.esc(m.einheit)}</small>`;
     else if (m.zahl != null) innen = `<b class="wert-txt tabular" data-text="${PS.esc(m.zahl)}"></b><small class="einheit">${PS.esc(m.einheit)}</small>`;
     else innen = PS.ic(m.icon);
-    return { farbe: m.farbe, glut: !!m.glut, html: `<div class="kopf"><i class="punkt"></i><span>${PS.esc(m.kopf)}</span>${m.badge ? `<em class="sport-badge${m.badge.live ? " live" : ""}" style="--badge:${PS.esc(m.badge.farbe)}">${PS.esc(m.badge.text)}</em>` : ""}</div><div class="ring${laeuft ? " laeuft glimmt" : ""}">${PS.ringSVG(m.anteil)}<div class="innen">${innen}</div></div><h2>${PS.esc(m.h2 || "")}</h2>${m.liste ? listeHTML(m.liste) : `<p>${PS.esc(m.p || "")}</p>`}` };
+    return { farbe: m.farbe, glut: !!m.glut, html: `<div class="kopf"><i class="punkt"></i><span>${PS.esc(m.kopf)}</span>${m.badge ? `<em class="sport-badge${m.badge.live ? " puls" : ""}" style="--badge:${PS.esc(m.badge.farbe)}">${PS.esc(m.badge.text)}</em>` : ""}</div><div class="ring${laeuft ? " laeuft glimmt" : ""}">${PS.ringSVG(m.anteil)}<div class="innen">${innen}</div></div><h2>${PS.esc(m.h2 || "")}</h2>${m.liste ? listeHTML(m.liste) : `<p>${PS.esc(m.p || "")}</p>`}` };
   }
   // Zahl im Ring rollt wie ein Zählwerk auf den Wert (Konzept Stufe 1); bei jedem Zeigen aus dem Leeren
   function walzeStarten(el, neu) {

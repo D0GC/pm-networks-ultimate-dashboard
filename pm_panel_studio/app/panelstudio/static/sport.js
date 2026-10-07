@@ -36,7 +36,7 @@
     const prob = sp.wahrscheinlichkeit != null && k.zustand !== "POST" ? `${Math.round(sp.wahrscheinlichkeit <= 1 ? sp.wahrscheinlichkeit * 100 : sp.wahrscheinlichkeit)} %` : "";
     dlg.innerHTML = `<div class="sport-ansicht" style="--farbe:${PS.esc(k.badge_farbe || "#003594")}">
       <button class="zu" aria-label="Schließen">${PS.ic("close")}</button>
-      <div class="sport-kopf"><em class="sport-badge${k.zustand === "IN" ? " live" : ""}" style="--badge:${PS.esc(k.badge_farbe)}">${PS.esc(k.badge)}</em>${sp.liga ? `<span>${PS.esc(sp.liga)}</span>` : ""}</div>
+      <div class="sport-kopf"><em class="sport-badge${k.zustand === "IN" ? " puls" : ""}" style="--badge:${PS.esc(k.badge_farbe)}">${PS.esc(k.badge)}</em>${sp.liga ? `<span>${PS.esc(sp.liga)}</span>` : ""}</div>
       <div class="sport-spiel">${seite(t)}<div class="sport-mitte"><b class="tabular">${PS.esc(stand)}</b><small>${PS.esc(k.hinweis)}</small></div>${seite(g)}</div>
       <div class="sport-liste">${zeile("Kickoff", sp.anpfiff)}${zeile("Stadion", sp.stadion)}${zeile("Ort", sp.ort)}${zeile("TV", sp.tv)}${zeile("Bilanz", [t.bilanz && `${t.name} ${t.bilanz}`, g.bilanz && `${g.name} ${g.bilanz}`].filter(Boolean).join(" · "))}${zeile("Siegchance", prob && `${t.name} ${prob}`)}${zeile("Saison", sp.saison)}</div>
       ${sp.letzter_zug ? `<div class="sport-zug"><small>Letzter Spielzug</small><p>${PS.esc(sp.letzter_zug)}</p></div>` : ""}
