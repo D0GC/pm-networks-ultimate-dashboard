@@ -1,5 +1,15 @@
 # Änderungen
 
+## 2026.10.6 – 2026-10-07
+
+- Neue Sektion „Musik“ für Music Assistant: Player-Liste (nur Music-Assistant-Player, keine Alexa-Zwillinge),
+  „Läuft gerade“ mit Cover, Fortschritt, Steuerung und Lautstärke, Suche (Titel, Alben, Playlists, Interpreten,
+  Radio; Antippen spielt, „Als Nächstes“ reiht ein) und Bibliothek (Zuletzt, Playlists, Radio). Erscheint nur, wenn
+  Music-Assistant-Player vorhanden sind, und einmalig automatisch im Dock.
+- Zähler und Timer: Kurze Zahlen stehen mittig im Ring, auch wenn die Beschriftung darunter breiter ist.
+- Energiefluss: Die Lichtteilchen laufen bei Live-Aktualisierungen weiter, statt alle 2 s kurz zu verschwinden und
+  neu zu starten.
+
 ## 2026.10.5 – 2026-10-07
 
 - Wettersymbole: Kein Sprung mehr in der Animation. Das Symbol links, die Vorschau und das Symbol in Wetter- und

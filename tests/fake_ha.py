@@ -268,10 +268,29 @@ def default_states(jetzt: datetime) -> list[dict[str, Any]]:
             friendly_name="Wohnung",
             media_title="Midnight City",
             media_artist="M83",
+            media_album_name="Hurry Up, We're Dreaming",
             media_duration=244,
             media_position=60,
             media_position_updated_at=_iso(jetzt),
+            entity_picture="/api/media_player_proxy/media_player.wohnung_3?token=abc&cache=1",
+            volume_level=0.4,
+            shuffle=False,
+            repeat="off",
+            mass_player_type="player",
+            active_queue="wohnung_queue",
         ),
+        s(
+            "media_player.dot_3",
+            "idle",
+            None,
+            friendly_name="Dot",
+            volume_level=0.2,
+            shuffle=False,
+            repeat="off",
+            mass_player_type="player",
+        ),
+        # Gleichnamiger Alexa-Player ohne mass_player_type: darf im Musik-Modul nicht erscheinen
+        s("media_player.wohnung", "idle", None, friendly_name="Wohnung", volume_level=0.5),
         s(
             "sensor.panel_bad_hinweise",
             "3",
@@ -499,6 +518,7 @@ class FakeHA:
         r.add_get("/core/api/config", self.rest_config)
         r.add_post("/core/api/services/{domain}/{service}", self.rest_service)
         r.add_get("/core/api/camera_proxy/{eid}", self.rest_camera)
+        r.add_get("/core/api/media_player_proxy/{eid}", self.rest_cover)
         r.add_get("/core/api/camera_proxy_stream/{eid}", self.rest_camera_stream)
         r.add_get("/core/api/hls/{token}/{datei}", self.rest_hls)
         r.add_get("/core/api/calendars/{eid}", self.rest_calendar)
@@ -522,6 +542,13 @@ class FakeHA:
     async def rest_camera(self, request):
         self._auth(request)
         return web.Response(body=PNG_1PX, content_type="image/png")
+
+    async def rest_cover(self, request):
+        self._auth(request)
+        svg = ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">'
+               '<stop offset="0" stop-color="#784295"/><stop offset="1" stop-color="#262252"/></linearGradient></defs>'
+               '<rect width="10" height="10" fill="url(#g)"/><circle cx="5" cy="5" r="2.6" fill="#ffd58a"/></svg>')
+        return web.Response(text=svg, content_type="image/svg+xml")
 
     async def rest_camera_stream(self, request):
         self._auth(request)
@@ -645,6 +672,35 @@ class FakeHA:
                 self.set_state(eid, str(n), **a)
             elif domain == "lock" and service in ("lock", "unlock", "open"):
                 self.set_state(eid, "locked" if service == "lock" else "unlocked")
+        if domain == "music_assistant" and service == "search":
+            bild = None  # echte Bilder liegen auf dem MA-Server und sind vom Panel aus nicht erreichbar
+            kuenstler = [{"media_type": "artist", "name": "M83", "uri": "library://artist/1"}]
+            return {
+                "artists": [{"media_type": "artist", "uri": "library://artist/1", "name": "M83", "image": bild}],
+                "albums": [
+                    {"media_type": "album", "uri": "library://album/1", "name": "Hurry Up, We're Dreaming", "image": bild, "artists": kuenstler},
+                    {"media_type": "album", "uri": "library://album/2", "name": "Junk", "image": bild, "artists": kuenstler},
+                ],
+                "tracks": [
+                    {"media_type": "track", "uri": "library://track/1", "name": "Midnight City", "image": bild, "artists": kuenstler,
+                     "album": {"name": "Hurry Up, We're Dreaming"}},
+                    {"media_type": "track", "uri": "library://track/2", "name": "Wait", "image": bild, "artists": kuenstler,
+                     "album": {"name": "Hurry Up, We're Dreaming"}},
+                ],
+                "playlists": [{"media_type": "playlist", "uri": "library://playlist/1", "name": "Synthwave Nacht", "image": bild}],
+                "radio": [{"media_type": "radio", "uri": "library://radio/1", "name": "Radio Paloma", "image": bild}],
+            }
+        if domain == "music_assistant" and service == "get_library":
+            art = data.get("media_type", "album")
+            namen = {"album": ["Junk", "Hurry Up, We're Dreaming", "Digital Ocean"], "playlist": ["Synthwave Nacht", "Küche Morgens"],
+                     "radio": ["Radio Paloma", "Bremen Vier"]}.get(art, [])
+            return {
+                "items": [{"media_type": art, "uri": f"library://{art}/{i}", "name": n, "image": None} for i, n in enumerate(namen, 1)],
+                "limit": data.get("limit", 25),
+                "offset": 0,
+                "order_by": data.get("order_by", "name"),
+                "media_type": art,
+            }
         if domain == "weather" and service == "get_forecasts" and data.get("type") == "hourly":
             h0 = datetime.now(UTC).replace(minute=0, second=0, microsecond=0)
             return {
@@ -722,6 +778,10 @@ class FakeHA:
                 for e, a in self.area_of.items()
             ]
             return ok({"entities": ents, "entity_categories": {}})
+        if typ == "config_entries/get":
+            eintraege = [{"entry_id": "mass0123456789", "domain": "music_assistant", "title": "Music Assistant", "state": "loaded"},
+                         {"entry_id": "andere", "domain": "hue", "title": "Hue", "state": "loaded"}]
+            return ok([e for e in eintraege if e["domain"] == req.get("domain", e["domain"])])
         if typ == "persistent_notification/subscribe":
             event = {"type": "current", "notifications": self.meldungen}
             loop = asyncio.get_running_loop()

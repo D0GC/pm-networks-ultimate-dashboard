@@ -26,6 +26,7 @@ MODULE = (
     "licht",
     "sicherheit",
     "medien",
+    "musik",
     "listen",
     "energie",
     "shisha",
@@ -33,7 +34,7 @@ MODULE = (
     "suche",
 )
 # Module, die nach dem ersten Release hinzukamen: gespeicherte Einstellungen ohne „module_bekannt“ kennen sie noch nicht
-MODULE_NACHTRAG = ("shisha", "studio")
+MODULE_NACHTRAG = ("shisha", "studio", "musik")
 
 
 def _entity(value: Any) -> str:
