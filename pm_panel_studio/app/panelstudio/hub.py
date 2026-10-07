@@ -26,6 +26,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from aiohttp import web
 
+from . import __version__
 from . import karten as kt
 from . import szenen as sz
 from .config import Einstellungen, EinstellungsSpeicher, Options
@@ -426,7 +427,8 @@ class Hub:
             "aktiv": True,
             "ausloeser": ausloeser,
             "titel": name,
-            "kamera": kamera or alt.get("kamera") or self.opts.ereignis_kamera or None,
+            # An der Haustür gibt es keine Kamera; die Ereignis-Kamera hängt an der Wohnungstür
+            "kamera": None if intercom else (kamera or alt.get("kamera") or self.opts.ereignis_kamera or None),
             # An der Haustür öffnet „Tür öffnen“ die Haustür, sonst der allgemeine Türöffner
             "tueroeffner": (self.opts.haustueroeffner if intercom else self.opts.tueroeffner) or None,
             "intercom": intercom or bool(alt.get("intercom")),
@@ -501,6 +503,8 @@ class Hub:
     def init_daten(self) -> dict[str, Any]:
         return {
             "typ": "init",
+            # Ändert sich die Version, lädt das Panel seine Seite neu (sonst läuft nach einem Update alter Code weiter)
+            "version": __version__,
             "zustaende": {eid: kompakt(st) for eid, st in self.states.items()},
             "bereiche": self.bereiche,
             "registry": self.registry,

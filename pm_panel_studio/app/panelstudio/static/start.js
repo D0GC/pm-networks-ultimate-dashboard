@@ -733,6 +733,12 @@
     $("#ereignis-titel").textContent = e.titel || "Tür";
     // Läuft das Overlay schon mit derselben Kamera, nur den Titel nachführen (kein Neustart des Streams)
     if (e.kamera && !(box._eid === e.kamera && box.classList.contains("live") && box._stop)) { PS.kameraLive(box, e.kamera); box._eid = e.kamera; }
+    else if (!e.kamera) {
+      // Ohne Kamera (Haustür): Klingel-Hinweis statt leerer Fläche
+      PS.kameraLiveStoppen(box.parentElement); box._eid = null;
+      box.classList.remove("kamera", "live", "laeuft");
+      box.innerHTML = `<div class="ereignis-hinweis">${PS.ic(e.intercom ? "doorbell" : "door")}<span>${PS.esc(e.intercom ? "Es klingelt an der Haustür" : e.titel || "Tür")}</span></div>`;
+    }
     $("#ereignis-oeffnen").hidden = !e.tueroeffner;
     $("#ereignis-sprechen").hidden = !e.intercom;
   }

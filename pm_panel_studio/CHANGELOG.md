@@ -1,5 +1,13 @@
 # Änderungen
 
+## 2026.10.14 – 2026-10-07
+
+- Haustür-Overlay ohne Kamerabild: An der Haustür gibt es keine Kamera, die Ereignis-Kamera hängt an der
+  Wohnungstür. Das Overlay zeigt dort jetzt „Es klingelt an der Haustür“ statt einer leeren Fläche.
+- Das Panel lädt sich nach einem Update der App selbst neu. Bisher lief im offenen Browser der alte Code weiter;
+  beim ersten Klingeln nach 2026.10.12 fehlte deshalb „Sprechen“, und „Tür öffnen“ öffnete den allgemeinen
+  Türöffner (Wohnungsschloss) statt der Haustür.
+
 ## 2026.10.13 – 2026-10-07
 
 - Rams-Aktivität aus dem Lovelace-Dashboard: Der Feed zeigt eine Spielkarte nach `sensor.la_rams` (TeamTracker/ESPN),

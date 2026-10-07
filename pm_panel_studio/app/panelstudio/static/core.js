@@ -34,6 +34,9 @@
   function verarbeiten(m) {
     switch (m.typ) {
       case "init":
+        // Nach einem Update der App die Seite neu laden, damit Panel und Server denselben Stand haben
+        if (m.version && PS.version && m.version !== PS.version) { location.reload(); return; }
+        PS.version = m.version || PS.version;
         PS.z = m.zustaende || {}; PS.bereiche = m.bereiche || []; PS.reg = m.registry || {}; PS.geraete = m.geraete || PS.geraete || {};
         PS.einst = m.einstellungen || {}; PS.opt = m.optionen || {}; PS.karten = m.karten || []; PS.ha = m.ha || {};
         PS.ereignis = m.ereignis || { aktiv: false };

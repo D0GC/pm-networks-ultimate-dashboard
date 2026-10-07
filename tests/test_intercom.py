@@ -28,16 +28,19 @@ async def test_klingel_startet_haustuer_overlay(ingress, hub, fake):
     assert m["intercom"] is True
     assert m["titel"] == "Haustür"
     assert m["tueroeffner"] == "button.haustur_tur_offnen"
+    assert m["kamera"] is None  # an der Haustür gibt es keine Kamera
     await ws.close()
 
 
 async def test_person_overlay_ohne_gegensprechen(ingress, fake):
     ws = await ingress.ws_connect("/api/ws")
-    await _init(ws)
+    init = await _init(ws)
+    assert init["version"]
     fake.set_state("binary_sensor.wohnungstuer_person", "off")
     fake.set_state("binary_sensor.wohnungstuer_person", "on")
     m = await _warte_auf(ws, lambda m: m["typ"] == "ereignis" and m.get("aktiv"))
     assert m["intercom"] is False
+    assert m["kamera"] == "camera.wohnungstuer_standardauflosung"
     await ws.close()
 
 
