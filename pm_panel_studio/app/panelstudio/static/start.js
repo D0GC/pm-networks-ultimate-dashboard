@@ -24,8 +24,17 @@
     const aussen = PS.opt.aussentemperatur && PS.z[PS.opt.aussentemperatur] ? PS.s(PS.opt.aussentemperatur) : st.a.temperature;
     const heute = vorhersage[0] || {};
     const regen = heute.precipitation_probability != null ? ` · Regen ${heute.precipitation_probability} %` : "";
-    el.innerHTML = `${PS.wetterSvg ? PS.wetterSvg(st.s) : PS.ic(PS.wetterIcon(st.s))}<div><b class="tabular">${PS.zahl(aussen, 1)}°</b><small>${PS.esc(PS.text(w))}${heute.temperature != null ? ` · ${PS.zahl(heute.templow, 0)}–${PS.zahl(heute.temperature, 0)}°` : ""}${regen}</small></div>`;
+    // Symbol nur bei neuem Zustand austauschen: Ein Neuaufbau startet die Animation von vorn (sichtbarer Sprung)
+    const text = `<b class="tabular">${PS.zahl(aussen, 1)}°</b><small>${PS.esc(PS.text(w))}${heute.temperature != null ? ` · ${PS.zahl(heute.templow, 0)}–${PS.zahl(heute.temperature, 0)}°` : ""}${regen}</small>`;
+    if (el.dataset.z !== st.s || !el.querySelector(":scope > div")) {
+      el.dataset.z = st.s;
+      el.innerHTML = `${PS.wetterSvg ? PS.wetterSvg(st.s) : PS.ic(PS.wetterIcon(st.s))}<div>${text}</div>`;
+    } else if (el._text !== text) el.querySelector(":scope > div").innerHTML = text;
+    el._text = text;
     const tage = vorhersage.slice(1, 4);
+    const schluessel = JSON.stringify(tage.map((t) => [t.datetime, t.condition, t.templow, t.temperature]));
+    if ($("#vorschau")._schluessel === schluessel) return;
+    $("#vorschau")._schluessel = schluessel;
     $("#vorschau").innerHTML = tage.map((t) => {
       const d = new Date(t.datetime);
       return `<div>${d.toLocaleDateString("de-DE", { weekday: "short" })}${PS.wetterSvg ? PS.wetterSvg(t.condition) : PS.ic(PS.wetterIcon(t.condition))}<span class="tabular">${PS.zahl(t.templow, 0)}–${PS.zahl(t.temperature, 0)}°</span></div>`;
@@ -298,7 +307,12 @@
         if (altB && neuB) {
           altB.dataset.text = neuB.dataset.text; PS.walze(altB, neuB.dataset.text);
           el.querySelector(".ring .innen .einheit").textContent = neu.querySelector(".ring .innen .einheit").textContent;
-        } else el.querySelector(".ring .innen").replaceWith(neu.querySelector(".ring .innen"));
+        } else {
+          // Gleiches animiertes Symbol (Wetter, Warnung) behalten, sonst springt seine Animation an den Anfang
+          const altWi = el.querySelector(".ring .innen .wi"), neuWi = neu.querySelector(".ring .innen .wi");
+          if (altWi && neuWi && altWi.dataset.z === neuWi.dataset.z) neuWi.replaceWith(altWi);
+          el.querySelector(".ring .innen").replaceWith(neu.querySelector(".ring .innen"));
+        }
         el.querySelector(".ring").className = neu.querySelector(".ring").className;
         el.querySelector("h2").replaceWith(neu.querySelector("h2"));
         el.querySelector("p").replaceWith(neu.querySelector("p"));
