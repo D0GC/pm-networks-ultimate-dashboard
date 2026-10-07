@@ -1,5 +1,13 @@
 # Änderungen
 
+## 2026.10.5 – 2026-10-07
+
+- Wettersymbole: Kein Sprung mehr in der Animation. Das Symbol links, die Vorschau und das Symbol in Wetter- und
+  Warnkarten wurden bei fast jeder Zustandsänderung neu aufgebaut und starteten dabei von vorn. Jetzt wird ein
+  Symbol nur ausgetauscht, wenn sich das Wetter tatsächlich ändert; Temperatur und Texte ändern sich an Ort und Stelle.
+- Regen, Schnee und Hagel: Tropfen und Flocken haben leicht unterschiedliche Laufzeiten, damit kein gleichmäßiger
+  Takt erkennbar ist.
+
 ## 2026.10.4 – 2026-10-07
 
 - Zugang: Das Schloss öffnet nicht mehr direkt. Halten mit Ring um den Finger (1 s) öffnet den Schloss-Dialog mit
