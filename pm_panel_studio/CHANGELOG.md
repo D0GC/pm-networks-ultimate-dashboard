@@ -1,5 +1,11 @@
 # Änderungen
 
+## 2026.10.11 – 2026-10-07
+
+- Haushaltsgeräte: Zimmerreinigung für den Roborock. Unter der Karte die Zimmer antippen; die Nummer zeigt die
+  Reihenfolge, „n Zimmer reinigen“ startet `vacuum.clean_area` mit genau dieser Reihenfolge. Grundlage ist die
+  Bereichszuordnung des Roboters in Home Assistant (Küche, Flur, Badezimmer, Büro, Schlafzimmer, Wohnzimmer).
+
 ## 2026.10.10 – 2026-10-07
 
 - Haushaltsgeräte: Die Restzeit des Geschirrspülers stimmt wieder. Seine Restzeit kommt als reine Sekundenzahl (z. B.
