@@ -392,26 +392,28 @@
     }
     return null;
   }
-  function praktisch() {
-    const out = [];
+  // Praktische Karten: „Alles in Ordnung“, wenn sonst nichts läuft (wach und in Ruhe), und der nächste Termin
+  // (24 h) immer zusätzlich zu den übrigen Karten.
+  function okKarte() {
     const offen = offeneZugaenge().length, al = PS.opt.alarm_entitaet;
     const teile = [offen ? `${offen} offen` : "Fenster und Türen zu"];
     if (al && PS.z[al]) teile.push(PS.s(al).startsWith("armed") ? "Alarm scharf" : "Alarm aus");
     teile.push("keine Geräte aktiv");
-    out.push({ id: "ok", art: "praktisch", schluessel: "ok", titel: "Zuhause", wert: "", hinweis: "",
-      modell: { kopf: "Zuhause", farbe: "var(--gut)", icon: "shield-check-outline", anteil: 1, h2: "Alles in Ordnung", p: teile.join(" · ") } });
-    if (naechsterTermin) {
-      const t = naechsterTermin.start, min = (t - Date.now()) / 60e3, heute = t.toDateString() === new Date().toDateString();
-      out.push({ id: "naechstes", art: "praktisch", schluessel: "naechstes", titel: "Als Nächstes", wert: "", hinweis: "",
-        modell: { kopf: "Als Nächstes", farbe: "#c99bf0", h2: naechsterTermin.titel || "Termin", p: `${heute ? "heute" : "morgen"} um ${PS.uhrzeit(t)}`,
-          zahl: PS.uhrzeit(t), einheit: "Uhr", anteil: Math.max(0.02, 1 - min / 1440) } });
-    }
-    return out;
+    return { id: "ok", art: "praktisch", schluessel: "ok", titel: "Zuhause", wert: "", hinweis: "",
+      modell: { kopf: "Zuhause", farbe: "var(--gut)", icon: "shield-check-outline", anteil: 1, h2: "Alles in Ordnung", p: teile.join(" · ") } };
+  }
+  function terminKarte() {
+    if (!naechsterTermin) return null;
+    const t = naechsterTermin.start, min = (t - Date.now()) / 60e3, heute = t.toDateString() === new Date().toDateString();
+    return { id: "naechstes", art: "praktisch", schluessel: "naechstes", titel: "Als Nächstes", wert: "", hinweis: "",
+      modell: { kopf: "Als Nächstes", farbe: "#c99bf0", h2: naechsterTermin.titel || "Termin", p: `${heute ? "heute" : "morgen"} um ${PS.uhrzeit(t)}`,
+        zahl: PS.uhrzeit(t), einheit: "Uhr", anteil: Math.max(0.02, 1 - min / 1440) } };
   }
   function feedAufbauen() {
     let k = (PS.karten || []).filter((x) => x.schluessel !== "wetter");
     const ww = (PS.einst.karten_aus || []).includes("wetter") ? null : wetterwechsel(); if (ww) k.push(ww);
-    if (!k.length && PS.modus !== "ruhe") k = praktisch();
+    if (!k.length) k.push(okKarte());
+    const termin = terminKarte(); if (termin) k.push(termin);
     kartenSetzen(k);
   }
 

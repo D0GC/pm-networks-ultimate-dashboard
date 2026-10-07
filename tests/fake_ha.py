@@ -189,8 +189,24 @@ def default_states(jetzt: datetime) -> list[dict[str, Any]]:
             unit_of_measurement="W",
         ),
         s(
-            "sensor.balkon_kohlegrill_derzeitiger_verbrauch",
+            "sensor.flur_leistung",
             "0",
+            "flur",
+            friendly_name="Flur Leistung",
+            device_class="power",
+            unit_of_measurement="W",
+        ),
+        s(
+            "sensor.server_leistung",
+            "0.15",
+            "buro",
+            friendly_name="Server Leistung",
+            device_class="power",
+            unit_of_measurement="kW",
+        ),
+        s(
+            "sensor.balkon_kohlegrill_derzeitiger_verbrauch",
+            "85",
             None,
             friendly_name="Kohlegrill Verbrauch",
             device_class="power",
@@ -745,10 +761,12 @@ class FakeHA:
                         {"stat_consumption": "sensor.buro_energie", "stat_rate": "sensor.buro_buro_leistung", "name": "Büro"},
                         {
                             "stat_consumption": "sensor.kohle_energie",
+                            "stat_rate": "sensor.balkon_kohlegrill_derzeitiger_verbrauch",
                             "name": "Kohlegrill",
                             "included_in_stat": "sensor.buro_energie",
                         },
-                        {"stat_consumption": "sensor.flur_energie", "name": "Flur Deckenlampe"},
+                        {"stat_consumption": "sensor.flur_energie", "stat_rate": "sensor.flur_leistung", "name": "Flur Deckenlampe"},
+                        {"stat_consumption": "sensor.server_energie", "stat_rate": "sensor.server_leistung", "name": "Server"},
                     ],
                 }
             )

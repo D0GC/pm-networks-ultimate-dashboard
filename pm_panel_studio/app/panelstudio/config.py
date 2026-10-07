@@ -69,6 +69,8 @@ class Options:
     ereignis_ausloeser: list[str] = field(default_factory=lambda: ["binary_sensor.wohnungstuer_person"])
     ereignis_kamera: str = "camera.wohnungstuer_standardauflosung"
     tueroeffner: str = "button.haustur_tur_offnen"
+    # Haustür-Öffner für die Zugang-Gruppe, zusätzlich zum Türöffner im Overlay (dort oft das Wohnungsschloss)
+    haustueroeffner: str = "button.haustur_tur_offnen"
     klima_praefix: str = "climate.pm_"
     # PM Klima Studio im Panel: interne Adresse der App und derselbe Schlüssel wie dort (panel_schluessel)
     klima_studio_url: str = "http://bdf1cc64-pm-klima-studio:8099"

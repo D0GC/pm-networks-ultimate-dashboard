@@ -23,6 +23,7 @@ Der Zugangsschlüssel liegt in `/data/panel_token`. „Neuen Schlüssel erzeugen
 | `alarm_entitaet` | Alarmanlage für die Statuszeile |
 | `ereignis_ausloeser` | Wird eine dieser Entitäten „an“, erscheint die Kamera im Vollbild |
 | `ereignis_kamera`, `tueroeffner` | Kamera und Türöffner im Overlay |
+| `haustueroeffner` | Haustür-Öffner in der Gruppe Zugang (neben den Schlössern) |
 | `klima_praefix` | Nur Thermostate mit diesem Präfix (Standard `climate.pm_`); ohne Bereich Zuordnung über den Namen |
 | `klima_studio_url` | Interne Adresse von PM Klima Studio (Standard `http://bdf1cc64-pm-klima-studio:8099`) |
 | `klima_studio_schluessel` | Mindestens 16 Zeichen; derselbe Wert wie `panel_schluessel` in PM Klima Studio (ab 1.2.2). Dann erscheint „Klima Studio“ als Seite im Panel |

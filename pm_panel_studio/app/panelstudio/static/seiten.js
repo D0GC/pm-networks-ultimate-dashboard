@@ -127,7 +127,7 @@
     const [l, m, r] = seite(el, "sicherheit");
     const alarm = alle().filter(dom("alarm_control_panel")).filter(PS.sichtbar);
     alarm.slice(0, 1).forEach((a) => l.appendChild(PS.alarmSteuerung(a)));
-    const zugang = [...alle().filter(dom("lock")), ...(PS.opt.tueroeffner && PS.z[PS.opt.tueroeffner] ? [PS.opt.tueroeffner] : [])].filter(PS.sichtbar);
+    const zugang = PS.zugang(alle().filter(dom("lock")));
     if (zugang.length) { const b = box("Zugang"); b.appendChild(raster(zugang)); l.appendChild(b); }
     const bs = (k) => alle().filter((e) => e.startsWith("binary_sensor.") && PS.sichtbar(e) && !PS.nichtDa(e) && k.includes(PS.a(e).device_class));
     const kontakte = bs(["door", "window", "opening", "garage_door"]).sort((x, y) => (PS.s(y) === "on") - (PS.s(x) === "on") || nameSort(x, y));
@@ -259,7 +259,7 @@
     const legende = E('<div class="r-legende"></div>');
     b2.append(dia, legende);
     m.appendChild(b2);
-    const bFluss = box("Energiefluss", `${ZEITRAUM[zeitraum]} · aus dem Energie-Dashboard`);
+    const bFluss = box("Energiefluss", "Live-Leistung · aus dem Energie-Dashboard");
     bFluss.classList.add("volle-breite");
     const fluss = E('<div class="sankey"><div class="leer">Wird geladen …</div></div>');
     bFluss.appendChild(fluss);
@@ -308,7 +308,7 @@
       b3.appendChild(zeile(g, false));
       geraete.filter((k) => k.included_in_stat === g.stat_consumption).forEach((k) => b3.appendChild(zeile(k, true)));
     });
-    energieFluss(fluss, { geraete, oben, summe, name, farbe, netzIn, netzAus, solar, battAus, battEin });
+    energieFluss(fluss, { geraete, oben, name, farbe });
     // Gestapeltes Säulendiagramm je Stunde bzw. Tag (oberste Ebene, wie im Energie-Dashboard)
     const zeiten = [...new Set(oben.flatMap((g) => (stats[g.stat_consumption] || []).map((p) => p.start)))].sort((a, b) => a - b);
     if (!zeiten.length) { dia.innerHTML = '<div class="leer">Für diesen Zeitraum liegen keine Werte vor.</div>'; return; }
@@ -328,29 +328,65 @@
     legende.innerHTML = oben.map((g, j) => `<span><i style="background:${FARBEN[j % FARBEN.length]}"></i>${PS.esc(name(g))}</span>`).join("");
   }
 
-  // Energiefluss (Sankey) wie im eingebauten Energie-Dashboard: Gesamtverbrauch → Geräte → enthaltene Geräte, je
-  // Ebene mit „Nicht erfasst“ für den Rest. Grundlage sind allein die Energie-Einstellungen von Home Assistant
-  // (Geräte und „Vorgelagertes Gerät“); neue Zähler erscheinen dort eingetragen ohne Änderung am Panel.
+  // Energiefluss (Sankey) mit LIVE-Leistung in Watt: Gesamt → Geräte → enthaltene Geräte, je Ebene mit „Nicht erfasst“
+  // für den Rest. Grundlage sind allein die Energie-Einstellungen von Home Assistant (stat_rate der Geräte und
+  // „Vorgelagertes Gerät“); gezeigt wird nur, was gerade mehr als FLUSS_SCHWELLE_W verbraucht.
+  const FLUSS_SCHWELLE_W = 1;
+  const FLUSS_DROSSEL_MS = 2000;
+  const wattVon = (eid) => {
+    if (!eid || !PS.z[eid]) return null;
+    const v = num(eid);
+    if (!isFinite(v)) return null;
+    const einheit = String((PS.a(eid) || {}).unit_of_measurement || "W").trim().toLowerCase();
+    return Math.max(0, einheit === "kw" ? v * 1000 : v);
+  };
+  const wattText = (w) => (w >= 1000 ? `${PS.zahl(w / 1000, 1)} kW` : `${PS.zahl(w, 0)} W`);
+  // Ein Listener für alle Aufrufe; zeichnet gedrosselt neu, solange die Box im Dokument hängt
+  let flussLive = null;
   function energieFluss(box, d) {
-    const { geraete, oben, summe, name, farbe } = d;
-    const sum = (ids) => ids.reduce((a, id) => a + Math.max(0, summe(id)), 0);
-    const knoten = (g, f) => {
-      const kinder = geraete.filter((k) => k.included_in_stat === g.stat_consumption).map((k) => knoten(k, f));
-      const wert = Math.max(0, summe(g.stat_consumption));
-      const rest = wert - kinder.reduce((a, k) => a + k.wert, 0);
-      // Aktuelle Leistung (W) für die Teilchen; „Nicht erfasst“ bekommt den Rest
-      const watt = g.stat_rate && PS.z[g.stat_rate] && isFinite(num(g.stat_rate)) ? Math.max(0, num(g.stat_rate)) : null;
-      const wattKinder = kinder.reduce((a, k) => a + (k.watt || 0), 0);
-      if (kinder.length && rest > wert * 0.005) kinder.push({ name: "Nicht erfasst", wert: rest, farbe: "var(--leise)", rest: true, kinder: [], watt: watt != null ? Math.max(0, watt - wattKinder) : null });
-      return { name: name(g), wert, watt: watt ?? (wattKinder || null), farbe: f, eid: PS.z[g.stat_consumption] ? g.stat_consumption : null, kinder: kinder.sort((a, b) => !!a.rest - !!b.rest || b.wert - a.wert) };
+    const raten = new Set(d.geraete.map((g) => g.stat_rate).filter(Boolean));
+    if (flussLive && flussLive.timer) clearTimeout(flussLive.timer);
+    flussLive = { box, d, raten, timer: 0, zuletzt: 0 };
+    flussZeichnen(flussLive, true);
+    if (!energieFluss.hoert) {
+      energieFluss.hoert = true;
+      PS.on("diff", (ids) => {
+        const f = flussLive;
+        if (!f || f.timer) return;
+        if (!f.box.isConnected) { if (f.box._flussStop) f.box._flussStop(); flussLive = null; return; }
+        if (![...ids].some((i) => f.raten.has(i))) return;
+        f.timer = setTimeout(() => {
+          f.timer = 0;
+          if (flussLive !== f) return;
+          if (!f.box.isConnected) { if (f.box._flussStop) f.box._flussStop(); flussLive = null; return; }
+          flussZeichnen(f, false);
+        }, Math.max(0, FLUSS_DROSSEL_MS - (Date.now() - f.zuletzt)));
+      });
+    }
+  }
+  function flussZeichnen(f, erst) {
+    const { box, d } = f;
+    f.zuletzt = Date.now();
+    const { geraete, oben, name, farbe } = d;
+    // Knoten aus der aktuellen Leistung; Geräte ohne Leistungssensor oder ohne Verbrauch entfallen
+    const knoten = (g, fb) => {
+      const kinder = geraete.filter((k) => k.included_in_stat === g.stat_consumption).map((k) => knoten(k, "var(--leise)")).filter(Boolean);
+      const eigen = wattVon(g.stat_rate);
+      const ks = kinder.reduce((a, k) => a + k.wert, 0);
+      const wert = Math.max(eigen || 0, ks);
+      if (!kinder.length && !(wert > FLUSS_SCHWELLE_W)) return null;
+      if (kinder.length && eigen != null && wert - ks > FLUSS_SCHWELLE_W) kinder.push({ name: "Nicht erfasst", wert: wert - ks, farbe: "var(--leise)", rest: true, kinder: [] });
+      return { name: name(g), wert, farbe: fb, eid: PS.z[g.stat_rate] ? g.stat_rate : null, kinder: kinder.sort((a, b) => !!a.rest - !!b.rest || b.wert - a.wert) };
     };
-    const geraeteKnoten = oben.map((g) => knoten(g, farbe.get(g.stat_consumption) || "var(--lavender)"));
-    const geraeteSumme = geraeteKnoten.reduce((a, k) => a + k.wert, 0);
-    const haus = d.netzIn.length || d.solar.length
-      ? sum(d.netzIn) + sum(d.solar) + sum(d.battAus) - sum(d.netzAus) - sum(d.battEin) : geraeteSumme;
-    const wurzel = { name: d.netzIn.length || d.solar.length ? "Hausverbrauch" : "Erfasster Verbrauch", wert: haus, farbe: "#f0b44c", kinder: geraeteKnoten.sort((a, b) => b.wert - a.wert) };
-    if (haus - geraeteSumme > haus * 0.005) wurzel.kinder.push({ name: "Nicht erfasster Verbrauch", wert: haus - geraeteSumme, farbe: "var(--leise)", rest: true, kinder: [] });
-    if (!(wurzel.wert > 0)) { box.innerHTML = '<div class="leer">Für diesen Zeitraum liegen keine Werte vor.</div>'; return; }
+    const geraeteKnoten = oben.map((g) => knoten(g, farbe.get(g.stat_consumption) || "var(--lavender)")).filter(Boolean);
+    const gesamt = geraeteKnoten.reduce((a, k) => a + k.wert, 0);
+    const wurzel = { name: "Gesamt", wert: gesamt, farbe: "#f0b44c", kinder: geraeteKnoten.sort((a, b) => b.wert - a.wert) };
+    if (!(gesamt > FLUSS_SCHWELLE_W)) {
+      if (box._flussStop) box._flussStop();
+      box.innerHTML = '<div class="leer">Gerade verbraucht keines der Geräte aus dem Energie-Dashboard Strom.</div>';
+      f.aufgebaut = false;
+      return;
+    }
     // Spalten je Tiefe
     const spalten = [];
     (function sammeln(k, t) { (spalten[t] = spalten[t] || []).push(k); k.kinder.forEach((c) => sammeln(c, t + 1)); })(wurzel, 0);
@@ -360,34 +396,34 @@
     const hoehe = (k) => Math.max(1.5, k.wert * skala);
     const x = (t) => 4 + (spalten.length > 1 ? t * ((W - LABEL - KB - 4) / (spalten.length - 1)) : 0);
     spalten.forEach((c, t) => {
-      const gesamt = c.reduce((a, k) => a + hoehe(k), 0) + LUECKE * (c.length - 1);
-      let y = Math.max(0, (H - gesamt) / 2);
+      const summeH = c.reduce((a, k) => a + hoehe(k), 0) + LUECKE * (c.length - 1);
+      let y = Math.max(0, (H - summeH) / 2);
       c.forEach((k) => { k.x = x(t); k.y = y; k.h = hoehe(k); k.t = t; y += k.h + LUECKE; });
     });
     let baender = "", knotenSvg = "", texte = "", ix = 0;
     const teilchenBaender = [];
-    const kWh = (v) => `${PS.zahl(v, v < 10 ? 2 : 1)} kWh`;
     spalten.forEach((c) => c.forEach((k) => {
       let off = 0;
       k.kinder.forEach((ch) => {
         const h = Math.min(ch.h, Math.max(0, k.h - off)) || ch.h;
         const x0 = k.x + KB, y0 = k.y + off, x1 = ch.x, y1 = ch.y, xm = (x0 + x1) / 2;
         baender += `<path class="band" style="--t:${ch.t};--farbe:${ch.farbe}" d="M${x0},${y0}C${xm},${y0} ${xm},${y1} ${x1},${y1}L${x1},${y1 + h}C${xm},${y1 + h} ${xm},${y0 + h} ${x0},${y0 + h}Z"/>`;
-        teilchenBaender.push({ x0, y0, x1, y1, h, farbe: ch.farbe, watt: ch.watt, anteilWert: ch.wert / wurzel.wert });
+        teilchenBaender.push({ x0, y0, x1, y1, h, farbe: ch.farbe, watt: ch.wert });
         off += h;
       });
       knotenSvg += `<rect class="knoten${k.eid ? " klick" : ""}" data-i="${ix}" style="--t:${k.t};fill:${k.farbe}" x="${k.x}" y="${k.y}" width="${KB}" height="${k.h}" rx="2"/>`;
-      const ty = k.y + k.h / 2;
-      texte += `<text class="fluss-text${k.rest ? " rest" : ""}" style="--t:${k.t}" x="${k.x + KB + 6}" y="${ty}" dy=".35em">${PS.esc(k.name)} <tspan>${kWh(k.wert)}</tspan></text>`;
+      texte += `<text class="fluss-text${k.rest ? " rest" : ""}" style="--t:${k.t}" x="${k.x + KB + 6}" y="${k.y + k.h / 2}" dy=".35em">${PS.esc(k.name)} <tspan>${wattText(k.wert)}</tspan></text>`;
       k.i = ix++;
     }));
+    // Auftauch-Animation nur beim ersten Aufbau; Live-Updates zeichnen ohne Einblenden neu
+    box.classList.toggle("live", !erst && !!f.aufgebaut);
+    f.aufgebaut = true;
     box.innerHTML = `<svg class="sankey-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">${baender}${knotenSvg}${texte}</svg>`;
     const alleK = spalten.flat();
-    // Lichtteilchen (Konzept Stufe 3): Dichte nach aktueller Leistung, ohne Leistungssensor nach dem Anteil am Verbrauch
+    // Lichtteilchen: Dichte nach Leistung (flussTeilchen ersetzt/stoppt die vorige Instanz der Box)
     if (PS.flussTeilchen) {
       const maxW = Math.max(0, ...teilchenBaender.map((b) => b.watt || 0));
-      PS.flussTeilchen(box, box.querySelector("svg"), teilchenBaender.map((b) => ({ ...b,
-        anteil: maxW > 0 ? (b.watt != null ? b.watt / maxW : 0) : 0.3 * b.anteilWert })));
+      PS.flussTeilchen(box, box.querySelector("svg"), teilchenBaender.map((b) => ({ ...b, anteil: maxW > 0 ? b.watt / maxW : 0 })));
     }
     box.querySelectorAll("rect.klick").forEach((r) => r.addEventListener("click", () => PS.mehrInfos(alleK[Number(r.dataset.i)].eid)));
   }
