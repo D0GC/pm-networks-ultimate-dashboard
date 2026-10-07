@@ -30,6 +30,7 @@
     $("#adresse").textContent = adresse();
     ZAHLEN.forEach((k) => { $("#" + k).value = e[k]; });
     $("#animationen").checked = e.animationen !== false;
+    $("#zugaenglich").checked = e.zugaenglich === true;
     $("#ton_hoch").checked = e.ton_hoch !== false;
     $("#schnellzugriff").value = (e.schnellzugriff || []).join("\n");
     $("#raum_schalter").value = Object.entries(e.raum_schalter || {}).map(([b, ids]) => `${b}: ${ids.join(", ")}`).join("\n");
@@ -70,6 +71,7 @@
     const neu = {};
     ZAHLEN.forEach((k) => { neu[k] = Number($("#" + k).value); });
     neu.animationen = $("#animationen").checked;
+    neu.zugaenglich = $("#zugaenglich").checked;
     neu.ton_hoch = $("#ton_hoch").checked;
     neu.schnellzugriff = $("#schnellzugriff").value.split(/\s+/).map((s) => s.trim()).filter(Boolean);
     neu.raum_schalter = {};

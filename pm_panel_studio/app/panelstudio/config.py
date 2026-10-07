@@ -177,6 +177,7 @@ class Einstellungen:
     szenen_angeheftet: list[str] = field(default_factory=list)  # stehen in der Raumansicht immer vorn
     szenen_aus: list[str] = field(default_factory=list)  # erscheinen nicht unter den Lieblingsszenen
     animationen: bool = True
+    zugaenglich: bool = False  # Lesbarkeit: mehr Kontrast, größere Tippflächen, Zustand auch als Form
     raum_schalter: dict[str, list[str]] = field(default_factory=lambda: {k: list(v) for k, v in STANDARD_RAUM_SCHALTER.items()})
     wartung_ignorieren: list[str] = field(default_factory=list)  # Entitäten, deren Gerät der Systemzustand nicht prüft
     material_modus: str = "auto"  # Verbrauchsmaterial: "auto" (erkannt) oder "manuell" (nur material_fest)
@@ -271,7 +272,7 @@ class Einstellungen:
             elif key in ("bereiche_reihenfolge", "bereiche_ausblenden", "start_raeume", "karten_aus"):
                 vals = val if isinstance(val, list) else []
                 setattr(self, key, [s for s in dict.fromkeys(str(v).strip() for v in vals) if re.match(r"^[a-z0-9_]{1,64}$", s)])
-            elif key in ("animationen", "ton_hoch", "gruss"):
+            elif key in ("animationen", "ton_hoch", "gruss", "zugaenglich"):
                 setattr(self, key, bool(val))
             else:
                 abgewiesen.append(key)
