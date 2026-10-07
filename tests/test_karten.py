@@ -1,4 +1,5 @@
 from datetime import UTC, datetime, timedelta
+from zoneinfo import ZoneInfo
 
 from panelstudio import karten as kt
 
@@ -184,3 +185,66 @@ def test_feed_sortiert_nach_relevanz_stabil():
     # Gleichstand bleibt in Eingabereihenfolge
     gleich = [{"id": "a", "relevanz": 50}, {"id": "b", "relevanz": 50}, {"id": "c", "relevanz": 90}, {"id": "d"}]
     assert [x["id"] for x in kt.sortiere(gleich)] == ["c", "a", "b", "d"]
+
+
+# ------------------------------------------------------------ Rams-Aktivität
+RAMS_ATTR = {
+    "team_name": "Rams", "opponent_name": "Bills", "team_abbr": "LAR", "opponent_abbr": "BUF",
+    "team_logo": "https://a.espncdn.com/i/teamlogos/nfl/500/lar.png", "opponent_logo": "https://fremd.example/buf.png",
+    "team_colors": ["#003594", "#ffd100"], "team_score": 21, "opponent_score": 17, "team_homeaway": "home",
+    "date": "2026-10-13T00:15Z", "tv_network": "ESPN/ABC", "venue": "SoFi Stadium", "team_record": "5-1",
+}
+
+
+def _rams(zustand, spieltag="off", jetzt=JETZT, last_changed=None, **attrs):
+    a = {**RAMS_ATTR, **attrs}
+    s = {"sensor.la_rams": {"state": zustand, "attributes": a, "last_changed": last_changed}, "binary_sensor.rams_spieltag": st(spieltag)}
+    lokal = jetzt.astimezone(ZoneInfo("Europe/Berlin"))  # wie im Hub: Zeitzone von Home Assistant
+    return next((k for k in kt.berechne(s, "", jetzt, lokal=lokal) if k["schluessel"] == "rams"), None)
+
+
+def test_rams_pre_titel_zeit_und_badge():
+    k = _rams("PRE", "on", jetzt=datetime(2026, 10, 12, 12, 0, tzinfo=UTC))
+    assert k["titel"] == "Rams vs Bills"
+    assert k["hinweis"] == "Di 13.10. · 02:15 Uhr · ESPN/ABC"  # 00:15 UTC = 02:15 Europe/Berlin
+    assert (k["badge"], k["badge_farbe"], k["relevanz"], k["art"]) == ("UPCOMING", "#003594", 50, "sport")
+    assert _rams("PRE", "on", jetzt=datetime(2026, 10, 12, 12, 0, tzinfo=UTC), team_homeaway="away")["titel"] == "Rams @ Bills"
+    # Logo nur von ESPN, sonst Kürzel im Frontend
+    assert k["spiel"]["team"]["logo"].startswith("https://a.espncdn.com/") and k["spiel"]["gegner"]["logo"] is None
+
+
+def test_rams_sichtbarkeit_pre():
+    assert _rams("PRE", "off") is None
+    assert _rams("PRE", "on") is not None
+    assert _rams("NOT_FOUND", "on") is None and _rams("BYE", "on") is None
+
+
+def test_rams_in_live_mit_stand_phase_und_hoher_relevanz():
+    k = _rams("IN", "off", quarter=3, clock="8:42", down_distance_text="3rd & 5")
+    assert k["titel"] == "Rams 21 : 17 Bills" and k["hinweis"] == "Q3 · 8:42 · 3rd & 5"
+    assert (k["badge"], k["badge_farbe"], k["relevanz"], k["wert"]) == ("● LIVE", "#e2231a", 85, "21:17")
+    assert _rams("IN", quarter=5, clock="3:00", down_distance_text="")["hinweis"] == "OT · 3:00"
+    assert _rams("IN", quarter=0, clock="")["hinweis"] == "Kickoff"
+
+
+def test_rams_post_ergebnis_und_zwoelf_stunden():
+    ende = datetime(2026, 10, 13, 4, 0, tzinfo=UTC)  # Anpfiff 00:15 + 4 h
+    k = _rams("POST", "off", jetzt=ende + timedelta(hours=11), team_winner=True)
+    assert k["hinweis"] == "Sieg · Di 13.10." and (k["badge"], k["badge_farbe"], k["relevanz"]) == ("FINAL", "#2e7d32", 20)
+    assert _rams("POST", "off", jetzt=ende + timedelta(hours=13), team_winner=True) is None
+    # Niederlage: grau; Unentschieden ohne Sieger bei Gleichstand
+    n = _rams("POST", "off", jetzt=ende + timedelta(hours=1), team_winner=False, team_score=10)
+    assert n["hinweis"].startswith("Niederlage") and n["badge_farbe"] != "#2e7d32"
+    assert _rams("POST", "off", jetzt=ende + timedelta(hours=1), team_winner=None, team_score=17)["hinweis"].startswith("Unentschieden")
+    # Zustandswechsel früher als Anpfiff + 4 h zählt als Spielende
+    frueh = (ende - timedelta(minutes=40)).isoformat()
+    assert _rams("POST", "off", jetzt=ende + timedelta(hours=11, minutes=30), last_changed=frueh) is None
+    # Am Spieltag bleibt die Karte, auch wenn das Spiel länger her ist
+    assert _rams("POST", "on", jetzt=ende + timedelta(hours=20)) is not None
+
+
+def test_rams_reihenfolge_im_feed():
+    live = {"sensor.la_rams": {"state": "IN", "attributes": RAMS_ATTR}, "switch.balkon_kohlegrill": st("on"), "sensor.h": st("1", zeilen="neutral|N|a|b")}
+    assert [k["schluessel"] for k in kt.berechne(live, "sensor.h", JETZT)] == ["rams", "kohle", "neutral"]
+    assert "sensor.la_rams" in kt.relevante_entitaeten("") and "binary_sensor.rams_spieltag" in kt.relevante_entitaeten("")
+    assert not [k for k in kt.berechne(live, "sensor.h", JETZT, aus=["rams"]) if k["schluessel"] == "rams"]

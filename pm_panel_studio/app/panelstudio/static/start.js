@@ -218,6 +218,7 @@
         svg: PS.warnSvg ? PS.warnSvg(PS.warnTyp(k.titel), "warn-ring") : null, icon: "alert-outline", einheit: `Stufe ${stufe} von 4`,
         h2: k.titel, p: [bisText, k.hinweis && k.hinweis !== k.titel ? k.hinweis : ""].filter(Boolean).join(" · "), glut: stufe >= 3 && !k.vorab };
     }
+    if (k.art === "sport") return PS.sportModell(k, m);
     if (k.art === "praktisch") return { ...m, ...k.modell };
     if (k.art === "meldung") {
       const stufe = PS.meldungStufe(k);
@@ -284,10 +285,11 @@
     const m = modell(k);
     const laeuft = !!k.ende;
     let innen;
-    if (m.svg) innen = `${m.svg}<small class="einheit">${PS.esc(m.einheit)}</small>`;
+    if (m.innen) innen = m.innen;
+    else if (m.svg) innen = `${m.svg}<small class="einheit">${PS.esc(m.einheit)}</small>`;
     else if (m.zahl != null) innen = `<b class="wert-txt tabular" data-text="${PS.esc(m.zahl)}"></b><small class="einheit">${PS.esc(m.einheit)}</small>`;
     else innen = PS.ic(m.icon);
-    return { farbe: m.farbe, glut: !!m.glut, html: `<div class="kopf"><i class="punkt"></i><span>${PS.esc(m.kopf)}</span></div><div class="ring${laeuft ? " laeuft glimmt" : ""}">${PS.ringSVG(m.anteil)}<div class="innen">${innen}</div></div><h2>${PS.esc(m.h2 || "")}</h2>${m.liste ? listeHTML(m.liste) : `<p>${PS.esc(m.p || "")}</p>`}` };
+    return { farbe: m.farbe, glut: !!m.glut, html: `<div class="kopf"><i class="punkt"></i><span>${PS.esc(m.kopf)}</span>${m.badge ? `<em class="sport-badge${m.badge.live ? " live" : ""}" style="--badge:${PS.esc(m.badge.farbe)}">${PS.esc(m.badge.text)}</em>` : ""}</div><div class="ring${laeuft ? " laeuft glimmt" : ""}">${PS.ringSVG(m.anteil)}<div class="innen">${innen}</div></div><h2>${PS.esc(m.h2 || "")}</h2>${m.liste ? listeHTML(m.liste) : `<p>${PS.esc(m.p || "")}</p>`}` };
   }
   // Zahl im Ring rollt wie ein Zählwerk auf den Wert (Konzept Stufe 1); bei jedem Zeigen aus dem Leeren
   function walzeStarten(el, neu) {
@@ -308,7 +310,7 @@
       const inhalt = karteInhalt(k);
       if (!el) {
         el = document.createElement("div"); el.className = "karte"; el.dataset.id = k.id;
-        el.addEventListener("click", () => { const kk = el._karte; if (kk && kk.art === "meldung") PS.popupZeigen(kk.id); else if (kk && kk.schluessel === "eil") PS.eilZeigen(kk); else weiter(); });
+        el.addEventListener("click", () => { const kk = el._karte; if (kk && kk.art === "meldung") PS.popupZeigen(kk.id); else if (kk && kk.schluessel === "eil") PS.eilZeigen(kk); else if (kk && kk.art === "sport") PS.sportZeigen(kk); else weiter(); });
         box.appendChild(el); elemente.set(k.id, el);
         el.innerHTML = inhalt.html;
         walzeStarten(el, true);

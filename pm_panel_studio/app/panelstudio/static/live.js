@@ -2,7 +2,7 @@
 (function () {
   "use strict";
   const MAX = 3;
-  const FARBE = { kohle: "#ff9a5c", dusche: "var(--info)", spa: "var(--akzent)", waesche: "var(--info)", spueler: "var(--info)", terminuhr: "#c99bf0" };
+  const FARBE = { kohle: "#ff9a5c", dusche: "var(--info)", spa: "var(--akzent)", waesche: "var(--info)", spueler: "var(--info)", terminuhr: "#c99bf0", rams: "#ffd100" };
   const NAME = { kohle: "Kohle", dusche: "Duschmodus", spa: "Spa", waesche: "Waschmaschine", spueler: "Spülmaschine", terminuhr: "Termin" };
   const SEK = ["kohle", "dusche", "spa", "terminuhr"];
   const $ = (s) => document.querySelector(s);
@@ -18,12 +18,14 @@
       if (k.ende) {
         const rest = (new Date(k.ende).getTime() - jetzt) / 1000;
         if (rest > 0) aus.push({ k, rest });
-      } else if ((k.schluessel === "waesche" || k.schluessel === "spueler") && k.art === "aktivitaet") aus.push({ k, rest: null });
+      } else if (k.schluessel === "rams") { if (k.zustand === "IN") aus.push({ k, rest: null }); }  // Spielstand nur, solange das Spiel läuft
+      else if ((k.schluessel === "waesche" || k.schluessel === "spueler") && k.art === "aktivitaet") aus.push({ k, rest: null });
     }
     return aus;
   }
-  const name = (k) => NAME[k.schluessel] || (k.modell && k.modell.h2) || k.titel || "Timer";
+  const name = (k) => (k.schluessel === "rams" ? k.titel : NAME[k.schluessel]) || (k.modell && k.modell.h2) || k.titel || "Timer";
   const zusatz = (k, rest) => {
+    if (k.schluessel === "rams") return k.hinweis;
     if (k.schluessel === "terminuhr") return (k.modell && k.modell.h2) || "Als Nächstes";
     const fertig = rest != null ? `fertig gegen ${PS.uhrzeit(new Date(Date.now() + rest * 1000))}` : "";
     return [k.titel && k.titel !== name(k) ? k.titel : "", k.hinweis, fertig].filter(Boolean).join(" · ");
@@ -37,7 +39,7 @@
   }
   const anteil = (k, rest) => (rest != null && k.dauer_s ? rest / k.dauer_s : k.ring != null ? k.ring : 1);
   function seite(k) {
-    if (k.schluessel === "kohle") PS.oeffnen("shisha"); else PS.schliessen();
+    if (k.schluessel === "kohle") PS.oeffnen("shisha"); else if (k.schluessel === "rams") PS.sportZeigen(k); else PS.schliessen();
   }
   function aufbauen() {
     box = document.createElement("div");

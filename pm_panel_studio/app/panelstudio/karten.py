@@ -6,7 +6,7 @@ Abschnitte 7a und 7b). Hinweise kommen fertig aus Home Assistant (``sensor.panel
 
 Eine Karte ist ein Dict:
   id         stabiler Schlüssel (Rotation hält die Position, solange die ID bleibt)
-  art        ``hinweis`` | ``aktivitaet``
+  art        ``hinweis`` | ``aktivitaet`` | ``sport`` (Rams, mit ``spiel``-Details für das Popup)
   schluessel Symbol- und Farbklasse (``eil``, ``warnung``, ``kohle``, ``waesche`` …)
   titel, wert, hinweis  Texte
   ring       Anteil 0..1 oder None (kein Ring)
@@ -17,8 +17,9 @@ Eine Karte ist ein Dict:
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 State = dict[str, Any]
 States = dict[str, State]
@@ -42,6 +43,9 @@ QUELLEN = {
     "robo_status": "sensor.roborock_s8_status",
     "robo_fortschritt": "sensor.roborock_s8_reinigungsfortschritt",
     "robo_raum": "sensor.roborock_s8_aktueller_raum",
+    # Rams-Aktivität: TeamTracker (ESPN) und der Spieltag-Schalter aus dem Lovelace-Dashboard
+    "rams": "sensor.la_rams",
+    "rams_spieltag": "binary_sensor.rams_spieltag",
 }
 
 VORRANG = ("eil", "warnung")
@@ -245,6 +249,127 @@ def akt_robo(states: States, jetzt: datetime) -> dict | None:
 
 
 AKTIVITAETEN = (akt_dusche_spa, akt_kohle, akt_waesche, akt_spueler, akt_robo)
+
+# ------------------------------------------------------------ Rams-Aktivität (TeamTracker, ESPN)
+RAMS_NACHLAUF = timedelta(hours=12)  # nach Spielende bleibt die Karte so lange sichtbar
+RAMS_SPIELDAUER = timedelta(hours=4)  # Spielende ≈ Anpfiff + 4 h (TeamTracker liefert kein Endedatum)
+RAMS_LOGO_HOST = "https://a.espncdn.com/"  # nur diese Quelle ist als Bild erlaubt (img-src), sonst Teamkürzel
+WOCHENTAGE = ("Mo", "Di", "Mi", "Do", "Fr", "Sa", "So")
+RAMS_RELEVANZ = {"IN": 85, "PRE": 50, "POST": 20}  # Live vorn, Vorschau am Spieltag mittel, Ergebnis niedrig
+
+
+def _tz(lokal: datetime | None) -> Any:
+    if lokal is not None and lokal.tzinfo is not None:
+        return lokal.tzinfo
+    try:
+        return ZoneInfo("Europe/Berlin")
+    except ZoneInfoNotFoundError:
+        return UTC
+
+
+def _logo(url: Any) -> str | None:
+    return url if isinstance(url, str) and url.startswith(RAMS_LOGO_HOST) else None
+
+
+def _text(value: Any) -> str:
+    return "" if value in INAKTIV else str(value).strip()
+
+
+def _punkte(value: Any) -> str:
+    num = _num(value)
+    return str(round(num)) if num is not None else "0"
+
+
+def rams_anpfiff(a: dict, tz: Any) -> tuple[datetime | None, str, str]:
+    """Anpfiff als Ortszeit: (Zeitpunkt, „Mo 13.10.“, „02:15 Uhr“)."""
+    dt = _parse_zeit(a.get("date"))
+    if not dt:
+        return None, "", ""
+    dt = dt.astimezone(tz)
+    return dt, f"{WOCHENTAGE[dt.weekday()]} {dt.day:02d}.{dt.month:02d}.", f"{dt:%H:%M} Uhr"
+
+
+def akt_rams(states: States, jetzt: datetime, lokal: datetime | None = None) -> dict | None:
+    """Spielkarte der Rams: sichtbar am Spieltag, während des Spiels und bis 12 h nach Spielende."""
+    st = states.get(QUELLEN["rams"])
+    zustand = str((st or {}).get("state") or "").upper()
+    if zustand not in RAMS_RELEVANZ:
+        return None
+    a = (st or {}).get("attributes") or {}
+    anpfiff, tag, uhr = rams_anpfiff(a, _tz(lokal))
+    spieltag = _state(states, QUELLEN["rams_spieltag"]) == "on"
+    if zustand == "POST" and not spieltag:
+        # Spielende: Anpfiff + 4 h, höchstens aber der Zeitpunkt des Zustandswechsels (nach einem HA-Neustart zählt der Anpfiff)
+        enden = [e for e in (anpfiff + RAMS_SPIELDAUER if anpfiff else None, _parse_zeit(st.get("last_changed"))) if e]
+        if not enden or jetzt - min(enden) >= RAMS_NACHLAUF:
+            return None
+    elif zustand != "IN" and not spieltag:
+        return None
+
+    team, gegner = _text(a.get("team_name")) or "Rams", _text(a.get("opponent_name")) or "Gegner"
+    punkte, punkte_g = _punkte(a.get("team_score")), _punkte(a.get("opponent_score"))
+    auswaerts = _text(a.get("team_homeaway")).lower() == "away"
+    tv = _text(a.get("tv_network"))
+    if zustand == "PRE":
+        titel = f"{team} {'@' if auswaerts else 'vs'} {gegner}"
+        zweit = " · ".join(x for x in (tag, uhr, tv) if x)
+        badge, farbe, wert = "UPCOMING", "#003594", ""
+    elif zustand == "IN":
+        titel = f"{team} {punkte} : {punkte_g} {gegner}"
+        viertel = _num(a.get("quarter"))
+        phase = "Kickoff" if viertel is None or viertel <= 0 else "OT" if viertel > 4 else f"Q{round(viertel)}"
+        zweit = " · ".join(x for x in (phase, _text(a.get("clock")), _text(a.get("down_distance_text"))) if x)
+        badge, farbe, wert = "● LIVE", "#e2231a", f"{punkte}:{punkte_g}"
+    else:
+        titel = f"{team} {punkte} : {punkte_g} {gegner}"
+        sieg = a.get("team_winner")
+        if sieg is None:
+            eigene, fremde = _num(a.get("team_score")), _num(a.get("opponent_score"))
+            sieg = None if eigene is None or fremde is None or eigene == fremde else eigene > fremde
+        ergebnis = "Unentschieden" if sieg is None else "Sieg" if sieg else "Niederlage"
+        zweit = " · ".join(x for x in (ergebnis, tag) if x)
+        badge, farbe, wert = "FINAL", "#2e7d32" if sieg else "#6b7280", f"{punkte}:{punkte_g}"
+
+    def seite(praefix: str, name: str, punkte_text: str) -> dict:
+        farben = a.get(f"{praefix}_colors")
+        return {
+            "name": name,
+            "abk": _text(a.get(f"{praefix}_abbr")) or name[:3].upper(),
+            "logo": _logo(a.get(f"{praefix}_logo")),
+            "punkte": punkte_text,
+            "bilanz": _text(a.get(f"{praefix}_record")),
+            "farbe": farben[0] if isinstance(farben, list) and farben and isinstance(farben[0], str) else None,
+            "farbe2": farben[1] if isinstance(farben, list) and len(farben) > 1 and isinstance(farben[1], str) else None,
+        }
+
+    return {
+        "id": "akt:rams",
+        "art": "sport",
+        "schluessel": "rams",
+        "titel": titel,
+        "wert": wert,
+        "hinweis": zweit,
+        "ring": 1.0,
+        "ende": None,
+        "dauer_s": None,
+        "relevanz": RAMS_RELEVANZ[zustand],
+        "zustand": zustand,
+        "badge": badge,
+        "badge_farbe": farbe,
+        "spiel": {
+            "team": seite("team", team, punkte),
+            "gegner": seite("opponent", gegner, punkte_g),
+            "auswaerts": auswaerts,
+            "anpfiff": " · ".join(x for x in (tag, uhr) if x),
+            "stadion": _text(a.get("venue")),
+            "ort": _text(a.get("location")),
+            "tv": tv,
+            "saison": _text(a.get("season")),
+            "liga": _text(a.get("league")),
+            "letzter_zug": _text(a.get("last_play")),
+            "wahrscheinlichkeit": _num(a.get("team_win_probability")),
+        },
+    }
 MAX_MUSIK = 2
 
 
@@ -323,7 +448,8 @@ def parse_hinweise(zeilen: Any) -> list[dict]:
 # ------------------------------------------------------------ Relevanz (0–100)
 # eil 100 · aktive Warnung 90–100 (Vorabinformation 55) · Timer: Restzeit < 2 min 95, sonst 70 (pausiert 50) ·
 # Termin 60 + 35·(1 − Rest/3 h) · Müll am Vorabend ab 18 Uhr und morgens vor der Abholung 80, sonst 30 ·
-# Lüften/Offen 55 · Wetter 45 · Fahrt 50 · Musik 45 · Roborock 60 · „Alles ruhig“ 10 · übrige Hinweise 40
+# Lüften/Offen 55 · Wetter 45 · Fahrt 50 · Musik 45 · Roborock 60 · Rams live 85, am Spieltag 50, nach dem Spiel 20 ·
+# „Alles ruhig“ 10 · übrige Hinweise 40
 def _rest_sek(k: dict, jetzt: datetime) -> float | None:
     ende = _parse_zeit(k.get("ende"))
     if ende:
@@ -399,6 +525,8 @@ def berechne(
     lokal = lokal or jetzt.astimezone()
     hinweise = parse_hinweise(_attr(states, hinweise_entitaet, "zeilen")) if hinweise_entitaet else []
     akt = [k for fn in AKTIVITAETEN if (k := fn(states, jetzt))] + akt_musik(states, jetzt, musik or [])
+    if rams := akt_rams(states, jetzt, lokal):
+        akt.append(rams)
     unwetter = unwetter_karten(states, jetzt)
     if any(k["id"].startswith("warn:") for k in unwetter) or _dwd_vorhanden(states):
         # Die DWD-Sensoren ersetzen die knappe Warnzeile der Hinweisvorlage
