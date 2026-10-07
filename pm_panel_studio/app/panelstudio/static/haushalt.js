@@ -113,15 +113,22 @@
   }
   // Programmende in ms: Zeitstempel-Sensor, sonst Restzeit-Sensor (Zeitstempel, Sekunden oder Minuten)
   function endeMs(g, z) {
-    const stempel = (e) => { const t = da(e) ? Date.parse(PS.s(e)) : NaN; return isFinite(t) ? t : null; };
+    // Nur echte Zeitstempel (mit Datum) – eine reine Zahl wie „7500“ (Sekunden) würde Date.parse als Jahr lesen
+    const stempel = (e) => {
+      const roh = da(e) ? String(PS.s(e)) : "";
+      if (!/^\d{4}-\d{2}-\d{2}/.test(roh)) return null;
+      const t = Date.parse(roh); return isFinite(t) ? t : null;
+    };
     const t = stempel(g.ende) ?? stempel(g.rest);
-    if (t != null) return { ende: t, rest: (t - Date.now()) / 1000 };
+    // Unplausible Werte (mehr als zwei Tage) nicht anzeigen
+    if (t != null) return (t - Date.now()) / 1000 > 2 * 86400 ? null : { ende: t, rest: (t - Date.now()) / 1000 };
     const n = zahl(g.rest);
     if (n == null) return null;
     const einheit = String(PS.a(g.rest).unit_of_measurement || "min").toLowerCase();
     const sek = n * (einheit === "s" ? 1 : einheit === "h" ? 3600 : 60);
     // Bei Pause steht die Restzeit still; sonst läuft sie seit der letzten Meldung weiter
     const seit = z === "pausiert" ? 0 : (Date.now() - (Date.parse(PS.st(g.rest).lc) || Date.now())) / 1000;
+    if (sek - seit > 2 * 86400) return null;
     return { ende: Date.now() + (sek - seit) * 1000, rest: sek - seit };
   }
   function geraetBauen(schluessel, g, i) {
@@ -234,19 +241,48 @@
 
   // Karte: zwei Bilder übereinander; das neue Bild liegt erst nach „load“ oben und blendet weich über das alte
   const bildPfad = (a) => [a.entity_picture, a.entity_picture_local].find((p) => typeof p === "string" && p.startsWith("/api/image_proxy/")) || null;
+  // Wohnung füllt die Kachel: Das Kartenbild hat viel leeren Rand. Der Umriss der Wohnung (nicht transparente bzw. vom
+  // Eckhintergrund abweichende Pixel) wird ermittelt und dieser Ausschnitt so groß wie möglich in die Kachel gezeichnet.
+  // Die Kachel selbst behält ihre Größe.
+  function umriss(img) {
+    const w = img.naturalWidth, h = img.naturalHeight, c = document.createElement("canvas");
+    c.width = w; c.height = h;
+    const x = c.getContext("2d", { willReadFrequently: true }); x.drawImage(img, 0, 0);
+    let d; try { d = x.getImageData(0, 0, w, h).data; } catch { return { x: 0, y: 0, w, h }; }
+    const eck = [d[0], d[1], d[2], d[3]];
+    const leer = (i) => d[i + 3] < 16 || (eck[3] > 16 && Math.abs(d[i] - eck[0]) + Math.abs(d[i + 1] - eck[1]) + Math.abs(d[i + 2] - eck[2]) < 24);
+    let x0 = w, y0 = h, x1 = -1, y1 = -1;
+    for (let y = 0; y < h; y++) for (let xx = 0; xx < w; xx++) {
+      if (leer((y * w + xx) * 4)) continue;
+      if (xx < x0) x0 = xx; if (xx > x1) x1 = xx; if (y < y0) y0 = y; if (y > y1) y1 = y;
+    }
+    if (x1 < 0) return { x: 0, y: 0, w, h };
+    const rand = Math.round(Math.max(x1 - x0, y1 - y0) * 0.04);
+    x0 = Math.max(0, x0 - rand); y0 = Math.max(0, y0 - rand); x1 = Math.min(w - 1, x1 + rand); y1 = Math.min(h - 1, y1 + rand);
+    return { x: x0, y: y0, w: x1 - x0 + 1, h: y1 - y0 + 1 };
+  }
+  function karteZeichnen(img, buehne) {
+    const r = buehne.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+    const c = document.createElement("canvas"); c.className = "hh-kimg";
+    c.width = Math.max(1, Math.round(r.width * dpr)); c.height = Math.max(1, Math.round(r.height * dpr));
+    const u = umriss(img), f = Math.min(c.width / u.w, c.height / u.h);
+    const x = c.getContext("2d"); x.imageSmoothingEnabled = f < 2; x.imageSmoothingQuality = "high";
+    x.drawImage(img, u.x, u.y, u.w, u.h, (c.width - u.w * f) / 2, (c.height - u.h * f) / 2, u.w * f, u.h * f);
+    return c;
+  }
   function karteLaden() {
     if (!ui) return;
     const k = ui.karte, pfad = bildPfad(PS.a(ROBO.karte));
     if (!pfad || k.laedt) { if (k.laedt) k.nochmal = true; return; }
     k.laedt = true;
     const img = new Image();
-    img.alt = ""; img.className = "hh-kimg";
     img.onload = () => {
       k.laedt = false;
       if (!k.buehne.isConnected) return;
       const alt = [...k.buehne.querySelectorAll(".hh-kimg")];
-      k.buehne.appendChild(img);
-      requestAnimationFrame(() => requestAnimationFrame(() => img.classList.add("da")));
+      const bild = karteZeichnen(img, k.buehne);
+      k.buehne.appendChild(bild);
+      requestAnimationFrame(() => requestAnimationFrame(() => bild.classList.add("da")));
       k.buehne.classList.add("hat-bild");
       setTimeout(() => alt.forEach((a) => a.remove()), 1200);
       if (k.nochmal) { k.nochmal = false; karteLaden(); }
