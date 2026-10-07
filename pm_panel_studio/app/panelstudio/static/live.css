@@ -2,20 +2,20 @@
 
 /* Sitz: Ecke unten rechts. Dort liegt auf den Seiten am wenigsten Inhalt; Kopf, Reiter und Schließen-X bleiben frei.
    Zugeklappt eine Zeile (erster Timer + Zahl der übrigen), erweitert wächst die Kapsel nach oben. */
-.live{position:fixed;z-index:25;pointer-events:none;
+#live{position:fixed;z-index:25;pointer-events:none;
   opacity:0;transform:translateY(.8rem) scale(.9);transform-origin:bottom right;
   transition:opacity var(--t-kurz) ease,transform var(--t-mittel) var(--e-feder)}
-.live.sichtbar{opacity:1;transform:none}
+#live.sichtbar{opacity:1;transform:none}
 /* Ecken: unten rechts (Standard), unten links, oben rechts/links unterhalb des Seitenkopfs */
-.live.ecke-ur{right:4rem;bottom:2rem}
-.live.ecke-ul{left:4rem;bottom:2rem;transform-origin:bottom left}
-.live.ecke-or{right:4rem;top:calc(var(--live-oben,7rem) + .9rem);transform-origin:top right}
-.live.ecke-ol{left:4rem;top:calc(var(--live-oben,7rem) + .9rem);transform-origin:top left}
+#live.ecke-ur{right:4rem;bottom:2rem}
+#live.ecke-ul{left:4rem;bottom:2rem;transform-origin:bottom left}
+#live.ecke-or{right:4rem;top:calc(var(--live-oben,7rem) + .9rem);transform-origin:top right}
+#live.ecke-ol{left:4rem;top:calc(var(--live-oben,7rem) + .9rem);transform-origin:top left}
 /* Schweben beim Ziehen: angehoben mit tieferem Schatten, danach federt sie in die Ecke */
 .live-kapsel{touch-action:none;transition:transform var(--t-lang) var(--e-feder),box-shadow var(--t-mittel) ease,border-radius var(--t-mittel) var(--e-auftakt)}
-.live.zieht .live-kapsel{transition:box-shadow var(--t-kurz) ease;cursor:grabbing;box-shadow:0 2.2rem 3.6rem -1rem rgba(0,0,0,.7),0 0 0 1px rgba(236,235,242,.3)}
+#live.zieht .live-kapsel{transition:box-shadow var(--t-kurz) ease;cursor:grabbing;box-shadow:0 2.2rem 3.6rem -1rem rgba(0,0,0,.7),0 0 0 1px rgba(236,235,242,.3)}
 body.ohne-animation .live-kapsel{transition:none}
-.live.sichtbar .live-kapsel{pointer-events:auto}
+#live.sichtbar .live-kapsel{pointer-events:auto}
 .live-kapsel{display:flex;flex-direction:column;gap:.35rem;padding:.45rem;border-radius:1.6rem;cursor:pointer;
   background:rgba(38,34,82,.62);border:1px solid rgba(236,235,242,.22);
   -webkit-backdrop-filter:blur(14px) saturate(1.4);backdrop-filter:blur(14px) saturate(1.4);
@@ -29,23 +29,23 @@ body.ruhe .live-kapsel{background:#1d1847;-webkit-backdrop-filter:none;backdrop-
 .live-zusatz{display:none;font-size:.95rem;color:var(--lavender);max-width:16rem;white-space:normal;line-height:1.25}
 .live-zeit{font-size:1.2rem;font-weight:600;white-space:nowrap;font-variant-numeric:tabular-nums;display:inline-flex}
 .live-zu,.live-auf{display:none}
-.live:not(.weit) .live-kapsel{flex-direction:row;align-items:center}
-.live:not(.weit) .live-zeile:not(:first-child){display:none}
+#live:not(.weit) .live-kapsel{flex-direction:row;align-items:center}
+#live:not(.weit) .live-zeile:not(:first-child){display:none}
 .live-mehr{align-self:center;font-size:.95rem;font-weight:700;color:var(--lavender);padding:0 .6rem .15rem}
 
 /* Erweitert: größerer Ring, Titel und Zusatz, Pfeil zur passenden Seite */
-.live.weit .live-kapsel{border-radius:2rem;gap:.5rem;padding:.7rem}
-.live.weit .live-zeile{padding:.5rem 1rem .5rem .5rem;gap:1.1rem;min-width:22rem;background:rgba(15,12,42,.4)}
-.live.weit .live-zeile .ring{width:5.4rem;height:5.4rem}
-.live.weit .live-name{font-size:1.45rem}
-.live.weit .live-zusatz{display:block}
-.live.weit .live-zeit{font-size:2rem}
-.live.weit .live-auf{display:grid;place-items:center;width:2.6rem;height:2.6rem;border-radius:50%;background:var(--flaeche);font-size:1.5rem}
-.live.weit .live-zu{all:unset;cursor:pointer;display:none}
+#live.weit .live-kapsel{border-radius:2rem;gap:.5rem;padding:.7rem}
+#live.weit .live-zeile{padding:.5rem 1rem .5rem .5rem;gap:1.1rem;min-width:22rem;background:rgba(15,12,42,.4)}
+#live.weit .live-zeile .ring{width:5.4rem;height:5.4rem}
+#live.weit .live-name{font-size:1.45rem}
+#live.weit .live-zusatz{display:block}
+#live.weit .live-zeit{font-size:2rem}
+#live.weit .live-auf{display:grid;place-items:center;width:2.6rem;height:2.6rem;border-radius:50%;background:var(--flaeche);font-size:1.5rem}
+#live.weit .live-zu{all:unset;cursor:pointer;display:none}
 
 /* Ohne Bewegung: sofort da */
-body.ohne-animation .live,body.ohne-animation .live.sichtbar{transform:none;transition:none}
-@media (prefers-reduced-motion:reduce){.live,.live.sichtbar{transform:none;transition:none}}
+body.ohne-animation #live,body.ohne-animation #live.sichtbar{transform:none;transition:none}
+@media (prefers-reduced-motion:reduce){#live,#live.sichtbar{transform:none;transition:none}}
 
 /* ------------------------------------------------------------ Optimistisches Schalten */
 .kachel .wart-kreis{position:absolute;top:.55rem;right:.55rem;width:1.1rem;height:1.1rem;border-radius:50%;

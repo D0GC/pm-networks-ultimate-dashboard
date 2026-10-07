@@ -129,6 +129,8 @@
   // Nur PM-Klima-Thermostate zeigen; die lokalen Thermostate steuert PM Klima selbst.
   PS.klimaSichtbar = (eid) => !eid.startsWith("climate.") || !PS.opt.klima_praefix || eid.startsWith(PS.opt.klima_praefix);
   PS.sichtbar = (eid) => { const r = PS.reg[eid]; return (!r || (!r.h && r.ec == null)) && PS.klimaSichtbar(eid); };
+  // Kalender für Termine: ohne den Arbeitstag-Kalender der Workday-Integration (dessen Einträge sind keine Termine)
+  PS.terminKalender = (eid) => eid.startsWith("calendar.") && PS.sichtbar(eid) && !(PS.reg[eid] && PS.reg[eid].p === "workday") && !eid.includes("workday");
   // Szenen, Skripte und Knöpfe stehen auf „unknown“, bis sie einmal ausgelöst wurden; das ist kein Fehler.
   const OHNE_ZUSTAND = ["scene", "script", "button", "input_button", "event"];
   PS.nichtDa = (eid) => {

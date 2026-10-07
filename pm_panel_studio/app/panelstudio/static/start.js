@@ -394,7 +394,7 @@
   // Termine ab jetzt bis Ende von morgen (mind. 36 h), aus allen sichtbaren Kalendern; ganztägige tragen `ganztag`
   const tagText = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
   async function termineLaden() {
-    const kals = Object.keys(PS.z).filter((e) => e.startsWith("calendar.") && PS.sichtbar(e));
+    const kals = Object.keys(PS.z).filter(PS.terminKalender);
     const jetzt = new Date(), morgenEnde = new Date(jetzt.getFullYear(), jetzt.getMonth(), jetzt.getDate() + 2);
     const start = jetzt, ende = new Date(Math.max(morgenEnde.getTime(), Date.now() + 36 * 3600e3)), alle = [];
     await Promise.all(kals.map(async (k) => {

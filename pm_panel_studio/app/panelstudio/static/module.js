@@ -440,7 +440,7 @@
     laden();
   }
   async function kalender(box) {
-    const kals = alle().filter(dom("calendar")).filter(PS.sichtbar);
+    const kals = alle().filter(PS.terminKalender);
     const liste = E('<div class="liste"><div class="leer">Termine werden geladen …</div></div>'); box.appendChild(liste);
     const start = new Date(); start.setHours(0, 0, 0, 0); const ende = new Date(start.getTime() + 8 * 86400e3);
     const alleTermine = [];

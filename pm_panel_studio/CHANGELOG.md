@@ -1,5 +1,14 @@
 # Änderungen
 
+## 2026.10.15 – 2026-10-07
+
+- Kamera: Das Livebild blieb in Detailansicht und Benachrichtigungs-Popup leer. Die Kamerafläche trägt die Klasse
+  „live“, und die Regeln der Live-Kapsel galten für jedes Element mit dieser Klasse (ausgeblendet, fixiert). Die
+  Kapsel-Regeln gelten jetzt nur noch für die Kapsel selbst (`#live`); damit kann die Klasse nirgends mehr
+  kollidieren.
+- Termine: Der Kalender der Workday-Integration (Arbeitstage) erscheint nicht mehr als Termin, weder in den
+  Terminkarten noch in der Vorschau für morgen oder im Kalender-Modul.
+
 ## 2026.10.14 – 2026-10-07
 
 - Haustür-Overlay ohne Kamerabild: An der Haustür gibt es keine Kamera, die Ereignis-Kamera hängt an der
