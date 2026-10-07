@@ -60,3 +60,12 @@ def test_neues_modul_wird_einmalig_eingereiht():
     # Nach dem Speichern kennt der Stand Shisha; abgewählt bleibt es abgewählt
     neu = Einstellungen.from_dict({**alt.to_dict(), "module": ["raeume", "suche"]})
     assert neu.module == ["raeume", "suche"]
+
+
+def test_standard_freigaben_bleiben_bei_gespeicherten():
+    from panelstudio.config import Einstellungen
+
+    e = Einstellungen.from_dict({"freigaben": {"switch.x": "input_boolean.y"}})
+    for eid in ("switch.buro_buro", "switch.schreibtisch", "switch.serverschrank"):
+        assert e.freigaben[eid] == "input_boolean.burostrom_schaltfreigabe"
+    assert e.freigaben["switch.x"] == "input_boolean.y"

@@ -1,5 +1,20 @@
 # Änderungen
 
+## 2026.10.13 – 2026-10-07
+
+- Rams-Aktivität aus dem Lovelace-Dashboard: Der Feed zeigt eine Spielkarte nach `sensor.la_rams` (TeamTracker/ESPN),
+  sichtbar am Spieltag (`binary_sensor.rams_spieltag`), während des Spiels und bis 12 Stunden nach Spielende.
+  Vorschau („Rams vs Bills“, Anpfiff in Ortszeit, TV), live („Rams 21 : 17 Bills“, Viertel, Uhr, Down & Distance) und
+  Endstand (Sieg/Niederlage/Unentschieden) mit Badge UPCOMING, ● LIVE und FINAL. Relevanz: live 85, am Spieltag 50,
+  danach 20. Antippen öffnet die Spieldetails (Logos, Kickoff, Stadion, Ort, TV, Bilanz, Saison, letzter Spielzug).
+  Während des Spiels steht der Spielstand zusätzlich in der Live-Kapsel auf den Unterseiten. Mit
+  „karten_aus: rams“ lässt sich die Karte ausblenden.
+- Die Teamlogos kommen direkt von ESPN: Die Content-Security-Policy erlaubt Bilder jetzt zusätzlich von
+  `https://a.espncdn.com` (sonst nichts). Ohne Logo zeigt die Karte das Teamkürzel in Teamfarbe.
+- Büro: Die neuen Steckdosen „Schreibtisch“ (`switch.schreibtisch`) und „Serverschrank“ (`switch.serverschrank`)
+  stehen unter derselben Schaltfreigabe wie der Büro-Hauptschalter (`input_boolean.burostrom_schaltfreigabe`).
+  Die Standard-Freigaben gelten jetzt auch dann, wenn gespeicherte Einstellungen eigene Freigaben enthalten.
+
 ## 2026.10.12 – 2026-10-07
 
 - Gegensprechen an der Haustür: Klingelt die Ring Intercom (Integration PM Ring Intercom, neue Option

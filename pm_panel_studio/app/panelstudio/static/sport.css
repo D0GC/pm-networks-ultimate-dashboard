@@ -1,0 +1,32 @@
+/* PM Panel Studio – Rams-Aktivität (Feed-Karte, Popup). Nur eigene Klassen, bestehende Karten bleiben unverändert. */
+.sport-badge{margin-left:auto;font-style:normal;font-size:.85rem;font-weight:700;letter-spacing:.14em;padding:.28rem .8rem;border-radius:99px;background:var(--badge,#003594);color:#fff;white-space:nowrap}
+.sport-badge.puls{animation:sport-puls 2s ease-in-out infinite}
+@keyframes sport-puls{0%,100%{opacity:1}50%{opacity:.55}}
+body.ohne-animation .sport-badge.puls{animation:none}
+
+.sport-marke{display:inline-grid;place-items:center;width:4.4rem;height:4.4rem;flex:none}
+.sport-marke img{width:100%;height:100%;object-fit:contain}
+.sport-marke.gross{width:7.5rem;height:7.5rem}
+.sport-abk{display:grid;place-items:center;width:100%;height:100%;border-radius:50%;background:var(--team,#443171);color:#fff;font-size:1.15rem;font-weight:700;letter-spacing:.04em}
+.sport-marke.gross .sport-abk{font-size:1.9rem}
+.ring .innen .sport-paar{display:flex;justify-content:center;gap:.3rem}
+.ring .innen .sport-stand{font-size:1.9rem;font-weight:600;line-height:1}
+
+.sport-ansicht{position:relative;display:flex;flex-direction:column;gap:1.2rem}
+.sport-ansicht .zu{position:absolute;right:0;top:0}
+.sport-kopf{display:flex;align-items:center;gap:.8rem;color:var(--leise);font-size:1.05rem;letter-spacing:.12em;text-transform:uppercase}
+.sport-kopf .sport-badge{margin-left:0}
+.sport-spiel{display:flex;align-items:center;justify-content:space-between;gap:1rem}
+.sport-seite{flex:1;display:flex;flex-direction:column;align-items:center;gap:.35rem;text-align:center;min-width:0}
+.sport-seite b{font-size:1.5rem;font-weight:600}
+.sport-seite small{color:var(--leise);font-size:1.05rem}
+.sport-mitte{display:flex;flex-direction:column;align-items:center;gap:.4rem;text-align:center}
+.sport-mitte b{font-size:3.2rem;font-weight:600;line-height:1}
+.sport-mitte small{color:var(--leise);font-size:1.1rem;max-width:14rem}
+.sport-liste{display:flex;flex-direction:column;border-top:1px solid var(--linie)}
+.sport-zeile{display:flex;justify-content:space-between;gap:1.2rem;padding:.7rem 0;border-bottom:1px solid var(--linie);font-size:1.2rem}
+.sport-zeile span{color:var(--leise)}
+.sport-zeile b{font-weight:500;text-align:right}
+.sport-zug{background:var(--flaeche-tief);border:1px solid var(--linie);border-radius:1rem;padding:.9rem 1.1rem}
+.sport-zug small{color:var(--leise);letter-spacing:.12em;text-transform:uppercase;font-size:.9rem}
+.sport-zug p{margin:.3rem 0 0;font-size:1.2rem;line-height:1.45;color:var(--cloud)}

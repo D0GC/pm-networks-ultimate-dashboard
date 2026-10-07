@@ -31,8 +31,9 @@ STATIC_DIR = Path(__file__).parent / "static"
 INGRESS_IP = "172.30.32.2"
 COOKIE = "pmps_zugang"
 
+# Teamlogos der Rams-Karte kommen direkt von ESPN; nur dieser eine Host ist für Bilder freigegeben
 CSP = (
-    "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; "
+    "default-src 'self'; img-src 'self' data: blob: https://a.espncdn.com; style-src 'self' 'unsafe-inline'; "
     "script-src 'self'; font-src 'self'; connect-src 'self'; media-src 'self' blob:; worker-src 'self' blob:; "
     "frame-ancestors 'self'; base-uri 'self'"
 )

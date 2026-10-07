@@ -52,8 +52,8 @@ async def test_init_enthaelt_zustaende_und_karten(ingress):
     assert m["zustaende"]["light.flur_deckenlampe_flur"]["s"] == "on"
     assert m["registry"]["light.flur_deckenlampe_flur"]["b"] == "flur"
     schluessel = [k["schluessel"] for k in m["karten"]]
-    # nach Relevanz: Eilmeldung 100, amtliche Warnung 100, Termin in 45 min 86, dann Aktivitäten (70)
-    assert schluessel[:5] == ["eil", "unwetter", "termin", "kohle", "waesche"]
+    # nach Relevanz: Eilmeldung 100, amtliche Warnung 100, Termin in 45 min 86, Rams live 85, dann Aktivitäten (70)
+    assert schluessel[:6] == ["eil", "unwetter", "termin", "rams", "kohle", "waesche"]
     assert [k["relevanz"] for k in m["karten"]] == sorted((k["relevanz"] for k in m["karten"]), reverse=True)
     assert m["karten"][1]["stufe"] == 3 and m["karten"][1]["titel"] == "Schweres Gewitter"
     assert "muell" in schluessel
@@ -235,6 +235,17 @@ async def test_server_schalter_nur_mit_freigabe(ingress, fake):
     await ws.close()
 
 
+async def test_server_neue_buero_steckdosen_mit_freigabe(ingress, fake):
+    ws = await ingress.ws_connect("/api/ws")
+    await _init(ws)
+    for i, eid in enumerate(["switch.schreibtisch", "switch.serverschrank"]):
+        befehl = {"typ": "dienst", "domain": "switch", "service": "turn_off", "data": {"entity_id": [eid]}}
+        await ws.send_json({**befehl, "id": 50 + i})
+        a = await _warte_auf(ws, "antwort", lambda m, n=50 + i: m["id"] == n)
+        assert not a["ok"] and "Freigabe" in a["fehler"]
+    await ws.close()
+
+
 async def test_klima_studio_durchgereicht(ingress, hub, panel, token):
     # Ohne Schlüssel: nicht eingebunden
     r = await ingress.get("/api/hassio_ingress/klimastudio/")
@@ -275,3 +286,9 @@ async def test_einstellungen_speichern_protokolliert(ingress, caplog):
     e = (await r.json())["einstellungen"]
     assert e["ton_lautstaerke"] == 100 and e["gruss"] is False
     assert any("geändert: gruss, ton_lautstaerke" in m for m in caplog.messages)
+
+
+async def test_csp_erlaubt_bilder_nur_von_espn(ingress):
+    r = await ingress.get("/")
+    img = next(t for t in r.headers["Content-Security-Policy"].split(";") if t.strip().startswith("img-src"))
+    assert img.split() == ["img-src", "'self'", "data:", "blob:", "https://a.espncdn.com"]

@@ -154,7 +154,13 @@ STANDARD_RAUM_SCHALTER: dict[str, list[str]] = {
 
 
 # Schalter, die nur mit Freigabe schaltbar sind: Entität -> Freigabe-Helfer (input_boolean, setzt sich per Timer zurück)
-STANDARD_FREIGABEN = {"switch.buro_buro": "input_boolean.burostrom_schaltfreigabe"}
+# Büro-Strom: Hauptschalter und die Steckdosen Schreibtisch und Serverschrank nur mit der gemeinsamen 30-s-Freigabe.
+# Diese Sicherungen gelten immer, auch wenn gespeicherte Einstellungen sie (noch) nicht enthalten.
+STANDARD_FREIGABEN = {
+    "switch.buro_buro": "input_boolean.burostrom_schaltfreigabe",
+    "switch.schreibtisch": "input_boolean.burostrom_schaltfreigabe",
+    "switch.serverschrank": "input_boolean.burostrom_schaltfreigabe",
+}
 
 # Außenluftfeuchte: der erste verfügbare Sensor gilt (lokale Wetterstation, DWD als Rückfall)
 STANDARD_AUSSEN_FEUCHTE = ["sensor.wetter_outdoor_module_luftfeuchtigkeit", "sensor.zuhause_relative_luftfeuchtigkeit"]
@@ -252,7 +258,12 @@ class Einstellungen:
                     abgewiesen.append(key)
                     continue
                 self.freigaben = {
-                    str(k): str(v) for k, v in val.items() if _entities([k]) and re.match(r"^input_boolean\.[a-z0-9_]+$", str(v))
+                    **STANDARD_FREIGABEN,
+                    **{
+                        str(k): str(v)
+                        for k, v in val.items()
+                        if _entities([k]) and re.match(r"^input_boolean\.[a-z0-9_]+$", str(v))
+                    },
                 }
             elif key == "gruss_anrede":
                 if not isinstance(val, dict):
