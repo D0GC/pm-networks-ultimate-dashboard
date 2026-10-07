@@ -1,5 +1,13 @@
 # Änderungen
 
+## 2026.10.10 – 2026-10-07
+
+- Haushaltsgeräte: Die Restzeit des Geschirrspülers stimmt wieder. Seine Restzeit kommt als reine Sekundenzahl (z. B.
+  „7500“); das Panel las sie als Jahreszahl und zeigte Millionen Stunden. Unplausible Restzeiten über zwei Tage
+  werden nicht mehr angezeigt.
+- Haushaltsgeräte: Die Roborock-Karte füllt die Kachel aus. Das Panel schneidet den leeren Rand des Kartenbilds ab und
+  zeichnet die Wohnung so groß wie möglich; die Kachel selbst bleibt gleich groß.
+
 ## 2026.10.9 – 2026-10-07
 
 - Neuer Reiter „Haushaltsgeräte“: Waschmaschine und Geschirrspüler mit Fortschrittsring, rollender Restzeit, Phase,
