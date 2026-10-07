@@ -1,0 +1,62 @@
+# Releases für PM Panel Studio
+# - Bei jedem Push auf main: Steht in pm_panel_studio/config.yaml eine Version ohne Tag, entsteht Tag v<Version>
+#   auf diesem Commit samt Release mit dem passenden Abschnitt aus CHANGELOG.md.
+# - Nachtrag: Versionen, die bisher ohne Release blieben, werden einmalig auf ihrem Merge-Commit angelegt.
+name: Release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Releases anlegen
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          git fetch --tags --force
+
+          # Abschnitt „## <Version> – …“ aus dem CHANGELOG eines Commits
+          notizen() {
+            git show "$2:pm_panel_studio/CHANGELOG.md" \
+              | awk -v v="$1" '$0 ~ "^## "v" " {an=1; next} an && /^## / {exit} an {print}'
+          }
+          release() {  # Version, Commit, Vorgänger-Tag, latest true/false
+            local v="$1" c="$2" vor="$3" neu="$4" tag="v$1"
+            if git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
+              echo "$tag besteht bereits"; return 0
+            fi
+            { notizen "$v" "$c"; echo; echo "**Full Changelog**: https://github.com/${GITHUB_REPOSITORY}/compare/${vor}...${tag}"; } > notizen.md
+            gh release create "$tag" --target "$c" --title "$tag" --notes-file notizen.md --latest="$neu"
+            git fetch --tags --force
+          }
+
+          # Nachtrag fehlender Versionen (Version, Merge-Commit auf main, Vorgänger)
+          release 2026.10.2 8e3188f53f5b9ac38c8d51c41217a140fc9ed25e v2026.10.1 false
+          release 2026.10.4 3474268a6ffcde42426f61f5ab318ddb920995f1 v2026.10.3 false
+          release 2026.10.5 31093ce979acde792e173fafc0a564f6fa22e52b v2026.10.4 false
+          release 2026.10.6 1e12a081e3ab4239403bbc6218a2c74139b016df v2026.10.5 false
+          release 2026.10.7 e36fff2878ff917871fd75e6e0a886532f00801c v2026.10.6 false
+          release 2026.10.8 d4216616312f149eb89cb89bbea1e48fc283539a v2026.10.7 false
+
+          # Aktuelle Version auf main
+          v=$(sed -n 's/^version: *"\{0,1\}\([^"]*\)"\{0,1\} *$/\1/p' pm_panel_studio/config.yaml)
+          vor=$(git tag -l 'v*' --sort=-v:refname | grep -vx "v$v" | head -1)
+          release "$v" "$GITHUB_SHA" "$vor" true
+          # Jüngste Version als „Latest“ markieren, auch wenn sie schon bestand
+          gh release edit "v$v" --latest
