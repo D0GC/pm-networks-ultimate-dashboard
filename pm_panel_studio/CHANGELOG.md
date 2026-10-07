@@ -6,7 +6,7 @@ Konzept Stufe 4 nach den Apple Human Interface Guidelines, aufbauend auf dem Bew
 wie bisher.
 
 - Meldungen in vier Stufen (`stufe`: passiv, aktiv, zeitkritisch, kritisch; `prioritaet` high/normal/low bleibt
-  gültig). Passiv nur Feed und Glocke; aktiv weckt tagsüber; zeitkritisch weckt tagsüber mit kurzem Ton und gelbem
+  gültig). Passiv (auch `low`) nur unter der Glocke; aktiv weckt tagsüber; zeitkritisch weckt tagsüber mit kurzem Ton und gelbem
   Rahmenglühen; kritisch durchbricht Ruhe und Nacht. Nachts (Sonne unter dem Horizont) weckt nur kritisch.
 - Feed nach Relevanz sortiert, Rotation bleibt; wichtigere Karten stehen etwas länger.
 - Feed-Karten lassen sich wischen; das Sheet folgt beim Herunterziehen dem Finger und federt zurück oder schließt.

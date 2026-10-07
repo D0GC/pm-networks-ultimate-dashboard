@@ -89,7 +89,7 @@ unter dem Horizont (`sun.sun`).
 
 | Stufe | Verhalten | Laufzeit |
 |-------|-----------|----------|
-| `passiv` | nur Feed-Karte und Glocke; weckt nie, kein Popup, kein Ton | 15 min |
+| `passiv` | nur Glocke, keine Feed-Karte; weckt nie, kein Popup, kein Ton | 15 min |
 | `aktiv` | weckt das Panel (nachts nicht); Popup nur, wenn das Panel schon wach war; kein Ton | 60 min |
 | `zeitkritisch` | weckt, Popup, einmal kurzer Ton, gelbes Rahmenglühen; nachts nur Feed und Glocke | 120 min |
 | `kritisch` | durchbricht Ruhe und Nacht, Popup, Rahmenglühen; Ton bis zur Bestätigung (höchstens 3 × alle 20 s) | 240 min |

@@ -233,9 +233,11 @@ class PopupSpeicher:
         return sorted(self.meldungen.values(), key=lambda m: (-STUFE_RANG[m["stufe"]], -m["seit"]))
 
     def karten(self) -> list[dict[str, Any]]:
-        """Karussell-Karten, mit ``relevanz`` für die Sortierung im Feed. Passive Meldungen sind Karte und Glocke."""
+        """Karussell-Karten, mit ``relevanz`` für die Sortierung im Feed. Passive Meldungen stehen nur unter der Glocke."""
         out = []
         for m in self.liste():
+            if m["stufe"] == "passiv":
+                continue
             text = m["text"] or re.sub(r"[*_#`>]", "", m["details"]).strip()
             text = " · ".join(z.strip(" -·") for z in text.splitlines() if z.strip(" -·"))[:140]
             out.append(

@@ -91,8 +91,8 @@ def test_niedrig_ist_passiv_und_reihenfolge():
     sp.verarbeiten("script", "panel_meldung", {"tag": "b", "text": "b"}, jetzt=1)
     sp.verarbeiten("script", "panel_meldung", {"tag": "c", "text": "c", "prioritaet": "high"}, jetzt=0)
     assert [m["tag"] for m in sp.liste()] == ["c", "b", "a"]
-    assert [k["id"] for k in sp.karten()] == ["msg:c", "msg:b", "msg:a"]  # passiv: Karte und Glocke
-    assert [k["relevanz"] for k in sp.karten()] == [100, 65, 35]
+    assert [k["id"] for k in sp.karten()] == ["msg:c", "msg:b"]  # passiv: nur Glocke
+    assert [k["relevanz"] for k in sp.karten()] == [100, 65]
     assert sp.verarbeiten("light", "turn_on", {}) is None
     assert sp.verarbeiten("script", "panel_meldung", {"text": "ohne Kennung"}) is None
 

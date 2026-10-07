@@ -747,7 +747,7 @@
   PS.on("popups", (neu) => {
     statusZeile();
     if (stapel.length && stapel[0].modul === "hinweise") PS.neuZeichnen();
-    // Vier Stufen: passiv nur Feed und Glocke · aktiv weckt (nachts nicht), Popup nur, wenn das Panel schon wach war ·
+    // Vier Stufen: passiv nur Glocke · aktiv weckt (nachts nicht), Popup nur, wenn das Panel schon wach war ·
     // zeitkritisch weckt und öffnet (nachts nur Feed und Glocke) · kritisch durchbricht Ruhe und Nacht
     const m = neu && (PS.popups || []).find((x) => x.id === neu);
     if (!m) return;
