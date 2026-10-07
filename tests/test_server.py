@@ -235,6 +235,17 @@ async def test_server_schalter_nur_mit_freigabe(ingress, fake):
     await ws.close()
 
 
+async def test_server_neue_buero_steckdosen_mit_freigabe(ingress, fake):
+    ws = await ingress.ws_connect("/api/ws")
+    await _init(ws)
+    for i, eid in enumerate(["switch.schreibtisch", "switch.serverschrank"]):
+        befehl = {"typ": "dienst", "domain": "switch", "service": "turn_off", "data": {"entity_id": [eid]}}
+        await ws.send_json({**befehl, "id": 50 + i})
+        a = await _warte_auf(ws, "antwort", lambda m, n=50 + i: m["id"] == n)
+        assert not a["ok"] and "Freigabe" in a["fehler"]
+    await ws.close()
+
+
 async def test_klima_studio_durchgereicht(ingress, hub, panel, token):
     # Ohne Schlüssel: nicht eingebunden
     r = await ingress.get("/api/hassio_ingress/klimastudio/")

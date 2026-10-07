@@ -535,7 +535,9 @@ def default_states(jetzt: datetime) -> list[dict[str, Any]]:
             friendly_name="Luftreiniger Allergen-Index",
         ),
         # Büro: Server-Hauptschalter mit Freigabe, Wake on LAN
-        s("switch.buro_buro", "on", "buro", friendly_name="Main Switch Server", icon="mdi:server"),
+        s("switch.buro_buro", "on", "buro", friendly_name="Büro", icon="mdi:home-lightning-bolt-outline"),
+        s("switch.schreibtisch", "on", "buro", friendly_name="Schreibtisch"),
+        s("switch.serverschrank", "on", "buro", friendly_name="Serverschrank"),
         s("input_boolean.burostrom_schaltfreigabe", "off", "buro", friendly_name="Bürostrom Schaltfreigabe"),
         s("timer.burostrom_schaltfreigabe", "idle", "buro", friendly_name="Bürostrom Schaltfreigabe"),
         s("button.buro_wol_main_pc", "unknown", "buro", friendly_name="Main PC starten", icon="mdi:desktop-tower-monitor"),

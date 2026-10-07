@@ -1,5 +1,11 @@
 # Änderungen
 
+## 2026.10.12 – 2026-10-07
+
+- Büro: Die neuen Steckdosen „Schreibtisch“ (`switch.schreibtisch`) und „Serverschrank“ (`switch.serverschrank`)
+  stehen unter derselben Schaltfreigabe wie der Büro-Hauptschalter (`input_boolean.burostrom_schaltfreigabe`).
+  Die Standard-Freigaben gelten jetzt auch dann, wenn gespeicherte Einstellungen eigene Freigaben enthalten.
+
 ## 2026.10.11 – 2026-10-07
 
 - Haushaltsgeräte: Zimmerreinigung für den Roborock. Unter der Karte die Zimmer antippen; die Nummer zeigt die
