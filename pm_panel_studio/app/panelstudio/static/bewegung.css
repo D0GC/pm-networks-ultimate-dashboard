@@ -143,3 +143,9 @@ body.ohne-animation .karussell .karte.glut::after{animation:none}
 .raum-ansicht.energie .r-spalte{overflow:visible}
 .raum-ansicht.energie>.volle-breite{grid-column:1/-1;animation:auftauchen .6s var(--e-auftakt) .18s both}
 .raum-ansicht.energie .sankey .fluss-text{font-size:15px}
+
+/* Terminliste der Abendkarte „Morgen“ und Eilmeldungs-Text im Dialog */
+.karte p.liste{display:flex;flex-direction:column;gap:.35rem;color:var(--cloud);min-width:0}
+.karte p.liste span{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.karte p.liste b{display:inline-block;min-width:8.5rem;font-weight:600;color:var(--farbe,var(--lavender));font-variant-numeric:tabular-nums}
+.dialog .eil-text{max-height:40vh;overflow-y:auto;text-align:left;white-space:normal;overflow-wrap:anywhere}

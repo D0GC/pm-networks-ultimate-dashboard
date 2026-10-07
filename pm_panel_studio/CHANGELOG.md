@@ -4,6 +4,12 @@
 
 - Energie: Die Geräteliste zeigt die Leistung jedes Geräts live; sie ändert sich mit dem Leistungssensor, ohne dass
   die Seite neu aufgebaut wird. Der Verbrauch in kWh stammt weiter aus der Statistik.
+- Feed: Eilmeldungen lassen sich antippen und öffnen einen Dialog mit der ganzen Meldung; solange er offen ist,
+  dreht das Karussell nicht weiter.
+- Feed: Termine erscheinen frühestens 3 Stunden vor Beginn als eigene Karte mit ablaufendem Countdown im Ring
+  (h:mm:ss, unter einer Stunde mm:ss); mit Beginn verschwindet die Karte. Ganztägige Termine haben keinen Countdown.
+- Feed: Von 21 bis 24 Uhr listet die Karte „Morgen“ die Termine des nächsten Tages (höchstens fünf, dann
+  „+n weitere“), nur wenn es welche gibt.
 
 ## 2026.10.6 – 2026-10-07
 

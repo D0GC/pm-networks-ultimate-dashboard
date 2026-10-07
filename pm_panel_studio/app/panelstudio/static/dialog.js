@@ -136,6 +136,30 @@
     $("#dialog-grund").classList.add("offen");
     dlg.dataset.popup = m.id;
   };
+  // Eilmeldung aus der Hinweiszeile `eil|Titel|Wert|Hinweis`: Titel, Wert und der volle Hinweistext (Zeilenumbrüche bleiben)
+  PS.eilZeigen = (k) => {
+    offenFuer = null;
+    const dlg = $("#dialog");
+    dlg.querySelectorAll("img").forEach(PS.kameraStoppen);
+    PS.kameraLiveStoppen(dlg);
+    dlg.innerHTML = `<div class="meldung-ansicht" style="--farbe:var(--krit)">
+      <button class="zu" aria-label="Schließen">${PS.ic("close")}</button>
+      <div class="m-icon">${PS.ic("alert-outline")}</div>
+      <h2>${PS.esc(k.titel || "Eilmeldung")}</h2>
+      ${k.wert ? `<p class="m-text">${PS.esc(k.wert)}</p>` : ""}
+      <div class="m-wann">Eilmeldung</div></div>`;
+    dlg.querySelector(".zu").addEventListener("click", schliessen);
+    if (k.hinweis) { const md = document.createElement("div"); md.className = "md eil-text"; md.innerHTML = PS.markdown(k.hinweis); dlg.appendChild(md); }
+    const r = reihe(); r.classList.add("m-knoepfe"); r.appendChild(knopf("OK", "check", schliessen, "primaer")); dlg.appendChild(r);
+    dlg.classList.remove("meldung-hoch", "meldung-normal"); void dlg.offsetWidth; dlg.classList.add("meldung-normal");
+    $("#dialog-grund").classList.add("offen");
+    dlg.dataset.popup = "eil";
+  };
+  // Eilmeldung weg (Hinweiszeile entfernt): offenen Dialog schließen
+  PS.on("karten", () => {
+    const dlg = $("#dialog");
+    if (dlg.dataset.popup === "eil" && $("#dialog-grund").classList.contains("offen") && !(PS.karten || []).some((x) => x.schluessel === "eil")) schliessen();
+  });
   PS.on("popups", () => {
     const dlg = $("#dialog"), id = dlg.dataset.popup;
     if (id && $("#dialog-grund").classList.contains("offen") && !(PS.popups || []).some((x) => x.id === id)) schliessen();

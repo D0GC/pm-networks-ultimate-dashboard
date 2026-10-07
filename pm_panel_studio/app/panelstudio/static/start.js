@@ -176,10 +176,12 @@
   const SEKUNDEN = ["kohle", "dusche", "spa"];
   function restText(sek, sekunden = false) {
     if (sek == null) return null;
+    if (sekunden === "voll" && sek >= 3600) { const g = Math.ceil(sek); return { zahl: `${Math.floor(g / 3600)}:${String(Math.floor(g % 3600 / 60)).padStart(2, "0")}:${String(g % 60).padStart(2, "0")}`, einheit: "h" }; }
     if (sekunden && sek < 3600) { const g = Math.ceil(Math.max(0, sek)); return { zahl: `${Math.floor(g / 60)}:${String(g % 60).padStart(2, "0")}`, einheit: "min" }; }
     const min = Math.ceil(Math.max(0, sek) / 60);
     return min >= 60 ? { zahl: `${Math.floor(min / 60)}:${String(min % 60).padStart(2, "0")}`, einheit: "h" } : { zahl: String(min), einheit: "min" };
   }
+  const sekModus = (k) => (k.schluessel === "terminuhr" ? "voll" : SEKUNDEN.includes(k.schluessel));
   const AKT_KOPF = { waesche: "Gerät läuft", spueler: "Gerät läuft", kohle: "Kohle", dusche: "Duschmodus", spa: "Spa", robo: "Roborock", musik: "Musik" };
   function modell(k) {
     let [icon, farbe] = KARTE[k.schluessel] || KARTE.neutral;
@@ -259,7 +261,7 @@
         return { ...m, kopf: "Pollen", farbe, h2: `Pollen ${k.wert}`, p: k.hinweis,
           ...(stufe != null ? { zahl: String(stufe), einheit: "von 4", anteil: Math.max(0.02, stufe / 4) } : {}) };
       }
-      case "eil": return { ...m, kopf: `Eilmeldung · ${k.titel}`, h2: k.hinweis, p: "" };
+      case "eil": return { ...m, kopf: `Eilmeldung · ${k.titel}`, h2: k.hinweis, p: "Antippen zum Lesen" };
       case "ruhig": return { ...m, kopf: "Hinweise", h2: "Alles ruhig", p: k.hinweis };
     }
     return m;
@@ -268,6 +270,8 @@
   const WARN_NAME = { 1: "Wetterwarnung", 2: "Markante Warnung", 3: "Unwetterwarnung", 4: "Extreme Unwetterwarnung" };
   function ringAnteil(k) { return modell(k).anteil; }
   PS.ringAnteil = ringAnteil;
+  // Kurze Terminliste im p-Platz der Karte (Uhrzeit fett, Titel einzeilig gekürzt)
+  const listeHTML = (zeilen) => `<p class="liste">${zeilen.map((z) => `<span><b>${PS.esc(z[0])}</b>${PS.esc(z[1])}</span>`).join("")}</p>`;
   function karteInhalt(k) {
     const m = modell(k);
     const laeuft = !!k.ende;
@@ -275,7 +279,7 @@
     if (m.svg) innen = `${m.svg}<small class="einheit">${PS.esc(m.einheit)}</small>`;
     else if (m.zahl != null) innen = `<b class="wert-txt tabular" data-text="${PS.esc(m.zahl)}"></b><small class="einheit">${PS.esc(m.einheit)}</small>`;
     else innen = PS.ic(m.icon);
-    return { farbe: m.farbe, glut: !!m.glut, html: `<div class="kopf"><i class="punkt"></i><span>${PS.esc(m.kopf)}</span></div><div class="ring${laeuft ? " laeuft glimmt" : ""}">${PS.ringSVG(m.anteil)}<div class="innen">${innen}</div></div><h2>${PS.esc(m.h2 || "")}</h2><p>${PS.esc(m.p || "")}</p>` };
+    return { farbe: m.farbe, glut: !!m.glut, html: `<div class="kopf"><i class="punkt"></i><span>${PS.esc(m.kopf)}</span></div><div class="ring${laeuft ? " laeuft glimmt" : ""}">${PS.ringSVG(m.anteil)}<div class="innen">${innen}</div></div><h2>${PS.esc(m.h2 || "")}</h2>${m.liste ? listeHTML(m.liste) : `<p>${PS.esc(m.p || "")}</p>`}` };
   }
   // Zahl im Ring rollt wie ein Zählwerk auf den Wert (Konzept Stufe 1); bei jedem Zeigen aus dem Leeren
   function walzeStarten(el, neu) {
@@ -295,7 +299,7 @@
       const inhalt = karteInhalt(k);
       if (!el) {
         el = document.createElement("div"); el.className = "karte"; el.dataset.id = k.id;
-        el.addEventListener("click", () => { const kk = el._karte; if (kk && kk.art === "meldung") PS.popupZeigen(kk.id); else weiter(); });
+        el.addEventListener("click", () => { const kk = el._karte; if (kk && kk.art === "meldung") PS.popupZeigen(kk.id); else if (kk && kk.schluessel === "eil") PS.eilZeigen(kk); else weiter(); });
         box.appendChild(el); elemente.set(k.id, el);
         el.innerHTML = inhalt.html;
         walzeStarten(el, true);
@@ -348,16 +352,17 @@
   }
   function weiter() { if (liste.length < 2) return; aktuell = (aktuell + 1) % liste.length; zeigen(); }
   function takt() {
-    if (liste.length > 1 && Date.now() - wechselZeit > (PS.einst.verweildauer_s || 8) * 1000 && !document.body.classList.contains("offen")) weiter();
+    if (liste.length > 1 && Date.now() - wechselZeit > (PS.einst.verweildauer_s || 8) * 1000 && !document.body.classList.contains("offen") && !$("#dialog-grund").classList.contains("offen")) weiter();
     // Restzeiten lokal herunterzählen
     for (const k of liste) {
       if (!k.ende) continue;
       const el = elemente.get(k.id); if (!el) continue;
       const rest = Math.max(0, (new Date(k.ende).getTime() - Date.now()) / 1000);
-      const t = el.querySelector(".wert-txt"), r = restText(rest, SEKUNDEN.includes(k.schluessel));
+      const t = el.querySelector(".wert-txt"), r = restText(rest, sekModus(k));
       // Restzeit rollt wie ein Zählwerk herunter (nur die sichtbare Karte, die anderen werden beim Zeigen gefüllt)
       if (t && r) { t.dataset.text = r.zahl; if (el.classList.contains("an")) PS.walze(t, r.zahl); const e = el.querySelector(".einheit"); if (e) e.textContent = r.einheit; }
       if (k.dauer_s) PS.ringSetzen(el.querySelector(".ring svg"), rest / k.dauer_s);
+      if (rest <= 0 && k.schluessel === "terminuhr") feedAufbauen();  // Termin beginnt: Karte verschwindet
     }
   }
 
@@ -365,7 +370,7 @@
   // ------------------------------------------------------------ Feed: was gerade zählt
   // Das Wetter steht links; der Feed zeigt es nur kurz vor einem Wetterwechsel (nächste 3 Stunden). Ohne Hinweise
   // bleibt der Feed im Ruhezustand leer; wach zeigt er, was gerade praktisch ist.
-  let stuendlich = [], naechsterTermin = null;
+  let stuendlich = [], termine = [];
   async function stuendlichLaden() {
     const w = PS.opt.wetter_entitaet; if (!w || !PS.z[w]) return;
     try {
@@ -374,16 +379,24 @@
     } catch { stuendlich = []; }
     feedAufbauen();
   }
+  // Termine ab jetzt bis Ende von morgen (mind. 36 h), aus allen sichtbaren Kalendern; ganztägige tragen `ganztag`
+  const tagText = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
   async function termineLaden() {
     const kals = Object.keys(PS.z).filter((e) => e.startsWith("calendar.") && PS.sichtbar(e));
-    const start = new Date(), ende = new Date(Date.now() + 24 * 3600e3), alle = [];
+    const jetzt = new Date(), morgenEnde = new Date(jetzt.getFullYear(), jetzt.getMonth(), jetzt.getDate() + 2);
+    const start = jetzt, ende = new Date(Math.max(morgenEnde.getTime(), Date.now() + 36 * 3600e3)), alle = [];
     await Promise.all(kals.map(async (k) => {
       try {
         const r = await PS.anfrage({ typ: "rest", pfad: `calendars/${k}?start=${encodeURIComponent(start.toISOString())}&end=${encodeURIComponent(ende.toISOString())}` });
-        (r || []).forEach((t) => { if (t.start && t.start.dateTime) alle.push({ titel: t.summary, start: new Date(t.start.dateTime) }); });
+        (r || []).forEach((t) => {
+          if (!t.start) return;
+          const ort = t.location || "";
+          if (t.start.dateTime) alle.push({ titel: t.summary, start: new Date(t.start.dateTime), ende: t.end && t.end.dateTime ? new Date(t.end.dateTime) : null, ort });
+          else if (t.start.date) alle.push({ titel: t.summary, ganztag: true, von: t.start.date, bis: (t.end && t.end.date) || t.start.date, start: new Date(`${t.start.date}T00:00:00`), ort });
+        });
       } catch { /* einzelne Kalender dürfen fehlen */ }
     }));
-    naechsterTermin = alle.filter((t) => t.start > new Date()).sort((a, b) => a.start - b.start)[0] || null;
+    termine = alle.sort((a, b) => a.start - b.start);
     feedAufbauen();
   }
   const NASS = ["rainy", "pouring", "lightning-rainy", "snowy", "snowy-rainy", "hail"];
@@ -406,8 +419,8 @@
     }
     return null;
   }
-  // Praktische Karten: „Alles in Ordnung“, wenn sonst nichts läuft (wach und in Ruhe), und der nächste Termin
-  // (24 h) immer zusätzlich zu den übrigen Karten.
+  // Praktische Karten: „Alles in Ordnung“, wenn sonst nichts läuft (wach und in Ruhe), und Termine
+  // (ab 3 h vor Beginn mit Countdown; ab 21 Uhr morgige Termine) immer zusätzlich zu den übrigen Karten.
   function okKarte() {
     const offen = offeneZugaenge().length, al = PS.opt.alarm_entitaet;
     const teile = [offen ? `${offen} offen` : "Fenster und Türen zu"];
@@ -416,18 +429,38 @@
     return { id: "ok", art: "praktisch", schluessel: "ok", titel: "Zuhause", wert: "", hinweis: "",
       modell: { kopf: "Zuhause", farbe: "var(--gut)", icon: "shield-check-outline", anteil: 1, h2: "Alles in Ordnung", p: teile.join(" · ") } };
   }
-  function terminKarte() {
-    if (!naechsterTermin) return null;
-    const t = naechsterTermin.start, min = (t - Date.now()) / 60e3, heute = t.toDateString() === new Date().toDateString();
-    return { id: "naechstes", art: "praktisch", schluessel: "naechstes", titel: "Als Nächstes", wert: "", hinweis: "",
-      modell: { kopf: "Als Nächstes", farbe: "#c99bf0", h2: naechsterTermin.titel || "Termin", p: `${heute ? "heute" : "morgen"} um ${PS.uhrzeit(t)}`,
-        zahl: PS.uhrzeit(t), einheit: "Uhr", anteil: Math.max(0.02, 1 - min / 1440) } };
+  // Termine mit Uhrzeit, die in den nächsten 3 Stunden beginnen: je Termin eine Karte mit Countdown im Ring
+  // (läuft leer; `ende` und `dauer_s` wie bei den Gerätetimern, `takt()` zählt sekündlich herunter)
+  const VORLAUF_S = 3 * 3600;
+  function terminKarten() {
+    const jetzt = Date.now();
+    return termine.filter((t) => !t.ganztag && t.start > jetzt && (t.start - jetzt) / 1000 <= VORLAUF_S).map((t) => {
+      const rest = (t.start - jetzt) / 1000, r = restText(rest, "voll");
+      return { id: `termin:${t.start.getTime()}:${t.titel}`, art: "praktisch", schluessel: "terminuhr", titel: "Als Nächstes", wert: "", hinweis: "",
+        ende: t.start.toISOString(), dauer_s: VORLAUF_S,
+        modell: { kopf: "Als Nächstes", farbe: "#c99bf0", h2: t.titel || "Termin", p: `heute um ${PS.uhrzeit(t.start)}${t.ort ? " · " + t.ort : ""}`,
+          zahl: r.zahl, einheit: r.einheit, anteil: Math.max(0.02, rest / VORLAUF_S) } };
+    });
+  }
+  // Abendkarte ab 21 Uhr: Termine von morgen (nur wenn es welche gibt)
+  const MAX_LISTE = 5;
+  function morgenKarte() {
+    const jetzt = new Date(); if (jetzt.getHours() < 21) return null;
+    const m = new Date(jetzt.getFullYear(), jetzt.getMonth(), jetzt.getDate() + 1), mText = tagText(m);
+    const tag = termine.filter((t) => (t.ganztag ? t.von <= mText && mText < t.bis : tagText(t.start) === mText))
+      .sort((a, b) => (b.ganztag ? 1 : 0) - (a.ganztag ? 1 : 0) || a.start - b.start);
+    if (!tag.length) return null;
+    const zeilen = tag.slice(0, MAX_LISTE).map((t) => [t.ganztag ? "ganztägig" : PS.uhrzeit(t.start), t.titel || "Termin"]);
+    if (tag.length > MAX_LISTE) zeilen.push(["", `+${tag.length - MAX_LISTE} weitere`]);
+    return { id: "morgen", art: "praktisch", schluessel: "morgen", titel: "Morgen", wert: "", hinweis: "",
+      modell: { kopf: "Morgen", farbe: "#c99bf0", icon: "calendar", anteil: 1, zahl: String(tag.length), einheit: tag.length === 1 ? "Termin" : "Termine",
+        h2: m.toLocaleDateString("de-DE", { weekday: "long", day: "numeric", month: "long" }), liste: zeilen } };
   }
   function feedAufbauen() {
     let k = (PS.karten || []).filter((x) => x.schluessel !== "wetter");
     const ww = (PS.einst.karten_aus || []).includes("wetter") ? null : wetterwechsel(); if (ww) k.push(ww);
     if (!k.length) k.push(okKarte());
-    const termin = terminKarte(); if (termin) k.push(termin);
+    if (!(PS.einst.karten_aus || []).includes("termin")) { k.push(...terminKarten()); const mk = morgenKarte(); if (mk) k.push(mk); }
     kartenSetzen(k);
   }
 
