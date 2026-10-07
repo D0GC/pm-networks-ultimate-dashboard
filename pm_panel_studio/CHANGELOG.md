@@ -8,7 +8,9 @@
 - Zugang: Neue Option `haustueroeffner` (Standard `button.haustur_tur_offnen`). Die Gruppe zeigt Schlösser und
   Haustür-Öffner, jede Entität nur einmal; ist `tueroeffner` das Schloss selbst, erscheint es nicht mehr doppelt.
 - Energie: Der Energiefluss zeigt die Live-Leistung in Watt aus den Leistungssensoren des Energie-Dashboards und
-  nur die Geräte, die gerade verbrauchen.
+  nur die Geräte, die gerade verbrauchen (über 1 W). Er aktualisiert sich bei jeder Änderung, höchstens alle 2 s.
+- Feed: „Als Nächstes“ (Termin in den nächsten 24 h) steht immer zusätzlich zu den übrigen Karten, auch neben einem
+  laufenden Timer. „Alles in Ordnung“ erscheint, wenn sonst nichts läuft, jetzt auch im Ruhemodus.
 
 ## 2026.10.3 – 2026-10-07
 
