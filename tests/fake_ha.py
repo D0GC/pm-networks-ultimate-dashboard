@@ -580,6 +580,7 @@ class FakeHA:
             }
         }
         self.subs: list[tuple[web.WebSocketResponse, int, str]] = []
+        self.intercom: list[tuple] = []
         self.todo = {
             "todo.einkaufsliste": [
                 {"uid": "1", "summary": "Kaffee", "status": "needs_action"},
@@ -892,6 +893,20 @@ class FakeHA:
             loop.call_soon(
                 lambda: self._tasks.add(asyncio.ensure_future(ws.send_json({"id": mid, "type": "event", "event": event})))
             )
+            return ok(None)
+        if typ == "pm_ring_intercom/audio/start":
+            self.intercom.append(("start", req["offer"]))
+            loop = asyncio.get_running_loop()
+            for event in ({"type": "session", "session_id": "s1"}, {"type": "answer", "answer": "v=0 antwort"}):
+                loop.call_soon(
+                    lambda e=event: self._tasks.add(asyncio.ensure_future(ws.send_json({"id": mid, "type": "event", "event": e})))
+                )
+            return ok(None)
+        if typ == "pm_ring_intercom/audio/candidate":
+            self.intercom.append(("kandidat", req["session_id"], req["candidate"], req["sdp_m_line_index"]))
+            return ok(None)
+        if typ == "unsubscribe_events":
+            self.intercom.append(("abbestellt", req["subscription"]))
             return ok(None)
         if typ == "call_service":
             res = self.service(req["domain"], req["service"], req.get("service_data") or {})

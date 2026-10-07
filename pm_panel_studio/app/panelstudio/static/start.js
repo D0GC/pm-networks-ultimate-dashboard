@@ -726,12 +726,13 @@
     const an = !!(e && e.aktiv);
     document.body.classList.toggle("ereignis-an", an);
     const box = $("#ereignis-kamera");
-    if (!an) { PS.kameraLiveStoppen(box.parentElement); box._eid = null; return; }
+    if (!an) { PS.kameraLiveStoppen(box.parentElement); box._eid = null; if (PS.intercomBeenden) PS.intercomBeenden(); return; }
     document.body.classList.remove("ruhe");
     $("#ereignis-titel").textContent = e.titel || "Tür";
     // Läuft das Overlay schon mit derselben Kamera, nur den Titel nachführen (kein Neustart des Streams)
     if (e.kamera && !(box._eid === e.kamera && box.classList.contains("live") && box._stop)) { PS.kameraLive(box, e.kamera); box._eid = e.kamera; }
     $("#ereignis-oeffnen").hidden = !e.tueroeffner;
+    $("#ereignis-sprechen").hidden = !e.intercom;
   }
 
   // ------------------------------------------------------------ Aufbau
@@ -780,7 +781,8 @@
     $("#sheet-zurueck").addEventListener("click", zurueck);
     $("#ereignis-ignorieren").addEventListener("click", () => { PS.anfrage({ typ: "ereignis_ende" }).catch(() => {}); ereignis({ aktiv: false }); });
     PS.halten($("#ereignis-oeffnen"), 2000, () => {
-      PS.dienst(PS.domain(PS.opt.tueroeffner), PS.domain(PS.opt.tueroeffner) === "lock" ? "open" : "press", { entity_id: PS.opt.tueroeffner }).then(() => PS.toast("Tür geöffnet"));
+      const oeffner = (PS.ereignis && PS.ereignis.tueroeffner) || PS.opt.tueroeffner;
+      PS.dienst(PS.domain(oeffner), PS.domain(oeffner) === "lock" ? "open" : "press", { entity_id: oeffner }).then(() => PS.toast("Tür geöffnet"));
     });
     setInterval(uhr, 5000);
     setInterval(gruss, 30000);

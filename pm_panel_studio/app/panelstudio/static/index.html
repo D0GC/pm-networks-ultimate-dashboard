@@ -56,10 +56,13 @@
   <div class="bild">
     <div id="ereignis-kamera" class="kamera-voll"></div>
     <span class="lbl"><i></i><span id="ereignis-titel">Tür</span></span>
+    <span class="intercom-status" id="intercom-status" hidden></span>
     <div class="akt">
       <button class="knopf" id="ereignis-ignorieren">Schließen</button>
+      <button class="knopf primaer" id="ereignis-sprechen" hidden>Sprechen</button>
       <button class="knopf primaer" id="ereignis-oeffnen">Tür öffnen (halten)</button>
     </div>
+    <audio id="intercom-ton" autoplay playsinline></audio>
   </div>
 </div>
 
@@ -79,5 +82,6 @@
 <script src="static/haushalt.js"></script>
 <script src="static/start.js"></script>
 <script src="static/live.js"></script>
+<script src="static/intercom.js"></script>
 </body>
 </html>

@@ -29,6 +29,9 @@ configuration:
   haustueroeffner:
     name: Front door opener
     description: button entity of the building door opener for the access group (default button.haustur_tur_offnen). Fires only after holding for 2 seconds.
+  intercom_ausloeser:
+    name: Front door ring (intercom)
+    description: When one of these turns on, the panel shows the "Haustür" overlay with two-way audio via PM Ring Intercom and the front door opener (default binary_sensor.haustur_klingelt).
   klima_praefix:
     name: PM Klima prefix
     description: Only thermostats with this prefix are shown (default climate.pm_). Thermostats without an area are matched to an area by name.

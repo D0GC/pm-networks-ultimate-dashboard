@@ -314,6 +314,13 @@ class HAClient:
             raise HAError(f"Abonnement abgelehnt: {(resp.get('error') or {}).get('message')}", "error")
         return msg_id
 
+    async def unsubscribe(self, sub_id: int) -> None:
+        """Abonnement beenden (``unsubscribe_events``). Ist die Verbindung schon weg, gibt es nichts zu beenden."""
+        if self._subs.pop(sub_id, None) is None:
+            return
+        with contextlib.suppress(HAError):
+            await self.ws_command({"type": "unsubscribe_events", "subscription": sub_id}, timeout=10)
+
     @property
     def connected(self) -> bool:
         return self._ws is not None and not self._ws.closed and bool(self._subs)
