@@ -533,7 +533,7 @@ body.ruhe .gruss.an{opacity:.6}
 .r-box .kamera.live video,.r-box .kamera.live img{border-radius:inherit}
 
 /* Einheiten und Zustände in Ringen außerhalb des Feeds: normale Schreibung */
-.sheet .ring .innen small,.dialog .ring .innen small,.live .ring .innen small{letter-spacing:0;text-transform:none}
+.sheet .ring .innen small,.dialog .ring .innen small,#live .ring .innen small{letter-spacing:0;text-transform:none}
 
 /* Glas: ohne Backdrop-Filter oder in der Ruhe deckende Fläche, keine Animation von blur */
 @supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
