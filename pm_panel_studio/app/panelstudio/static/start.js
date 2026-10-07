@@ -76,9 +76,10 @@
   function glocke() {
     const el = $("#glocke"); if (!el) return;
     const n = (PS.meldungen || []).length + (PS.popups || []).length;
-    const hoch = (PS.popups || []).some((m) => m.prio === "high");
-    el.className = "glocke" + (n ? " neu" : "") + (hoch ? " hoch" : "");
-    el.innerHTML = PS.ic(hoch ? "bell-ring-outline" : n ? "bell-badge-outline" : "bell-outline") + (n ? `<span class="zahl tabular">${n}</span>` : "");
+    const stufen = (PS.popups || []).map(PS.meldungStufe);
+    const hoch = stufen.includes("kritisch"), eilig = !hoch && stufen.includes("zeitkritisch");
+    el.className = "glocke" + (n ? " neu" : "") + (hoch ? " hoch" : "") + (eilig ? " zeitkritisch" : "");
+    el.innerHTML = PS.ic(hoch || eilig ? "bell-ring-outline" : n ? "bell-badge-outline" : "bell-outline") + (n ? `<span class="zahl tabular">${n}</span>` : "");
   }
 
   // ------------------------------------------------------------ Begrüßung unten links (höchstens zwei Sätze)
@@ -161,7 +162,13 @@
     meldung: ["bell-ring-outline", "var(--warn)"], spueler: ["dishwasher", "var(--info)"], robo: ["robot-vacuum", "var(--gut)"], musik: ["music-note-outline", "#c99bf0"], ruhig: ["leaf", "var(--gut)"],
   };
   PS.kartenIcon = (k) => (KARTE[k] || KARTE.neutral)[0];
-  let aktuell = 0, liste = [], wechselZeit = 0;
+  let aktuell = 0, liste = [], wechselZeit = 0, wischt = false;
+  // Relevanz 0–100 (Backend: Feld `relevanz`; Frontend-Karten setzen es selbst). Der Feed sortiert danach, stabil.
+  const RELEVANZ_STANDARD = 40;
+  const relevanz = (k) => (k && k.relevanz != null ? k.relevanz : RELEVANZ_STANDARD);
+  const sortiert = (karten) => karten.map((k, i) => [k, i]).sort((a, b) => relevanz(b[0]) - relevanz(a[0]) || a[1] - b[1]).map((x) => x[0]);
+  // Verweildauer dezent nach Relevanz: Basisdauer × 0,8 (unwichtig) bis 1,4 (dringend)
+  const verweil = (k) => (PS.einst.verweildauer_s || 8) * (0.8 + 0.6 * Math.max(0, Math.min(100, relevanz(k))) / 100);
   const elemente = new Map();
 
   // ------------------------------------------------------------ Kartenmodell 1:1 nach dem Konzept
@@ -213,7 +220,8 @@
     }
     if (k.art === "praktisch") return { ...m, ...k.modell };
     if (k.art === "meldung") {
-      return { ...m, kopf: k.prio === "high" ? "Meldung · wichtig" : "Meldung", farbe: PS.meldungFarbe(k.prio), icon: PS.meldungIcon(k.icon), h2: k.titel, p: k.hinweis };
+      const stufe = PS.meldungStufe(k);
+      return { ...m, kopf: stufe === "aktiv" ? "Meldung" : `Meldung · ${stufe}`, farbe: PS.meldungFarbe(k), icon: PS.meldungIcon(k.icon), h2: k.titel, p: k.hinweis };
     }
     switch (k.schluessel) {
       case "lueften": {
@@ -290,6 +298,7 @@
   function kartenSetzen(karten) {
     const alt = liste[aktuell] && liste[aktuell].id;
     liste = karten || [];
+    PS.feedListe = liste;  // für die Live-Kapsel (auch Termin-Countdowns aus dem Frontend)
     $(".mitte").classList.toggle("leer", !liste.length);
     const box = $("#karussell");
     const ids = new Set(liste.map((k) => k.id));
@@ -329,7 +338,7 @@
     }
     const pos = liste.findIndex((k) => k.id === alt);
     aktuell = pos >= 0 ? pos : Math.min(aktuell, liste.length - 1);
-    zeigen(false);
+    zeigen(!wechselZeit && liste.length > 0);  // erste Karte: Verweilzeit und Ring starten, sonst springt sie nach 1 s weiter
   }
   function zeigen(neuStart = true) {
     liste.forEach((k, i) => {
@@ -347,12 +356,13 @@
       }
     }
     const pk = $("#punkte");
-    pk.style.setProperty("--verweil", (PS.einst.verweildauer_s || 8) + "s");
+    pk.style.setProperty("--verweil", verweil(liste[aktuell]).toFixed(2) + "s");
     pk.innerHTML = liste.length > 1 ? liste.map((_, i) => `<span class="${i < aktuell ? "vorbei" : i === aktuell ? "jetzt" : ""}"></span>`).join("") : "";
   }
   function weiter() { if (liste.length < 2) return; aktuell = (aktuell + 1) % liste.length; zeigen(); }
+  function vorher() { if (liste.length < 2) return; aktuell = (aktuell - 1 + liste.length) % liste.length; zeigen(); }
   function takt() {
-    if (liste.length > 1 && Date.now() - wechselZeit > (PS.einst.verweildauer_s || 8) * 1000 && !document.body.classList.contains("offen") && !$("#dialog-grund").classList.contains("offen")) weiter();
+    if (liste.length > 1 && !wischt && Date.now() - wechselZeit > verweil(liste[aktuell]) * 1000 && !document.body.classList.contains("offen") && !$("#dialog-grund").classList.contains("offen")) weiter();
     // Restzeiten lokal herunterzählen
     for (const k of liste) {
       if (!k.ende) continue;
@@ -409,6 +419,7 @@
     const art = (f) => (/lightning/.test(f.condition) ? "Gewitter" : /snow/.test(f.condition) ? "Schnee" : f.condition === "hail" ? "Hagel" : "Regen");
     const uhr = (f) => `${new Date(f.datetime).getHours()} Uhr`;
     const karte = (h2, p, prozent, zustand) => ({ id: "ww", art: "praktisch", schluessel: "wetterwechsel", titel: "Wetterwechsel", wert: "", hinweis: "",
+      relevanz: 45,
       modell: { kopf: "Wetterwechsel", farbe: "var(--info)", h2, p, zahl: String(prozent), einheit: "% Regen", anteil: Math.max(0.02, prozent / 100), zustand } });
     if (!nass(nun)) {
       const f = naechste.slice(1).find(nass);
@@ -426,7 +437,7 @@
     const teile = [offen ? `${offen} offen` : "Fenster und Türen zu"];
     if (al && PS.z[al]) teile.push(PS.s(al).startsWith("armed") ? "Alarm scharf" : "Alarm aus");
     teile.push("keine Geräte aktiv");
-    return { id: "ok", art: "praktisch", schluessel: "ok", titel: "Zuhause", wert: "", hinweis: "",
+    return { id: "ok", art: "praktisch", schluessel: "ok", titel: "Zuhause", wert: "", hinweis: "", relevanz: 10,
       modell: { kopf: "Zuhause", farbe: "var(--gut)", icon: "shield-check-outline", anteil: 1, h2: "Alles in Ordnung", p: teile.join(" · ") } };
   }
   // Termine mit Uhrzeit, die in den nächsten 3 Stunden beginnen: je Termin eine Karte mit Countdown im Ring
@@ -437,7 +448,7 @@
     return termine.filter((t) => !t.ganztag && t.start > jetzt && (t.start - jetzt) / 1000 <= VORLAUF_S).map((t) => {
       const rest = (t.start - jetzt) / 1000, r = restText(rest, "voll");
       return { id: `termin:${t.start.getTime()}:${t.titel}`, art: "praktisch", schluessel: "terminuhr", titel: "Als Nächstes", wert: "", hinweis: "",
-        ende: t.start.toISOString(), dauer_s: VORLAUF_S,
+        ende: t.start.toISOString(), dauer_s: VORLAUF_S, relevanz: Math.round(60 + 35 * (1 - Math.max(0, Math.min(1, rest / VORLAUF_S)))),  // 60 bei 3 h Vorlauf, 95 bei Beginn
         modell: { kopf: "Als Nächstes", farbe: "#c99bf0", h2: t.titel || "Termin", p: `heute um ${PS.uhrzeit(t.start)}${t.ort ? " · " + t.ort : ""}`,
           zahl: r.zahl, einheit: r.einheit, anteil: Math.max(0.02, rest / VORLAUF_S) } };
     });
@@ -452,7 +463,7 @@
     if (!tag.length) return null;
     const zeilen = tag.slice(0, MAX_LISTE).map((t) => [t.ganztag ? "ganztägig" : PS.uhrzeit(t.start), t.titel || "Termin"]);
     if (tag.length > MAX_LISTE) zeilen.push(["", `+${tag.length - MAX_LISTE} weitere`]);
-    return { id: "morgen", art: "praktisch", schluessel: "morgen", titel: "Morgen", wert: "", hinweis: "",
+    return { id: "morgen", art: "praktisch", schluessel: "morgen", titel: "Morgen", wert: "", hinweis: "", relevanz: 50,
       modell: { kopf: "Morgen", farbe: "#c99bf0", icon: "calendar", anteil: 1, zahl: String(tag.length), einheit: tag.length === 1 ? "Termin" : "Termine",
         h2: m.toLocaleDateString("de-DE", { weekday: "long", day: "numeric", month: "long" }), liste: zeilen } };
   }
@@ -461,20 +472,39 @@
     const ww = (PS.einst.karten_aus || []).includes("wetter") ? null : wetterwechsel(); if (ww) k.push(ww);
     if (!k.length) k.push(okKarte());
     if (!(PS.einst.karten_aus || []).includes("termin")) { k.push(...terminKarten()); const mk = morgenKarte(); if (mk) k.push(mk); }
-    kartenSetzen(k);
+    kartenSetzen(sortiert(k));
   }
 
-  // Kachel wird Seite (Konzept Stufe 3): View Transitions, ohne Unterstützung einfach öffnen
+  // Kachel wird Seite (Konzept Stufe 3): View Transitions, ohne Unterstützung einfach öffnen.
+  // Die Quelle wird gemerkt: Beim Schließen läuft der Übergang umgekehrt, der Sheet-Titel schrumpft in die Quelle zurück.
+  let rueck = null;  // { quelle, tiefe (Seitenstapel beim Öffnen), intern (Quelle liegt im Sheet), klasse, key }
+  const animiert = () => !!document.startViewTransition && !document.body.classList.contains("ohne-animation");
   PS.mitUebergang = (quelle, fn) => {
-    if (!document.startViewTransition || !quelle || document.body.classList.contains("ohne-animation")) { fn(); return; }
+    // Beschreibung vor dem Öffnen: danach ist die Quelle bei einem Neuaufbau des Sheets nicht mehr im DOM
+    const bild = quelle ? { quelle, intern: !!quelle.closest(".sheet"), klasse: quelle.classList[0] || "", key: (quelle.textContent || "").trim().slice(0, 12) } : null;
+    const merken = () => { rueck = bild && { ...bild, tiefe: stapel.length }; };
+    if (!animiert() || !quelle) { fn(); merken(); return; }
     quelle.style.viewTransitionName = "raum-kopf";
     const vt = document.startViewTransition(() => {
       quelle.style.viewTransitionName = "";
-      fn();
+      fn(); merken();
       $("#sheet-titel").style.viewTransitionName = "raum-kopf";
     });
     vt.finished.finally(() => { $("#sheet-titel").style.viewTransitionName = ""; });
   };
+  // Rückweg: Titel vor dem Wechsel benennen, danach die Quelle (bei Neuaufbau des Sheets über Klasse und Textanfang gefunden)
+  function rueckUebergang(r, aendern) {
+    const titel = $("#sheet-titel");
+    titel.style.viewTransitionName = "raum-kopf";
+    let ziel = null;
+    const vt = document.startViewTransition(() => {
+      titel.style.viewTransitionName = "";
+      aendern();
+      ziel = r.quelle.isConnected ? r.quelle : r.intern ? [...$("#sheet-inhalt").querySelectorAll(r.klasse ? "." + r.klasse : "*")].find((e) => (e.textContent || "").trim().startsWith(r.key)) : null;
+      if (ziel) ziel.style.viewTransitionName = "raum-kopf";
+    });
+    vt.finished.finally(() => { titel.style.viewTransitionName = ""; if (ziel) ziel.style.viewTransitionName = ""; });
+  }
 
   // ------------------------------------------------------------ Schnellzugriff und Räume
   function schnellzugriff() {
@@ -526,7 +556,7 @@
   }
   PS.oeffnen = (modul, arg) => {
     const def = PS.module[modul]; if (!def) return;
-    stapel.length = 0;
+    stapel.length = 0; rueck = null;
     stapel.push({ modul, titel: def.titel, render: (el) => def.render(el, arg) });
     document.body.classList.add("offen"); document.body.classList.remove("ruhe");
     zeichnen(); markieren();
@@ -534,12 +564,26 @@
   };
   PS.unterseite = (titel, render) => { stapel.push({ modul: stapel[0] && stapel[0].modul, titel, render }); zeichnen(); };
   PS.seiteErsetzen = (titel, render) => { if (!stapel.length) return; stapel[stapel.length - 1] = { modul: stapel[0].modul, titel, render }; zeichnen(true); };
-  PS.schliessen = () => {
+  function schliessenDirekt() {
+    ziehReste();
     document.body.classList.remove("offen"); stapel.length = 0; markieren();
     $("#sheet-inhalt").querySelectorAll("img").forEach(PS.kameraStoppen); PS.emit("seite");
     setTimeout(() => { if (!stapel.length) $("#sheet-inhalt").innerHTML = ""; }, 700);
+  }
+  // Schließen (X, Wischen, Zeit, Start im Dock): lag die Quelle außerhalb des Sheets und steht noch im DOM, läuft der Übergang zurück
+  PS.schliessen = () => {
+    const r = rueck; rueck = null;
+    if (r && !r.intern && r.quelle.isConnected && stapel.length === r.tiefe && document.body.classList.contains("offen") && animiert()) rueckUebergang(r, schliessenDirekt);
+    else schliessenDirekt();
   };
-  function zurueck() { if (stapel.length > 1) { stapel.pop(); zeichnen(); } else PS.schliessen(); }
+  function zurueck() {
+    if (stapel.length < 2) return PS.schliessen();
+    const r = rueck;
+    const tun = () => { stapel.pop(); zeichnen(true); };
+    if (r && r.intern && stapel.length === r.tiefe && animiert()) { rueck = null; rueckUebergang(r, tun); return; }
+    stapel.pop(); zeichnen();
+    if (rueck && stapel.length < rueck.tiefe) rueck = null;
+  }
   function zeichnen(still) {
     const seite = stapel[stapel.length - 1]; if (!seite) return;
     $("#sheet-titel").textContent = seite.titel;
@@ -567,6 +611,113 @@
     }));
   };
 
+
+  // ------------------------------------------------------------ Gesten (Konzept Stufe 4)
+  // Sheet folgt dem Finger: Wischen nach unten am Sheet-Kopf zieht das Sheet mit, die Startseite dahinter wird mit dem
+  // Weg größer und heller (Ruhezustand des Sheets: scale .965, Deckkraft .25, Sättigung .6). Loslassen: Weg > 140 px
+  // oder Tempo > 0,6 px/ms schließt, sonst federt das Sheet zurück. Jederzeit unterbrechbar.
+  let rueckTimer = null;
+  function ziehReste() {
+    clearTimeout(rueckTimer); rueckTimer = null;
+    const sheet = $(".sheet"), start = $(".start");
+    [sheet, start].forEach((e) => { e.style.transition = ""; e.style.transform = ""; e.style.opacity = ""; e.style.filter = ""; });
+    sheet.classList.remove("zieht");
+  }
+  function sheetZiehen() {
+    const kopf = $(".sheet-kopf"), sheet = $(".sheet"), start = $(".start");
+    let d = null;
+    const versatz = () => { try { return new DOMMatrix(getComputedStyle(sheet).transform).m42 || 0; } catch { return 0; } };
+    const stand = (y) => {
+      const p = Math.max(0, Math.min(1, y / 320));
+      sheet.style.transform = `translateY(${y}px)`;
+      start.style.transform = `scale(${(0.965 + 0.035 * p).toFixed(4)})`; start.style.opacity = (0.25 + 0.75 * p).toFixed(3); start.style.filter = `saturate(${(0.6 + 0.4 * p).toFixed(3)})`;
+    };
+    kopf.addEventListener("pointerdown", (e) => {
+      if (!document.body.classList.contains("offen") || (e.pointerType === "mouse" && e.button !== 0)) return;
+      // Läuft gerade die Rückfederung, den Stand übernehmen und weiterziehen
+      const laeuft = rueckTimer != null, basis = laeuft ? Math.max(0, versatz()) : 0;
+      if (laeuft) { clearTimeout(rueckTimer); rueckTimer = null; sheet.style.transition = start.style.transition = "none"; stand(basis); }
+      d = { id: e.pointerId, x0: e.clientX, y0: e.clientY, basis, aktiv: laeuft, y: basis, proben: [] };
+      if (laeuft) { sheet.classList.add("zieht"); try { kopf.setPointerCapture(e.pointerId); } catch { /* optional */ } }
+    });
+    kopf.addEventListener("pointermove", (e) => {
+      if (!d || e.pointerId !== d.id) return;
+      const dx = e.clientX - d.x0, dy = e.clientY - d.y0;
+      if (!d.aktiv) {
+        if (Math.abs(dy) < 8 && Math.abs(dx) < 8) return;
+        if (dy < 8 || Math.abs(dx) > Math.abs(dy)) { d = null; return; }  // nur nach unten, sonst bleibt es ein Tippen
+        d.aktiv = true; sheet.classList.add("zieht"); sheet.style.transition = start.style.transition = "none";
+        try { kopf.setPointerCapture(e.pointerId); } catch { /* optional */ }
+      }
+      d.y = Math.max(0, d.basis + dy);
+      d.proben.push([performance.now(), d.y]); if (d.proben.length > 6) d.proben.shift();
+      PS.emit("beruehrt"); stand(d.y);
+    });
+    const ende = (e, abbruch) => {
+      if (!d || e.pointerId !== d.id) return;
+      const g = d; d = null;
+      if (!g.aktiv) return;
+      const [t0, y0] = g.proben.find((p) => performance.now() - p[0] < 120) || g.proben[0] || [0, g.y];
+      const dt = performance.now() - t0, tempo = dt > 8 ? (g.y - y0) / dt : 0;
+      if (!abbruch && (g.y > 140 || (tempo > 0.6 && g.y > 20))) { PS.schliessen(); return; }
+      sheet.style.transition = "transform .65s var(--e-feder)";
+      start.style.transition = "transform .6s var(--e-auftakt),opacity .6s ease,filter .6s ease";
+      sheet.style.transform = ""; start.style.transform = ""; start.style.opacity = ""; start.style.filter = "";
+      rueckTimer = setTimeout(ziehReste, 700);
+    };
+    kopf.addEventListener("pointerup", (e) => ende(e, false));
+    kopf.addEventListener("pointercancel", (e) => ende(e, true));
+  }
+
+  // Feed-Karte folgt dem Finger waagerecht; Loslassen wechselt mit dem Schichtwechsel zur nächsten (links) oder
+  // vorigen (rechts) Karte, sonst federt sie zurück. Ein kurzes Tippen bleibt ein Tippen.
+  function feedWischen() {
+    const box = $("#karussell");
+    let d = null, zuletzt = 0;
+    box.addEventListener("pointerdown", (e) => {
+      if (liste.length < 2 || (e.pointerType === "mouse" && e.button !== 0)) return;
+      const el = elemente.get((liste[aktuell] || {}).id); if (!el) return;
+      d = { id: e.pointerId, x0: e.clientX, y0: e.clientY, aktiv: false, dx: 0, el, proben: [] };
+    });
+    box.addEventListener("pointermove", (e) => {
+      if (!d || e.pointerId !== d.id) return;
+      const dx = e.clientX - d.x0, dy = e.clientY - d.y0;
+      if (!d.aktiv) {
+        if (Math.abs(dx) < 10 && Math.abs(dy) < 10) return;
+        if (Math.abs(dx) < Math.abs(dy)) { d = null; return; }
+        d.aktiv = wischt = true; d.el.style.transition = "none";
+        try { box.setPointerCapture(e.pointerId); } catch { /* optional */ }
+      }
+      d.dx = dx; wechselZeit = Date.now();
+      d.proben.push([performance.now(), dx]); if (d.proben.length > 6) d.proben.shift();
+      const p = Math.min(1, Math.abs(dx) / 600);
+      d.el.style.transform = `translateX(${dx}px) rotateY(${(-dx / 70).toFixed(2)}deg) scale(${(1 - p * 0.05).toFixed(3)})`;
+      d.el.style.opacity = (1 - p * 0.5).toFixed(3);
+    });
+    const ende = (e, abbruch) => {
+      if (!d || e.pointerId !== d.id) return;
+      const g = d; d = null;
+      if (!g.aktiv) return;
+      wischt = false; zuletzt = Date.now(); wechselZeit = Date.now();
+      const [t0, x0] = g.proben.find((p) => performance.now() - p[0] < 120) || g.proben[0] || [0, g.dx];
+      const dt = performance.now() - t0, tempo = dt > 8 ? (g.dx - x0) / dt : 0;
+      const el = g.el;
+      if (!abbruch && (Math.abs(g.dx) > 160 || (Math.abs(tempo) > 0.5 && Math.abs(g.dx) > 30))) {
+        // Inline-Werte weg und Klassen wechseln im selben Takt: die Karte gleitet vom Fingerstand in den Schichtwechsel
+        el.style.transition = el.style.transform = el.style.opacity = "";
+        if (g.dx < 0) weiter(); else vorher();
+      } else {
+        el.style.transition = "transform .55s var(--e-feder),opacity .3s ease";
+        el.style.transform = el.style.opacity = "";
+        setTimeout(() => { el.style.transition = ""; }, 600);
+      }
+    };
+    box.addEventListener("pointerup", (e) => ende(e, false));
+    box.addEventListener("pointercancel", (e) => ende(e, true));
+    // Nach einem Wischen kein Tippen auslösen
+    box.addEventListener("click", (e) => { if (Date.now() - zuletzt < 350) { e.stopPropagation(); e.preventDefault(); } }, true);
+  }
+
   // ------------------------------------------------------------ Ereignis (Tür)
   function ereignis(e) {
     const an = !!(e && e.aktiv);
@@ -585,25 +736,28 @@
     uhr(); wetter(); personen(); statusZeile(); schnellzugriff(); raeumeKurz(); dock(); gruss();
   }
   PS.on("init", () => { alles(); vorhersageLaden(); stuendlichLaden(); termineLaden(); feedAufbauen(); if (stapel.length) PS.neuZeichnen(); });
-  let letzterModus = null;
+  let letzterModus = null, aufgewachtUm = 0;
   PS.on("modus", () => {
-    // Weckstrahl beim Aufwachen (Konzept Stufe 3), Feed neu: in Ruhe ohne leere Karte
-    if (letzterModus === "ruhe" && PS.modus === "wach" && !document.body.classList.contains("ohne-animation")) {
-      const w = $(".weckstrahl"); w.classList.remove("an"); void w.offsetWidth; w.classList.add("an");
-    }
+    if (letzterModus === "ruhe" && PS.modus === "wach") aufgewachtUm = Date.now();
     letzterModus = PS.modus;
+    // Feed neu: in Ruhe ohne leere Karte
     feedAufbauen();
   });
   PS.on("karten", () => { feedAufbauen(); statusZeile(); gruss(); });
   PS.on("popups", (neu) => {
     statusZeile();
     if (stapel.length && stapel[0].modul === "hinweise") PS.neuZeichnen();
-    // Wie an den Panels: hoch weckt und öffnet sofort, normal öffnet, wenn jemand am Panel ist, niedrig nur Glocke
+    // Vier Stufen: passiv nur Feed und Glocke · aktiv weckt (nachts nicht), Popup nur, wenn das Panel schon wach war ·
+    // zeitkritisch weckt und öffnet (nachts nur Feed und Glocke) · kritisch durchbricht Ruhe und Nacht
     const m = neu && (PS.popups || []).find((x) => x.id === neu);
     if (!m) return;
+    const stufe = PS.meldungStufe(m);
     PS.alarmTon(m);
-    if (document.body.classList.contains("ereignis-an")) return;
-    if (m.prio === "high" || (m.prio === "normal" && PS.modus === "wach")) { document.body.classList.remove("ruhe"); PS.popupZeigen(neu); }
+    if (document.body.classList.contains("ereignis-an") || stufe === "passiv") return;
+    const wach = PS.modus === "wach" && Date.now() - aufgewachtUm > 2500;  // der Server meldet „wach“ schon vor der Meldung
+    if (stufe === "kritisch" || (stufe === "zeitkritisch" && !PS.nacht)) { document.body.classList.remove("ruhe"); PS.popupZeigen(neu); }
+    else if (stufe === "aktiv" && !PS.nacht && !wach) document.body.classList.remove("ruhe");
+    else if (stufe === "aktiv" && wach) PS.popupZeigen(neu);
   });
   PS.on("meldungen", () => { statusZeile(); if (stapel.length && stapel[0].modul === "hinweise") PS.neuZeichnen(); });
   PS.on("ereignis", ereignis);
@@ -637,10 +791,7 @@
       const frist = stapel[0] && stapel[0].modul === "studio" ? 600 : PS.einst.bedienung_zurueck_s || 60;
       if (document.body.classList.contains("offen") && Date.now() - zuletztBeruehrt > frist * 1000) PS.schliessen();
     }, 5000);
-    // Wischen im Sheet nach unten (am Kopf) schließt
-    let y0 = null;
-    $(".sheet-kopf").addEventListener("pointerdown", (e) => { y0 = e.clientY; });
-    $(".sheet-kopf").addEventListener("pointerup", (e) => { if (y0 != null && e.clientY - y0 > 80) PS.schliessen(); y0 = null; });
+    sheetZiehen(); feedWischen();
     try { if ("wakeLock" in navigator) navigator.wakeLock.request("screen").catch(() => {}); } catch { /* optional */ }
     PS.verbinden();
   });

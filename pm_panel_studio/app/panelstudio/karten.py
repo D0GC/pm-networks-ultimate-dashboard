@@ -12,6 +12,7 @@ Eine Karte ist ein Dict:
   ring       Anteil 0..1 oder None (kein Ring)
   ende       ISO-Zeitpunkt, bis zu dem der Wert herunterzählt (der Client zählt lokal), sonst None
   dauer_s    Gesamtdauer in Sekunden für den Ring beim lokalen Herunterzählen, sonst None
+  relevanz   0–100 aus Dringlichkeit und Zeitnähe; der Feed sortiert danach (stabil, Gleichstand: Reihenfolge unten)
 """
 
 from __future__ import annotations
@@ -42,6 +43,7 @@ QUELLEN = {
 }
 
 VORRANG = ("eil", "warnung")
+RELEVANZ_STANDARD = 40  # Hinweise ohne eigene Regel
 MAX_HINWEISE = 8
 
 
@@ -314,11 +316,83 @@ def parse_hinweise(zeilen: Any) -> list[dict]:
     return out
 
 
+# ------------------------------------------------------------ Relevanz (0–100)
+# eil 100 · aktive Warnung 90–100 (Vorabinformation 55) · Timer: Restzeit < 2 min 95, sonst 70 (pausiert 50) ·
+# Termin 60 + 35·(1 − Rest/3 h) · Müll am Vorabend ab 18 Uhr und morgens vor der Abholung 80, sonst 30 ·
+# Lüften/Offen 55 · Wetter 45 · Fahrt 50 · Musik 45 · Roborock 60 · „Alles ruhig“ 10 · übrige Hinweise 40
+def _rest_sek(k: dict, jetzt: datetime) -> float | None:
+    ende = _parse_zeit(k.get("ende"))
+    if ende:
+        return (ende - jetzt).total_seconds()
+    teile = str(k.get("wert") or "").split(":")  # Restzeit ``m:ss`` (Geräte ohne Zeitstempel)
+    if len(teile) == 2 and all(t.isdigit() for t in teile):
+        return int(teile[0]) * 60 + int(teile[1])
+    return None
+
+
+def termin_relevanz(rest_sek: float) -> int:
+    """Countdown zu einem Termin: 60 bei 3 h Vorlauf, 95 bei Beginn."""
+    return round(60 + 35 * (1 - max(0.0, min(1.0, rest_sek / (3 * 3600)))))
+
+
+def relevanz(k: dict, jetzt: datetime, lokal: datetime) -> int:
+    if k.get("relevanz") is not None:
+        return int(k["relevanz"])
+    schl = k.get("schluessel")
+    if k.get("art") == "warnung":
+        return 55 if k.get("vorab") else 100 if (k.get("stufe") or 1) >= 2 else 90
+    if k.get("art") == "aktivitaet":
+        if schl == "musik":
+            return 45
+        if schl == "robo":
+            return 60
+        if k.get("hinweis") == "pausiert":
+            return 50
+        rest = _rest_sek(k, jetzt)
+        return 95 if rest is not None and rest < 120 else 70
+    wert = str(k.get("wert") or "").lower()
+    if schl == "eil":
+        return 100
+    if schl == "warnung":
+        return 90
+    if schl == "muell":
+        vorabend = "morgen" in wert and lokal.hour >= 18
+        morgens = "heute" in wert and lokal.hour < 9
+        return 80 if vorabend or morgens else 30
+    if schl == "termin":
+        if "jetzt" in wert:
+            return 95
+        num = _num("".join(c for c in wert if c.isdigit()) or None)
+        return termin_relevanz(num * 60) if num is not None and "in" in wert else RELEVANZ_STANDARD
+    if schl in ("lueften", "offen"):
+        return 55
+    if schl == "wetter":
+        return 45
+    if schl == "arbeit":
+        return 50
+    if schl == "ruhig":
+        return 10
+    return RELEVANZ_STANDARD
+
+
+def sortiere(karten: list[dict]) -> list[dict]:
+    """Höchste Relevanz zuerst; bei Gleichstand bleibt die Reihenfolge der Eingabe (stabil)."""
+    return sorted(karten, key=lambda k: -(k.get("relevanz") if k.get("relevanz") is not None else RELEVANZ_STANDARD))
+
+
 def berechne(
-    states: States, hinweise_entitaet: str, jetzt: datetime, aus: list[str] | None = None, musik: list[str] | None = None
+    states: States,
+    hinweise_entitaet: str,
+    jetzt: datetime,
+    aus: list[str] | None = None,
+    musik: list[str] | None = None,
+    lokal: datetime | None = None,
 ) -> list[dict]:
-    """Alle Karten in Anzeigereihenfolge: Eilmeldung und Warnung, dann Aktivitäten, dann übrige Hinweise."""
+    """Alle Karten nach Relevanz sortiert. Gleichstand: Eilmeldung und Warnung, dann Aktivitäten, dann übrige Hinweise.
+
+    ``lokal`` ist die Ortszeit (Vorgabe: Zeitzone des Systems) für Regeln wie „Müll ab 18 Uhr“."""
     aus = aus or []
+    lokal = lokal or jetzt.astimezone()
     hinweise = parse_hinweise(_attr(states, hinweise_entitaet, "zeilen")) if hinweise_entitaet else []
     akt = [k for fn in AKTIVITAETEN if (k := fn(states, jetzt))] + akt_musik(states, jetzt, musik or [])
     unwetter = unwetter_karten(states, jetzt)
@@ -328,7 +402,10 @@ def berechne(
     vorn = [k for k in hinweise if k["schluessel"] == "eil"] + unwetter + [k for k in hinweise if k["schluessel"] == "warnung"]
     rest = [k for k in hinweise if k["schluessel"] not in VORRANG]
     aus = [*aus, *(["unwetter"] if "warnung" in aus else [])]
-    return [k for k in (*vorn, *akt, *rest) if k["schluessel"] not in aus]
+    karten = [k for k in (*vorn, *akt, *rest) if k["schluessel"] not in aus]
+    for k in karten:
+        k["relevanz"] = relevanz(k, jetzt, lokal)
+    return sortiere(karten)
 
 
 def _iso(value: Any) -> str | None:

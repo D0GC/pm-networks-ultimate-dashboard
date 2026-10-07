@@ -52,7 +52,9 @@ async def test_init_enthaelt_zustaende_und_karten(ingress):
     assert m["zustaende"]["light.flur_deckenlampe_flur"]["s"] == "on"
     assert m["registry"]["light.flur_deckenlampe_flur"]["b"] == "flur"
     schluessel = [k["schluessel"] for k in m["karten"]]
-    assert schluessel[:4] == ["eil", "unwetter", "kohle", "waesche"]  # Eilmeldung, dann amtliche Warnung
+    # nach Relevanz: Eilmeldung 100, amtliche Warnung 100, Termin in 45 min 86, dann Aktivitäten (70)
+    assert schluessel[:5] == ["eil", "unwetter", "termin", "kohle", "waesche"]
+    assert [k["relevanz"] for k in m["karten"]] == sorted((k["relevanz"] for k in m["karten"]), reverse=True)
     assert m["karten"][1]["stufe"] == 3 and m["karten"][1]["titel"] == "Schweres Gewitter"
     assert "muell" in schluessel
     await ws.close()

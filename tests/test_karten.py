@@ -135,3 +135,42 @@ def test_unwetter_aus_dwd_sensoren_ersetzt_warnzeile():
     states["sensor.kreis_x_aktuelle_warnstufe"]["attributes"]["warning_2_end"] = (jetzt - timedelta(minutes=1)).isoformat()
     assert "Sturmböen" not in [k["titel"] for k in kt.berechne(states, "sensor.panel_bad_hinweise", jetzt)]
     assert not [k for k in kt.berechne(states, "sensor.panel_bad_hinweise", jetzt, aus=["warnung"]) if k["art"] == "warnung"]
+
+
+LOKAL_ABEND = datetime(2026, 10, 1, 19, 0)
+LOKAL_TAG = datetime(2026, 10, 1, 14, 0)
+
+
+def _rel(zeilen, lokal=LOKAL_TAG, states=None):
+    s = {"sensor.h": st("1", zeilen=zeilen), **(states or {})}
+    return {k["schluessel"]: k["relevanz"] for k in kt.berechne(s, "sensor.h", JETZT, lokal=lokal)}
+
+
+def test_relevanz_regeln():
+    r = _rel("eil|ARD|Eil|x\nruhig|Ruhig|x|y\nlueften|Lüften|71 %|Fenster\noffen|Offen|1 offen|Tür\nwetter|W|x|y\nneutral|N|x|y")
+    assert (r["eil"], r["ruhig"], r["lueften"], r["offen"], r["wetter"], r["neutral"]) == (100, 10, 55, 55, 45, 40)
+    # Müll: Vorabend ab 18 Uhr hoch, tagsüber niedrig; morgens vor Abholung hoch
+    assert _rel("muell|Müll|morgen|Bio", LOKAL_ABEND)["muell"] == 80
+    assert _rel("muell|Müll|morgen|Bio", LOKAL_TAG)["muell"] == 30
+    assert _rel("muell|Müll|heute|Bio", datetime(2026, 10, 2, 6, 0))["muell"] == 80
+    assert _rel("muell|Müll|heute|Bio", LOKAL_TAG)["muell"] == 30
+    # Termin: 60 + 35·(1 − Rest/3 h)
+    assert _rel("termin|Termin|in 90 min|Arzt")["termin"] == 78
+    assert _rel("termin|Termin|in 180 min|Arzt")["termin"] == 60
+    assert kt.termin_relevanz(0) == 95 and kt.termin_relevanz(10 * 3600) == 60
+
+
+def test_relevanz_timer_kurz_vor_ende():
+    lang = {"timer.kohle_timer": st("active", duration="0:15:00", finishes_at=(JETZT + timedelta(minutes=5)).isoformat())}
+    kurz = {"timer.kohle_timer": st("active", duration="0:15:00", finishes_at=(JETZT + timedelta(seconds=90)).isoformat())}
+    assert _rel("", states=lang)["kohle"] == 70
+    assert _rel("", states=kurz)["kohle"] == 95
+
+
+def test_feed_sortiert_nach_relevanz_stabil():
+    states = {"switch.balkon_kohlegrill": st("on"), "sensor.h": st("1", zeilen="ruhig|R|x|y\nneutral|N|a|b\nmuell|Müll|morgen|Bio\neil|E|x|y\nlueften|L|71 %|x")}
+    k = kt.berechne(states, "sensor.h", JETZT, lokal=LOKAL_ABEND)
+    assert [x["schluessel"] for x in k] == ["eil", "muell", "kohle", "lueften", "neutral", "ruhig"]
+    # Gleichstand bleibt in Eingabereihenfolge
+    gleich = [{"id": "a", "relevanz": 50}, {"id": "b", "relevanz": 50}, {"id": "c", "relevanz": 90}, {"id": "d"}]
+    assert [x["id"] for x in kt.sortiere(gleich)] == ["c", "a", "b", "d"]

@@ -85,13 +85,14 @@ def test_popup_ohne_panel_und_kamera_tap_action():
     assert sp.aufraeumen(jetzt=5)
 
 
-def test_niedrig_nur_glocke_und_reihenfolge():
+def test_niedrig_ist_passiv_und_reihenfolge():
     sp = PopupSpeicher()
     sp.verarbeiten("script", "panel_meldung", {"tag": "a", "text": "a", "prioritaet": "low"}, jetzt=0)
     sp.verarbeiten("script", "panel_meldung", {"tag": "b", "text": "b"}, jetzt=1)
     sp.verarbeiten("script", "panel_meldung", {"tag": "c", "text": "c", "prioritaet": "high"}, jetzt=0)
     assert [m["tag"] for m in sp.liste()] == ["c", "b", "a"]
-    assert [k["id"] for k in sp.karten()] == ["msg:c", "msg:b"]
+    assert [k["id"] for k in sp.karten()] == ["msg:c", "msg:b", "msg:a"]  # passiv: Karte und Glocke
+    assert [k["relevanz"] for k in sp.karten()] == [100, 65, 35]
     assert sp.verarbeiten("light", "turn_on", {}) is None
     assert sp.verarbeiten("script", "panel_meldung", {"text": "ohne Kennung"}) is None
 
@@ -104,3 +105,23 @@ def test_sicherheitsmeldung_merkmal():
     sp.verarbeiten("script", "panel_meldung", {"tag": "kohle", "text": "Kohle", "prioritaet": "high"}, jetzt=0)
     assert sp.meldungen["msg:rauch"]["sicherheit"] is True
     assert sp.meldungen["msg:kohle"]["sicherheit"] is False
+
+
+def test_stufen_und_rueckwaertskompatibilitaet():
+    sp = PopupSpeicher()
+    for tag, extra in [("a", {"prioritaet": "high"}), ("b", {"prioritaet": "normal"}), ("c", {}), ("d", {"prioritaet": "low"}),
+                       ("e", {"prioritaet": "zeitkritisch"}), ("f", {"stufe": "passiv"}), ("g", {"stufe": "kritisch", "prioritaet": "low"}),
+                       ("h", {"stufe": "unsinn"})]:
+        sp.verarbeiten("script", "panel_meldung", {"tag": tag, "text": tag, **extra}, jetzt=0)
+    stufe = {m["tag"]: m["stufe"] for m in sp.meldungen.values()}
+    assert stufe == {"a": "kritisch", "b": "aktiv", "c": "aktiv", "d": "passiv", "e": "zeitkritisch", "f": "passiv", "g": "kritisch", "h": "aktiv"}
+    assert sp.meldungen["msg:a"]["prio"] == "high" and sp.meldungen["msg:e"]["prio"] == "normal"
+    assert sp.meldungen["msg:e"]["bis"] == 120 * 60 and sp.meldungen["msg:a"]["bis"] == 240 * 60
+    assert [m["tag"] for m in sp.liste()][:3] == ["a", "g", "e"]
+
+
+def test_wecken_je_stufe():
+    from panelstudio.popups import weckt
+
+    assert [weckt(s, False) for s in ("passiv", "aktiv", "zeitkritisch", "kritisch")] == [False, True, True, True]
+    assert [weckt(s, True) for s in ("passiv", "aktiv", "zeitkritisch", "kritisch")] == [False, False, False, True]

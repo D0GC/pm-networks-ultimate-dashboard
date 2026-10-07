@@ -517,6 +517,7 @@ class FakeHA:
         r.add_get("/core/api/states", self.rest_states)
         r.add_get("/core/api/config", self.rest_config)
         r.add_post("/core/api/services/{domain}/{service}", self.rest_service)
+        r.add_post("/core/api/states/{eid}", self.rest_zustand_setzen)
         r.add_get("/core/api/camera_proxy/{eid}", self.rest_camera)
         r.add_get("/core/api/media_player_proxy/{eid}", self.rest_cover)
         r.add_get("/core/api/camera_proxy_stream/{eid}", self.rest_camera_stream)
@@ -639,6 +640,13 @@ class FakeHA:
         data = await request.json()
         self.service(request.match_info["domain"], request.match_info["service"], data)
         return web.json_response([])
+
+    async def rest_zustand_setzen(self, request):
+        """Wie HA: POST /api/states/<eid> {state, attributes} (für Vorschau und Tests, z. B. sun.sun below_horizon)."""
+        self._auth(request)
+        data = await request.json()
+        self.set_state(request.match_info["eid"], str(data.get("state")), **(data.get("attributes") or {}))
+        return web.json_response({})
 
     # ------------------------------------------------------------------ Zustände ändern
     def set_state(self, eid: str, state: str, **attrs) -> None:

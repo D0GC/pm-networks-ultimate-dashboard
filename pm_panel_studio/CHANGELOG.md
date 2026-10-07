@@ -1,5 +1,25 @@
 # Änderungen
 
+## 2026.10.8 – 2026-10-07
+
+Konzept Stufe 4 nach den Apple Human Interface Guidelines, aufbauend auf dem Bewegungskonzept. Der Feed sieht aus
+wie bisher.
+
+- Meldungen in vier Stufen (`stufe`: passiv, aktiv, zeitkritisch, kritisch; `prioritaet` high/normal/low bleibt
+  gültig). Passiv nur Feed und Glocke; aktiv weckt tagsüber; zeitkritisch weckt tagsüber mit kurzem Ton und gelbem
+  Rahmenglühen; kritisch durchbricht Ruhe und Nacht. Nachts (Sonne unter dem Horizont) weckt nur kritisch.
+- Feed nach Relevanz sortiert, Rotation bleibt; wichtigere Karten stehen etwas länger.
+- Feed-Karten lassen sich wischen; das Sheet folgt beim Herunterziehen dem Finger und federt zurück oder schließt.
+- Ein Raum schließt so, wie er aufgeht: zurück in seine Zeile bzw. Kachel.
+- Live-Kapsel für laufende Timer auf Unterseiten (nicht auf der Startseite): Ecke unten rechts, frei verschiebbar,
+  schwebt beim Loslassen in die nächste Ecke und merkt sich diese.
+- Optimistisches Schalten: Kacheln springen sofort um, zeigen bei Verzögerung einen Warte-Kreis und kehren bei Fehler
+  mit Hinweis zurück.
+- Glas für Dock und Seitenkopf, konzentrische Radien, feste Schriftrollen.
+- Neue Option „Lesbarkeit“: mehr Kontrast, Tippflächen ab 64 px, Zustände zusätzlich als Form.
+- Lange Eilmeldungen werden auf der Karte nach vier Zeilen gekürzt.
+- Entfernt: Lichtstrahl beim Aufwecken.
+
 ## 2026.10.7 – 2026-10-07
 
 - Energie: Die Geräteliste zeigt die Leistung jedes Geräts live; sie ändert sich mit dem Leistungssensor, ohne dass

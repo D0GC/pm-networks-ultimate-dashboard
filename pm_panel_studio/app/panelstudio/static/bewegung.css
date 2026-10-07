@@ -145,3 +145,6 @@ body.ohne-animation .karussell .karte.glut::after{animation:none}
 .karte p.liste span{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .karte p.liste b{display:inline-block;min-width:8.5rem;font-weight:600;color:var(--farbe,var(--lavender));font-variant-numeric:tabular-nums}
 .dialog .eil-text{max-height:40vh;overflow-y:auto;text-align:left;white-space:normal;overflow-wrap:anywhere}
+
+/* Lange Eilmeldung: Karte kürzt nach vier Zeilen, Antippen zeigt den ganzen Text */
+.karte.eil h2{display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}

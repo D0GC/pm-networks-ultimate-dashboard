@@ -28,7 +28,7 @@ from . import karten as kt
 from . import szenen as sz
 from .config import Einstellungen, EinstellungsSpeicher, Options
 from .ha_client import HAClient, HAError
-from .popups import PopupSpeicher, text_aus_inhalt
+from .popups import PopupSpeicher, text_aus_inhalt, weckt
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -282,7 +282,7 @@ class Hub:
         if ergebnis is None:
             return
         m = self.popups.meldungen.get(ergebnis) if ergebnis else None
-        if m and m["prio"] == "high":  # wie an den Panels: hohe Priorität weckt die Anzeige
+        if m and weckt(m["stufe"], self.nacht()):  # kritisch weckt immer, aktiv/zeitkritisch nur am Tag, passiv nie
             self.letzte_bewegung = time.monotonic()
             self._modus_pruefen()
         self._popups_senden(ergebnis or None)
@@ -354,12 +354,20 @@ class Hub:
         if diff:
             await self.senden_alle({"typ": "diff", "zustaende": diff})
 
+    def _lokal(self, jetzt: datetime) -> datetime:
+        """Ortszeit nach der Zeitzone von Home Assistant (für Regeln wie „ab 18 Uhr“)."""
+        try:
+            return jetzt.astimezone(ZoneInfo(self.ha_config.get("time_zone") or "Europe/Berlin"))
+        except (ZoneInfoNotFoundError, ValueError):
+            return jetzt
+
     def _karten_neu(self, senden: bool = True) -> None:
+        jetzt = datetime.now(UTC)
         karten = kt.berechne(
-            self.states, self.opts.hinweise_entitaet, datetime.now(UTC), self.einstellungen.karten_aus, self.musik
+            self.states, self.opts.hinweise_entitaet, jetzt, self.einstellungen.karten_aus, self.musik, self._lokal(jetzt)
         )
         if "meldung" not in self.einstellungen.karten_aus:
-            karten = self.popups.karten() + karten
+            karten = kt.sortiere(self.popups.karten() + karten)
         roh = json.dumps(karten, ensure_ascii=False, sort_keys=True)
         if roh == self._karten_json:
             return
