@@ -427,7 +427,8 @@
       k.i = ix++;
     }));
     // Auftauch-Animation nur beim ersten Aufbau; Live-Updates zeichnen ohne Einblenden neu
-    box.classList.toggle("live", !erst && !!f.aufgebaut);
+    // Eigener Klassenname: „.live“ gehört der Live-Kapsel (live.css) und blendet das Element sonst aus
+    box.classList.toggle("fluss-live", !erst && !!f.aufgebaut);
     f.aufgebaut = true;
     // Teilchen-Canvas über den Neuaufbau retten, damit die Teilchen weiterlaufen
     const leinwand = box.querySelector("canvas.fluss-teilchen");

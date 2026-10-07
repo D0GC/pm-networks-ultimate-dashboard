@@ -7,6 +7,9 @@
 - Das Panel lädt sich nach einem Update der App selbst neu. Bisher lief im offenen Browser der alte Code weiter;
   beim ersten Klingeln nach 2026.10.12 fehlte deshalb „Sprechen“, und „Tür öffnen“ öffnete den allgemeinen
   Türöffner (Wohnungsschloss) statt der Haustür.
+- Energiefluss: Der Fluss verschwand nach der ersten Live-Aktualisierung (nach etwa 2 Sekunden). Er setzte dabei die
+  Klasse „live“, die seit 2026.10.x der Live-Kapsel gehört und Elemente ohne „sichtbar“ ausblendet und verkleinert.
+  Der Energiefluss nutzt jetzt „fluss-live“.
 
 ## 2026.10.13 – 2026-10-07
 

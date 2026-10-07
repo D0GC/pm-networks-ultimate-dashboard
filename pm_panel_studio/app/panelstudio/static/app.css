@@ -504,9 +504,9 @@ body.ruhe .gruss.an{opacity:.6}
 .sankey-svg{width:100%;height:auto;display:block;overflow:visible}
 .sankey .band{fill:var(--farbe);opacity:.38;clip-path:inset(0 100% 0 0);animation:band-auf 1.1s var(--ease-aus) forwards;animation-delay:calc(var(--t) * .28s)}
 .sankey .band:hover{opacity:.6}
-.sankey.live .band{clip-path:none;animation:none}
-.sankey.live .knoten{transform:none;animation:none}
-.sankey.live .fluss-text{opacity:1;animation:none}
+.sankey.fluss-live .band{clip-path:none;animation:none}
+.sankey.fluss-live .knoten{transform:none;animation:none}
+.sankey.fluss-live .fluss-text{opacity:1;animation:none}
 @keyframes band-auf{to{clip-path:inset(0 0 0 0)}}
 .sankey .knoten{transform-box:fill-box;transform-origin:center;transform:scaleY(0);animation:knoten-auf .7s var(--ease-aus) forwards;animation-delay:calc(var(--t) * .28s)}
 .sankey .knoten.klick{cursor:pointer}
