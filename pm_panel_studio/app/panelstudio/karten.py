@@ -32,6 +32,8 @@ QUELLEN = {
     "kohle_timer": "timer.kohle_timer",
     "waesche_status": "sensor.karl_die_waschmaschine_aktueller_status",
     "waesche_phase": "sensor.waschmaschine_phase",
+    # Programmende (Start + Gesamtdauer, Template-Helfer); der LG-Sensor zeigt nach dem Start nur die Phasen-Restzeit
+    "waesche_ende": "sensor.waschmaschine_programmende",
     "waesche_rest": "sensor.karl_die_waschmaschine_verbleibende_zeit",
     "waesche_fortschritt": "sensor.waschmaschine_fortschritt",
     "spueler_status": "sensor.dishwasher_bsh_common_status_operationstate",
@@ -176,7 +178,9 @@ def akt_waesche(states: States, jetzt: datetime) -> dict | None:
     laeuft = status == "running" or (phase not in INAKTIV and str(phase).lower() not in ("aus", "fertig"))
     if not laeuft:
         return None
-    rest, _ende = _rest_aus_sensor(states, QUELLEN["waesche_rest"], jetzt)
+    rest, _ende = _rest_aus_sensor(states, QUELLEN["waesche_ende"], jetzt)
+    if rest is None:
+        rest, _ende = _rest_aus_sensor(states, QUELLEN["waesche_rest"], jetzt)
     pct = _num(_state(states, QUELLEN["waesche_fortschritt"]))
     hinweis = str(phase) if phase not in INAKTIV else "läuft"
     if pct is not None:
