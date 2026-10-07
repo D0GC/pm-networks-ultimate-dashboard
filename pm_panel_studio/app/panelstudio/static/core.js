@@ -314,10 +314,14 @@
   };
   // Kritische Aktionen (Entriegeln, Türöffner, Unscharf) lösen erst nach 2 s Halten aus, wie an den Panels.
   // Geprüft wird beim Drücken, nicht beim Aufbau: Ein Schloss wechselt seinen Zustand, die Kachel bleibt.
+  PS.oeffner = (eid) => !!eid && (eid === PS.opt.tueroeffner || eid === PS.opt.haustueroeffner) && PS.domain(eid) !== "lock";
   PS.kritisch = (eid) => {
     const d = PS.domain(eid);
-    return (d === "lock" && PS.s(eid) !== "unlocked" && PS.s(eid) !== "open") || eid === PS.opt.tueroeffner;
+    return (d === "lock" && PS.s(eid) !== "unlocked" && PS.s(eid) !== "open") || PS.oeffner(eid);
   };
+  // Gruppe Zugang: Schlösser, dann Türöffner und Haustür-Öffner, jede Entität nur einmal
+  PS.zugang = (schloesser) => [...new Set([...schloesser, PS.opt.tueroeffner, PS.opt.haustueroeffner])]
+    .filter((e) => e && PS.z[e] && (PS.domain(e) === "lock" || PS.oeffner(e)) && PS.sichtbar(e));
   // Modul vorhanden und nutzbar (Klima Studio z. B. nur mit eingerichtetem Schlüssel)
   PS.modulDa = (m) => !!PS.module[m] && (!PS.module[m].verfuegbar || PS.module[m].verfuegbar());
   // Schalter mit Freigabe (Server-Hauptschalter im Büro): schaltbar nur, solange der Freigabe-Helfer an ist
@@ -329,6 +333,8 @@
     const ab = () => { clearTimeout(t); t = null; el.classList.remove("haelt"); };
     if (!el.querySelector(".halten")) el.insertAdjacentHTML("afterbegin", '<span class="halten"></span>');
     el.style.setProperty("--halte", ms + "ms");
+    // Kein Verschieben der Seite während des Haltens (sonst bricht der Browser mit pointercancel ab)
+    el.style.touchAction = "none";
     el.addEventListener("contextmenu", (ev) => { ev.preventDefault(); ev.stopPropagation(); });
     el.addEventListener("pointerdown", (ev) => {
       sofort = !!bedingung && !bedingung();
@@ -353,7 +359,8 @@
       if (!t) return;
       const dauer = Date.now() - ab0; ab();
       if (n === "pointerup" && kurz && dauer < 350) { kurz(ev); return; }
-      PS.toast(`Zum Auslösen ${Math.round(ms / 100) / 10} Sekunden halten`.replace(".", ","));
+      const sek = Math.round(ms / 100) / 10;
+      PS.toast(`${el.dataset.halteText || "Zum Auslösen"} ${String(sek).replace(".", ",")} ${sek === 1 ? "Sekunde" : "Sekunden"} halten`);
     }));
     el.addEventListener("click", () => { if (sofort) { sofort = false; aktion(); } });
   };
@@ -430,8 +437,15 @@
     PS.kachelAktualisieren(el, el.dataset.bereich || undefined);
     const eid = el.dataset.eid;
     if (el._verdrahtet) return; el._verdrahtet = true;
-    if (PS.domain(eid) === "lock" || eid === PS.opt.tueroeffner) {
-      PS.halten(el, 2000, () => PS.umschalten(eid), () => PS.kritisch(eid), () => PS.mehrInfos(eid));
+    // Schloss: Halten mit Ring um den Finger öffnet den Schloss-Dialog (Verriegeln, Entriegeln, Öffnen).
+    // Entriegeln und Öffnen verlangen dort erneut Halten. Der Haustür-Öffner löst nach 2 s Halten direkt aus.
+    if (PS.domain(eid) === "lock") {
+      el.dataset.halteText = "Zum Öffnen des Schlosses";
+      PS.halten(el, 1000, () => PS.mehrInfos(eid));
+      return;
+    }
+    if (PS.oeffner(eid)) {
+      PS.halten(el, 2000, () => PS.umschalten(eid), null, () => PS.mehrInfos(eid));
       return;
     }
     PS.tippen(el, (ev) => {

@@ -276,7 +276,7 @@
       case "automation": box.appendChild(reihe(knopf(st.s === "on" ? "Deaktivieren" : "Aktivieren", "power", svc("automation", "toggle", E)), knopf("Jetzt ausführen", "play", svc("automation", "trigger", E), "primaer"))); break;
       case "button": case "input_button": {
         const b = knopf("Auslösen", "gesture-tap-button", null, "primaer");
-        if (eid === PS.opt.tueroeffner) PS.halten(b, 2000, svc(d, "press", E)); else b.addEventListener("click", svc(d, "press", E));
+        if (PS.oeffner(eid)) PS.halten(b, 2000, svc(d, "press", E)); else b.addEventListener("click", svc(d, "press", E));
         box.appendChild(reihe(b)); break;
       }
       case "switch": case "input_boolean": case "siren": case "humidifier": case "valve":

@@ -26,6 +26,9 @@ configuration:
   tueroeffner:
     name: Türöffner
     description: button- oder lock-Entität für „Tür öffnen“. Auslösen nur nach 2 Sekunden Halten.
+  haustueroeffner:
+    name: Haustür-Öffner
+    description: button-Entität des Haustür-Öffners für die Gruppe Zugang (Standard button.haustur_tur_offnen). Auslösen nur nach 2 Sekunden Halten.
   klima_praefix:
     name: Präfix PM Klima
     description: Nur Thermostate mit diesem Präfix werden gezeigt (Standard climate.pm_). Thermostate ohne Bereich werden über den Namen einem Bereich zugeordnet.

@@ -282,7 +282,7 @@
       render(el) {
         const alarm = alle().filter(dom("alarm_control_panel")).filter(PS.sichtbar);
         if (alarm.length) { const r = E('<div class="raster breit"></div>'); alarm.forEach((a) => r.appendChild(PS.alarmSteuerung(a))); el.appendChild(gruppe("Alarmanlage", r)); }
-        const zugang = [...alle().filter(dom("lock")), ...(PS.opt.tueroeffner && PS.z[PS.opt.tueroeffner] ? [PS.opt.tueroeffner] : [])].filter(PS.sichtbar);
+        const zugang = PS.zugang(alle().filter(dom("lock")));
         if (zugang.length) el.appendChild(gruppe("Zugang", kachelRaster(zugang)));
         const bs = (klassen) => alle().filter((e) => e.startsWith("binary_sensor.") && PS.sichtbar(e) && klassen.includes(PS.a(e).device_class));
         const kontakte = bs(["door", "window", "opening", "garage_door"]).sort((x, y) => (PS.s(y) === "on") - (PS.s(x) === "on") || sortName()(x, y));

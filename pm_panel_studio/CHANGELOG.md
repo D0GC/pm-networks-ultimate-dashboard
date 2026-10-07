@@ -1,5 +1,15 @@
 # Änderungen
 
+## 2026.10.4 – 2026-10-07
+
+- Zugang: Das Schloss öffnet nicht mehr direkt. Halten mit Ring um den Finger (1 s) öffnet den Schloss-Dialog mit
+  Verriegeln, Entriegeln und Öffnen; Entriegeln und Öffnen verlangen dort erneut 2 s Halten. Halten bricht beim
+  Wischen nicht mehr ab (kein Verschieben der Seite während des Haltens).
+- Zugang: Neue Option `haustueroeffner` (Standard `button.haustur_tur_offnen`). Die Gruppe zeigt Schlösser und
+  Haustür-Öffner, jede Entität nur einmal; ist `tueroeffner` das Schloss selbst, erscheint es nicht mehr doppelt.
+- Energie: Der Energiefluss zeigt die Live-Leistung in Watt aus den Leistungssensoren des Energie-Dashboards und
+  nur die Geräte, die gerade verbrauchen.
+
 ## 2026.10.3 – 2026-10-07
 
 - Energie: Geräte und Kaskaden folgen dem Energie-Dashboard von Home Assistant ohne Neustart. Ist die Seite offen,
