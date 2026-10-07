@@ -601,6 +601,11 @@ class Hub:
             if befehl.get("type") not in WS_ERLAUBT:
                 raise ValueError(f"Befehl {befehl.get('type')} ist nicht erlaubt")
             return await self.client.ws_command(befehl, timeout=60)
+        if typ == "mass_eintrag":
+            # Konfigurationseintrag von Music Assistant (für music_assistant.search/get_library); sonst nur lesend
+            res = await self.client.ws_command({"type": "config_entries/get", "domain": "music_assistant"}, timeout=20)
+            ids = [e.get("entry_id") for e in res or [] if e.get("domain") == "music_assistant" and e.get("state") == "loaded"]
+            return ids[0] if ids else None
         if typ == "rest":
             pfad = str(msg.get("pfad", ""))
             if not pfad.startswith(REST_ERLAUBT) or ".." in pfad:

@@ -408,7 +408,7 @@
         const h = Math.min(ch.h, Math.max(0, k.h - off)) || ch.h;
         const x0 = k.x + KB, y0 = k.y + off, x1 = ch.x, y1 = ch.y, xm = (x0 + x1) / 2;
         baender += `<path class="band" style="--t:${ch.t};--farbe:${ch.farbe}" d="M${x0},${y0}C${xm},${y0} ${xm},${y1} ${x1},${y1}L${x1},${y1 + h}C${xm},${y1 + h} ${xm},${y0 + h} ${x0},${y0 + h}Z"/>`;
-        teilchenBaender.push({ x0, y0, x1, y1, h, farbe: ch.farbe, watt: ch.wert });
+        teilchenBaender.push({ id: `${k.name}>${ch.name}`, x0, y0, x1, y1, h, farbe: ch.farbe, watt: ch.wert });
         off += h;
       });
       knotenSvg += `<rect class="knoten${k.eid ? " klick" : ""}" data-i="${ix}" style="--t:${k.t};fill:${k.farbe}" x="${k.x}" y="${k.y}" width="${KB}" height="${k.h}" rx="2"/>`;
@@ -418,7 +418,10 @@
     // Auftauch-Animation nur beim ersten Aufbau; Live-Updates zeichnen ohne Einblenden neu
     box.classList.toggle("live", !erst && !!f.aufgebaut);
     f.aufgebaut = true;
+    // Teilchen-Canvas über den Neuaufbau retten, damit die Teilchen weiterlaufen
+    const leinwand = box.querySelector("canvas.fluss-teilchen");
     box.innerHTML = `<svg class="sankey-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">${baender}${knotenSvg}${texte}</svg>`;
+    if (leinwand) box.appendChild(leinwand);
     const alleK = spalten.flat();
     // Lichtteilchen: Dichte nach Leistung (flussTeilchen ersetzt/stoppt die vorige Instanz der Box)
     if (PS.flussTeilchen) {

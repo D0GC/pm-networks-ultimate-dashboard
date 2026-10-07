@@ -1,0 +1,84 @@
+/* PM Panel Studio – Music Assistant (nutzt die Raumansicht: .raum-ansicht, .r-spalte, .r-box) */
+.raum-ansicht.musik{grid-template-columns:27% minmax(0,1fr) 28%}
+.raum-ansicht.musik .r-spalte:nth-child(2) .r-box{flex:1}
+.musik-host{display:flex;flex-direction:column;flex:1;min-height:0}
+
+/* Cover: Bild über einem Symbol; fehlt oder scheitert das Bild, bleibt das Symbol */
+.musik-cover{position:relative;overflow:hidden;display:grid;place-items:center;background:linear-gradient(150deg,var(--flaeche-hell),var(--flaeche-tief));color:var(--leise);flex:none}
+.musik-cover img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.musik-cover img[hidden]{display:none}
+.musik-cover.klein{width:3.6rem;height:3.6rem;border-radius:.7rem}
+.musik-cover.klein .mdi{font-size:1.8rem}
+.musik-cover.quadrat{width:100%;aspect-ratio:1;border-radius:.9rem}
+.musik-cover.quadrat .mdi{font-size:2.6rem}
+.musik-cover.gross{height:100%;max-height:100%;aspect-ratio:1;border-radius:1.4rem;box-shadow:0 1.2rem 3rem rgba(0,0,0,.45)}
+.musik-cover.gross .mdi{font-size:7rem}
+
+/* Links: Player */
+.musik-playerliste{display:flex;flex-direction:column;gap:.7rem}
+.musik-player{all:unset;box-sizing:border-box;cursor:pointer;display:flex;align-items:center;gap:1rem;padding:.8rem 1rem;border-radius:var(--r);background:var(--flaeche-tief);border:1px solid var(--linie);transition:background .3s,transform .15s,border-color .3s}
+.musik-player:active{transform:scale(.97)}
+.musik-player .txt{display:flex;flex-direction:column;min-width:0;flex:1}
+.musik-player b{font-size:1.25rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.musik-player small{font-size:1rem;color:var(--leise);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.musik-player.spielt small{color:var(--cloud)}
+.musik-player.gewaehlt{background:linear-gradient(150deg,rgba(120,66,149,.75),rgba(68,49,113,.6));border-color:var(--linie-stark)}
+.musik-player.weg{opacity:.45}
+.musik-player .eq{display:none;align-items:flex-end;gap:.18rem;height:1.5rem;flex:none}
+.musik-player.spielt .eq{display:flex}
+.musik-player .eq i{width:.28rem;border-radius:.1rem;background:var(--akzent);height:40%;animation:musik-eq 1s ease-in-out infinite}
+.musik-player .eq i:nth-child(2){animation-delay:-.4s}
+.musik-player .eq i:nth-child(3){animation-delay:-.75s}
+@keyframes musik-eq{0%,100%{height:25%}50%{height:100%}}
+
+/* Mitte: Läuft gerade */
+.musik-jetzt{display:flex;flex-direction:column;gap:1.2rem;flex:1;min-height:0}
+.musik-buehne{flex:1;min-height:12rem;display:flex;justify-content:center;align-items:center}
+.musik-info{display:flex;flex-direction:column;gap:.25rem;text-align:center;min-width:0}
+.musik-info .titel{font-size:1.9rem;font-weight:700;line-height:1.2;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.musik-info .interpret{font-size:1.35rem;color:var(--cloud)}
+.musik-info .album{font-size:1.1rem;color:var(--leise)}
+.musik-zeit{display:flex;align-items:center;gap:1rem;font-size:1rem;color:var(--leise)}
+.musik-zeit.ohne{visibility:hidden}
+.musik-balken{flex:1;height:.5rem;border-radius:.25rem;background:var(--flaeche-tief);overflow:hidden}
+.musik-balken i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--violet),var(--purple),var(--lavender));transition:width 1s linear}
+.musik-steuer{justify-content:center;gap:1.1rem}
+.knopf.rund.gross{width:5rem;height:5rem}
+.knopf.rund.gross .mdi{font-size:2.6rem}
+.musik-laut[hidden],.musik-laut .schieber[hidden]{display:none}
+.musik-leerzustand{display:none;flex-direction:column;align-items:center;justify-content:center;gap:.6rem;flex:1;text-align:center;color:var(--leise)}
+.musik-leerzustand .mdi{font-size:6rem;color:var(--violet)}
+.musik-leerzustand b{font-size:1.6rem;color:var(--cloud);font-weight:600}
+.musik-leerzustand small{font-size:1.1rem}
+.musik-jetzt.leer>.musik-buehne,.musik-jetzt.leer>.musik-info,.musik-jetzt.leer>.musik-zeit,.musik-jetzt.leer>.musik-steuer{display:none}
+.musik-jetzt.leer>.musik-leerzustand{display:flex}
+.musik-jetzt.kein-player>.musik-laut{display:none}
+
+/* Rechts: Suche */
+.musik-suche{display:flex;align-items:center;gap:.7rem;padding:0 1rem;height:3.6rem;border-radius:1rem;background:var(--flaeche-tief);border:1px solid var(--linie);color:var(--leise)}
+.musik-suche .mdi{font-size:1.6rem}
+.musik-suche:focus-within{border-color:var(--linie-stark)}
+.musik-suche input{all:unset;flex:1;min-width:0;font-size:1.15rem;color:var(--cloud)}
+.musik-suche input::placeholder{color:var(--leise)}
+.r-box h3 small .ziel{color:var(--cloud);font-weight:600}
+.musik-treffer-liste{display:flex;flex-direction:column;gap:.9rem}
+.musik-gruppe{display:flex;flex-direction:column;gap:.45rem}
+.musik-gruppe h4{margin:0;display:flex;align-items:center;gap:.5rem;font-size:.9rem;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--leise)}
+.musik-gruppe h4 .mdi{font-size:1.2rem}
+.musik-treffer{display:flex;align-items:center;gap:.5rem}
+.musik-treffer .haupt{all:unset;box-sizing:border-box;cursor:pointer;flex:1;min-width:0;display:flex;align-items:center;gap:.8rem;padding:.4rem .5rem;border-radius:.8rem;transition:background .2s}
+.musik-treffer .haupt:active{background:var(--flaeche-hell)}
+.musik-treffer .txt{display:flex;flex-direction:column;min-width:0}
+.musik-treffer b{font-size:1.1rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.musik-treffer small{font-size:.95rem;color:var(--leise);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.musik-treffer .knopf.rund{width:2.8rem;height:2.8rem;flex:none}
+.musik-treffer .knopf.rund .mdi{font-size:1.5rem}
+
+/* Rechts: Bibliothek */
+.musik-chips{gap:.5rem}
+.knopf.chip{padding:.45rem 1rem;font-size:1rem;border-radius:2rem}
+.musik-kacheln{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.8rem}
+.musik-kachel{all:unset;box-sizing:border-box;cursor:pointer;display:flex;flex-direction:column;gap:.5rem;min-width:0;transition:transform .15s;animation:auftauchen .5s var(--ease-aus) both;animation-delay:calc(var(--i,0) * 35ms)}
+.musik-kachel:active{transform:scale(.95)}
+.musik-kachel .txt{display:block;min-width:0}
+.musik-kachel b{font-size:1rem;font-weight:600;line-height:1.2;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}

@@ -54,9 +54,11 @@
     return u * u * u * a + 3 * u * u * t * b + 3 * u * t * t * c + t * t * t * d;
   }
 
+  // Live-Aktualisierung: Läuft in der Hülle schon eine Instanz, übernimmt sie die neuen Bänder und behält ihre
+  // Teilchen (gleiches Band = gleiche id). Ein Neustart ließe die Teilchen kurz verschwinden und von vorn beginnen.
   PS.flussTeilchen = function (huelle, svg, baender) {
     if (!huelle || !svg) return;
-    // vorhandene Instanz ersetzen
+    if (huelle._fluss && huelle._fluss.laeuft()) { huelle._fluss.setzen(svg, baender); return; }
     if (huelle._flussStop) huelle._flussStop();
     huelle.querySelectorAll("canvas.fluss-teilchen").forEach((n) => n.remove());
     if (getComputedStyle(huelle).position === "static") huelle.style.position = "relative";
@@ -69,31 +71,35 @@
 
     const vb = svg.viewBox && svg.viewBox.baseVal;
     const W = vb && vb.width ? vb.width : 640;
-    const H = vb && vb.height ? vb.height : 300;
 
     let dpr = 1, skala = 1, offX = 0, offY = 0, cssW = 0;
     let gestoppt = false, timer = 0, raf = 0, letzter = 0;
     const start = performance.now() + START_VERZOEGERUNG;
     const reduziert = window.matchMedia ? window.matchMedia("(prefers-reduced-motion: reduce)") : null;
 
-    // Teilchen je Band vorbereiten
-    const liste = (baender || []).map((b) => {
-      const rgb = farbeAufloesen(b.farbe);
-      const n = Math.max(0, Math.round((b.anteil || 0) * MAX_ANZAHL));
-      const basis = 0.18 + (b.anteil || 0) * 0.1; // Bandlängen pro Sekunde
-      const teile = [];
-      for (let i = 0; i < n; i++) {
-        teile.push({
-          t: (i + Math.random()) / n,
-          v: 0.2 + Math.random() * 0.6,
-          tempo: basis * (0.8 + Math.random() * 0.4),
-          r: 2.5 + Math.random() * 1.5,
-        });
-      }
-      return { b, rgb, teile };
-    }).filter((e) => e.teile.length);
+    // Teilchen je Band vorbereiten; vorhandene Teilchen eines Bandes (gleiche id) laufen weiter
+    let liste = [];
+    function baenderSetzen(neu) {
+      const alt = new Map(liste.map((e) => [e.b.id, e]));
+      liste = (neu || []).map((b, j) => {
+        const rgb = farbeAufloesen(b.farbe);
+        const n = Math.max(0, Math.round((b.anteil || 0) * MAX_ANZAHL));
+        const basis = 0.18 + (b.anteil || 0) * 0.1; // Bandlängen pro Sekunde
+        const vorher = b.id != null ? alt.get(b.id) : null;
+        const teile = vorher ? vorher.teile.slice(0, n) : [];
+        for (const p of teile) p.tempo = basis * p.faktor;
+        for (let i = teile.length; i < n; i++) {
+          const faktor = 0.8 + Math.random() * 0.4;
+          // neue Teilchen beginnen am Bandanfang verteilt, beim ersten Aufbau über das ganze Band
+          teile.push({ t: vorher ? Math.random() * 0.15 : (i + Math.random()) / n, v: 0.2 + Math.random() * 0.6, faktor, tempo: basis * faktor, r: 2.5 + Math.random() * 1.5 });
+        }
+        return { b: { ...b, id: b.id != null ? b.id : `#${j}` }, rgb, teile };
+      }).filter((e) => e.teile.length);
+    }
+    baenderSetzen(baender);
 
     function groesse() {
+      if (!svg.isConnected) return;
       const r = svg.getBoundingClientRect();
       const huellenR = huelle.getBoundingClientRect();
       dpr = window.devicePixelRatio || 1;
@@ -117,9 +123,14 @@
       clearTimeout(timer);
       cancelAnimationFrame(raf);
       if (ro) ro.disconnect();
-      if (huelle._flussStop === beenden) huelle._flussStop = null;
+      if (huelle._flussStop === beenden) { huelle._flussStop = null; huelle._fluss = null; }
     }
     huelle._flussStop = beenden;
+    huelle._fluss = {
+      laeuft: () => !gestoppt && canvas.isConnected && huelle.contains(canvas),
+      // neues SVG (gleiche viewBox) und neue Bänder; Teilchen und Canvas bleiben
+      setzen(neuSvg, neu) { svg = neuSvg; baenderSetzen(neu); groesse(); },
+    };
 
     function pausiert() {
       const k = document.body.classList;
