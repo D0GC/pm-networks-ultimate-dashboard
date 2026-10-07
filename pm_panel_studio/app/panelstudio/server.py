@@ -144,6 +144,7 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
             hub.spawn(_anfrage(hub, ws, data))
     finally:
         hub.clients.discard(ws)
+        await hub.gespraeche_beenden(ws)
         _LOGGER.info("Panel getrennt, jetzt %d", len(hub.clients))
     return ws
 
@@ -151,7 +152,7 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
 async def _anfrage(hub: Hub, ws: web.WebSocketResponse, data: dict[str, Any]) -> None:
     antwort: dict[str, Any] = {"typ": "antwort", "id": data.get("id")}
     try:
-        antwort["ergebnis"] = await hub.anfrage(data)
+        antwort["ergebnis"] = await hub.anfrage(data, ws)
         antwort["ok"] = True
     except (HAError, ValueError) as err:
         antwort["ok"] = False

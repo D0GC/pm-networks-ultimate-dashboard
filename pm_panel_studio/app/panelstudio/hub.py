@@ -6,6 +6,7 @@ Die Panels erhalten über ihren WebSocket nur fertige Daten:
   karten      Karussell-Inhalt, wenn er sich ändert
   modus       wach / ruhe, nacht, Verbindungsstatus
   ereignis    Klingel bzw. Person an der Tür (Kamera-Overlay)
+  intercom    Signalisierung eines Gesprächs mit der Ring Intercom (nur an das Panel, das es führt)
   einstellungen  nach Änderung im Editor
   registry    nach Änderung von Bereichen oder Entitäten
 """
@@ -17,6 +18,7 @@ import contextlib
 import json
 import logging
 import re
+import secrets
 import time
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -67,6 +69,8 @@ REST_ERLAUBT = ("calendars/", "logbook/", "history/period/")
 AUFNAHME_WURZEL = "media-source://reolink"
 AUFNAHME_TAG = "media-source://reolink/DAY|"
 AUFNAHME_DATEI = "media-source://reolink/FILE|"
+INTERCOM_DOMAIN = "pm_ring_intercom"
+SDP_MAX = 20000
 BILD_ERLAUBT = ("/api/camera_proxy/", "/api/media_player_proxy/", "/api/image_proxy/", "/api/image/serve/")
 
 
@@ -132,6 +136,8 @@ class Hub:
         # Ereignis
         self.ereignis: dict[str, Any] | None = None
         self._ereignis_bis = 0.0
+        # Gespräche mit der Ring Intercom: eigene Kennung -> Panel-Socket und HA-Abonnement
+        self.gespraeche: dict[str, dict[str, Any]] = {}
 
     # ------------------------------------------------------------ Lebenszyklus
 
@@ -173,6 +179,7 @@ class Hub:
                 raise
             except Exception:
                 _LOGGER.exception("Unerwarteter Fehler in der Verbindung")
+            await self.gespraeche_beenden(grund="Verbindung zu Home Assistant getrennt")
             if self.verbunden:
                 self.verbunden = False
                 await self.senden_alle({"typ": "modus", **self.modus_daten()})
@@ -345,7 +352,10 @@ class Hub:
             self._modus_pruefen()
         if eid == "sun.sun":
             self.spawn(self.senden_alle({"typ": "modus", **self.modus_daten()}))
-        if eid in self.opts.ereignis_ausloeser and neu and neu.get("state") == "on" and (alt or {}).get("state") != "on":
+        an = neu and neu.get("state") == "on" and (alt or {}).get("state") != "on"
+        if an and eid in self.opts.intercom_ausloeser:
+            self.ereignis_starten(eid, "Haustür", intercom=True)
+        elif an and eid in self.opts.ereignis_ausloeser:
             self.ereignis_starten(eid)
 
     async def _flush(self) -> None:
@@ -402,7 +412,12 @@ class Hub:
         self._modus_pruefen()
 
     def ereignis_starten(
-        self, ausloeser: str, titel: str | None = None, kamera: str | None = None, tag: str | None = None
+        self,
+        ausloeser: str,
+        titel: str | None = None,
+        kamera: str | None = None,
+        tag: str | None = None,
+        intercom: bool = False,
     ) -> None:
         st = self.states.get(ausloeser) or {}
         name = titel or (st.get("attributes") or {}).get("friendly_name") or ausloeser
@@ -412,7 +427,9 @@ class Hub:
             "ausloeser": ausloeser,
             "titel": name,
             "kamera": kamera or alt.get("kamera") or self.opts.ereignis_kamera or None,
-            "tueroeffner": self.opts.tueroeffner or None,
+            # An der Haustür öffnet „Tür öffnen“ die Haustür, sonst der allgemeine Türöffner
+            "tueroeffner": (self.opts.haustueroeffner if intercom else self.opts.tueroeffner) or None,
+            "intercom": intercom or bool(alt.get("intercom")),
             "tag": tag or alt.get("tag"),
             "seit": alt.get("seit") or datetime.now(UTC).isoformat(),
         }
@@ -466,6 +483,9 @@ class Hub:
             await asyncio.sleep(1)
             zaehler += 1
             self._modus_pruefen()
+            if self.ereignis and self.gespraeche:
+                # Während eines Gesprächs bleibt das Overlay offen
+                self._ereignis_bis = max(self._ereignis_bis, time.monotonic() + 30)
             if self.ereignis and time.monotonic() > self._ereignis_bis:
                 self.ereignis_beenden()
             if self.popups.aufraeumen():
@@ -593,9 +613,83 @@ class Hub:
             raise ValueError("Aufnahme nicht abspielbar")
         return url
 
-    async def anfrage(self, msg: dict[str, Any]) -> Any:
+    # ------------------------------------------------------------ Gegensprechen (Ring Intercom)
+
+    async def gespraech_starten(self, ws: web.WebSocketResponse | None, angebot: Any) -> str:
+        """Gespräch über PM Ring Intercom aufbauen. Signalisierung (Sitzung, Antwort, Kandidaten, Ende) geht nur an
+        das anfragende Panel; der Ton selbst läuft direkt zwischen Panel-Browser und Ring."""
+        if ws is None:
+            raise ValueError("Gegensprechen nur über eine Panel-Verbindung")
+        if not isinstance(angebot, str) or not angebot.startswith("v=0") or len(angebot) > SDP_MAX:
+            raise ValueError("SDP-Angebot ungültig")
+        kennung = secrets.token_hex(8)
+        eintrag: dict[str, Any] = {"ws": ws, "sub": None, "sitzung": None}
+        self.gespraeche[kennung] = eintrag
+
+        def rueckruf(event: dict[str, Any]) -> None:
+            if event.get("type") == "session":
+                eintrag["sitzung"] = event.get("session_id")
+            self.spawn(self._an_panel(ws, {"typ": "intercom", "gespraech": kennung, **event}))
+            if event.get("type") in ("closed", "error"):
+                self.spawn(self.gespraech_beenden(kennung, melden=False))
+
+        try:
+            eintrag["sub"] = await self.client.subscribe(
+                {"type": f"{INTERCOM_DOMAIN}/audio/start", "offer": angebot}, rueckruf
+            )
+        except HAError:
+            self.gespraeche.pop(kennung, None)
+            raise
+        _LOGGER.info("Gespräch mit der Haustür gestartet (%s)", kennung)
+        return kennung
+
+    async def gespraech_kandidat(self, kennung: str, kandidat: Any, index: Any) -> bool:
+        eintrag = self.gespraeche.get(kennung)
+        if eintrag is None or not eintrag.get("sitzung"):
+            raise ValueError("Gespräch unbekannt")
+        if not isinstance(kandidat, str) or len(kandidat) > 2000:
+            raise ValueError("Kandidat ungültig")
+        await self.client.ws_command(
+            {
+                "type": f"{INTERCOM_DOMAIN}/audio/candidate",
+                "session_id": eintrag["sitzung"],
+                "candidate": kandidat,
+                "sdp_m_line_index": int(index or 0),
+            },
+            timeout=10,
+        )
+        return True
+
+    async def gespraech_beenden(self, kennung: str, melden: bool = True, grund: str | None = None) -> bool:
+        eintrag = self.gespraeche.pop(kennung, None)
+        if eintrag is None:
+            return False
+        if eintrag.get("sub") is not None:
+            await self.client.unsubscribe(eintrag["sub"])
+        if melden:
+            await self._an_panel(eintrag["ws"], {"typ": "intercom", "gespraech": kennung, "type": "closed", "grund": grund})
+        _LOGGER.info("Gespräch mit der Haustür beendet (%s)", kennung)
+        return True
+
+    async def gespraeche_beenden(self, ws: web.WebSocketResponse | None = None, grund: str | None = None) -> None:
+        """Alle Gespräche beenden, oder nur die eines getrennten Panels."""
+        for kennung, eintrag in list(self.gespraeche.items()):
+            if ws is None or eintrag["ws"] is ws:
+                await self.gespraech_beenden(kennung, melden=ws is None, grund=grund)
+
+    async def _an_panel(self, ws: web.WebSocketResponse, msg: dict[str, Any]) -> None:
+        with contextlib.suppress(Exception):
+            await ws.send_str(json.dumps(msg, ensure_ascii=False, default=str))
+
+    async def anfrage(self, msg: dict[str, Any], ws: web.WebSocketResponse | None = None) -> Any:
         """Bearbeitet eine Anfrage mit ``id``; Rückgabe ist das Ergebnis, Fehler als HAError/ValueError."""
         typ = msg.get("typ")
+        if typ == "intercom_start":
+            return await self.gespraech_starten(ws, msg.get("angebot"))
+        if typ == "intercom_kandidat":
+            return await self.gespraech_kandidat(str(msg.get("gespraech", "")), msg.get("kandidat"), msg.get("index"))
+        if typ == "intercom_ende":
+            return await self.gespraech_beenden(str(msg.get("gespraech", "")), melden=False)
         if typ == "dienst":
             domain, service = str(msg.get("domain", "")), str(msg.get("service", ""))
             if not dienst_erlaubt(domain, service):
@@ -643,6 +737,9 @@ class Hub:
             self.ereignis_beenden()
             return True
         if typ == "ereignis_test":
-            self.ereignis_starten((self.opts.ereignis_ausloeser or ["test"])[0])
+            if msg.get("intercom") and self.opts.intercom_ausloeser:
+                self.ereignis_starten(self.opts.intercom_ausloeser[0], "Haustür", intercom=True)
+            else:
+                self.ereignis_starten((self.opts.ereignis_ausloeser or ["test"])[0])
             return True
         raise ValueError(f"Unbekannte Anfrage {typ}")

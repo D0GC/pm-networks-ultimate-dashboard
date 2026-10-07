@@ -270,6 +270,9 @@ body.ereignis-an .ereignis .bild{transform:none;animation:klingel 1.8s ease-out 
 .ereignis .akt{position:absolute;left:0;right:0;bottom:1.6rem;display:flex;justify-content:center;gap:1rem}
 .ereignis .akt .knopf{background:rgba(15,12,42,.82);font-size:1.25rem;padding:1rem 1.8rem}
 .ereignis .akt .knopf.primaer{background:var(--purple)}
+.ereignis .akt .knopf.gefahr{background:rgba(239,106,122,.85);color:var(--cloud)}
+.ereignis .intercom-status{position:absolute;right:1.6rem;top:1.3rem;font-size:1.15rem;font-weight:600;color:var(--cloud);background:rgba(15,12,42,.72);padding:.45rem 1rem;border-radius:99px}
+body.gespraech .ereignis .bild{animation:none;border-color:var(--purple)}
 
 /* Meldungen */
 .toast{position:fixed;left:50%;bottom:2rem;z-index:60;transform:translate(-50%,200%);background:#1d1847;border:1px solid var(--linie-stark);padding:.9rem 1.6rem;border-radius:99px;font-size:1.15rem;transition:transform .5s var(--ease-aus);max-width:80vw}

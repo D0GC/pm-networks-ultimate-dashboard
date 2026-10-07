@@ -57,6 +57,7 @@
       case "karten": PS.karten = m.karten || []; PS.emit("karten", PS.karten); break;
       case "modus": modusSetzen(m); break;
       case "ereignis": PS.ereignis = m; PS.emit("ereignis", m); break;
+      case "intercom": PS.emit("intercom", m); break;
       case "einstellungen":
         PS.einst = m.einstellungen || {};
         document.body.classList.toggle("ohne-animation", PS.einst.animationen === false);

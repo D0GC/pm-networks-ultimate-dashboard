@@ -64,9 +64,15 @@ Chromium mit eigenem, dauerhaftem Profil starten (nicht inkognito, sonst geht de
 ```sh
 chromium --kiosk --noerrdialogs --disable-session-crashed-bubble --disable-infobars \
   --autoplay-policy=no-user-gesture-required \
+  --unsafely-treat-insecure-origin-as-secure="http://homeassistant.local:8098" \
+  --use-fake-ui-for-media-stream \
   --check-for-update-interval=31536000 --overscroll-history-navigation=0 \
   --user-data-dir="$HOME/.config/pm-panel" "http://homeassistant.local:8098/"
 ```
+
+Die beiden Zeilen `--unsafely-treat-insecure-origin-as-secure` und `--use-fake-ui-for-media-stream` braucht das
+Gegensprechen an der Haustür: Browser geben das Mikrofon sonst nur über HTTPS frei, und das Panel hat niemanden, der
+die Mikrofon-Abfrage bestätigt. Die Adresse muss genau der im Kiosk geöffneten entsprechen (Schema, Name, Port).
 
 `--autoplay-policy=no-user-gesture-required` erlaubt den Hinweiston bei Meldungen mit Priorität hoch auch ohne
 vorherige Berührung. Ohne den Parameter spielt das Panel Ton erst nach der ersten Berührung seit dem Start.
@@ -110,3 +116,20 @@ vor der Abholung 80 (sonst 30), Lüften und Offen 55, Wetterwechsel 45, übrige 
 Vorgabe ist die Hinweisliste des Bads. Eine eigene Liste entsteht, indem in `panel_hinweise.jinja` ein Panel `flur`
 ergänzt und unter `template:` ein Sensor `sensor.panel_flur_hinweise` angelegt wird (Muster: Bad). Danach in den
 Optionen `hinweise_entitaet` umstellen. Einzelne Kartentypen lassen sich auch ohne das im Editor ausblenden.
+
+## Gegensprechen an der Haustür
+
+Voraussetzung ist die Integration **PM Ring Intercom** (Repository `D0GC/pm-networks-ring`). Wechselt einer der
+Auslöser aus `intercom_ausloeser` (Standard `binary_sensor.haustur_klingelt`) auf „an“, zeigt das Panel das Overlay
+„Haustür“ mit drei Knöpfen: Schließen, **Sprechen** und Tür öffnen (2 Sekunden halten, öffnet `haustueroeffner`).
+
+- *Sprechen* öffnet ein Gespräch mit der Ring Intercom. Das Mikrofon des Panels geht an die Haustür, der Ton der
+  Haustür kommt aus dem Lautsprecher des Panels. *Auflegen* beendet es, ebenso Schließen oder das Ende des Overlays.
+- Während eines Gesprächs bleibt das Overlay offen.
+- Die App vermittelt nur den Verbindungsaufbau (WebRTC über Home Assistant), der Ton läuft direkt zwischen Panel und
+  Ring.
+- Ohne freigegebenes Mikrofon meldet das Panel „Mikrofon gesperrt“. Dann fehlen die Chromium-Parameter oben.
+- Test ohne Klingeln: im Editor „Haustür testen“.
+
+Ob Ring für die Intercom eine Live-Sitzung annimmt, zeigt der erste Versuch. Den Verlauf der Signalisierung enthält
+die Diagnose der Integration PM Ring Intercom.

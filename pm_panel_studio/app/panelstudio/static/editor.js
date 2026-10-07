@@ -139,6 +139,7 @@
       daten.token = j.token; zeigen(); $("#token-hinweis").hidden = false; b.dataset.sicher = ""; b.textContent = "Neuen Schlüssel erzeugen";
     });
     $("#test-ereignis").addEventListener("click", () => { if (ws && ws.readyState === 1) ws.send(JSON.stringify({ typ: "ereignis_test", id: wsId++ })); });
+    $("#test-haustuer").addEventListener("click", () => { if (ws && ws.readyState === 1) ws.send(JSON.stringify({ typ: "ereignis_test", intercom: true, id: wsId++ })); });
     laden().catch((e) => { $("#status").textContent = "Fehler: " + e.message; $("#status").className = "status fehler"; });
     verbinden();
     setInterval(() => laden(true).catch(() => {}), 20000);

@@ -1,6 +1,6 @@
 # Änderungen
 
-## 2026.10.12 – 2026-10-07
+## 2026.10.13 – 2026-10-07
 
 - Rams-Aktivität aus dem Lovelace-Dashboard: Der Feed zeigt eine Spielkarte nach `sensor.la_rams` (TeamTracker/ESPN),
   sichtbar am Spieltag (`binary_sensor.rams_spieltag`), während des Spiels und bis 12 Stunden nach Spielende.
@@ -14,6 +14,15 @@
 - Büro: Die neuen Steckdosen „Schreibtisch“ (`switch.schreibtisch`) und „Serverschrank“ (`switch.serverschrank`)
   stehen unter derselben Schaltfreigabe wie der Büro-Hauptschalter (`input_boolean.burostrom_schaltfreigabe`).
   Die Standard-Freigaben gelten jetzt auch dann, wenn gespeicherte Einstellungen eigene Freigaben enthalten.
+
+## 2026.10.12 – 2026-10-07
+
+- Gegensprechen an der Haustür: Klingelt die Ring Intercom (Integration PM Ring Intercom, neue Option
+  `intercom_ausloeser`, Standard `binary_sensor.haustur_klingelt`), zeigt das Panel das Overlay „Haustür“ mit
+  „Sprechen“. Das Gespräch läuft über WebRTC direkt zwischen Panel und Ring; die App vermittelt nur den Aufbau.
+  „Tür öffnen“ öffnet dort die Haustür (`haustueroeffner`). Während des Gesprächs bleibt das Overlay offen.
+- Editor: Knopf „Haustür testen“.
+- Kiosk-Anleitung: Chromium-Parameter für das Mikrofon über `http://…:8098`.
 
 ## 2026.10.11 – 2026-10-07
 

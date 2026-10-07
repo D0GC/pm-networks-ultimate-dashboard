@@ -73,6 +73,8 @@ class Options:
     tueroeffner: str = "button.haustur_tur_offnen"
     # Haustür-Öffner für die Zugang-Gruppe, zusätzlich zum Türöffner im Overlay (dort oft das Wohnungsschloss)
     haustueroeffner: str = "button.haustur_tur_offnen"
+    # Klingeln an der Ring Intercom (Integration PM Ring Intercom): Overlay „Haustür“ mit Gegensprechen und Haustür-Öffner
+    intercom_ausloeser: list[str] = field(default_factory=lambda: ["binary_sensor.haustur_klingelt"])
     klima_praefix: str = "climate.pm_"
     # PM Klima Studio im Panel: interne Adresse der App und derselbe Schlüssel wie dort (panel_schluessel)
     klima_studio_url: str = "http://bdf1cc64-pm-klima-studio:8099"
