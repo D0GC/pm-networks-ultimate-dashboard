@@ -302,6 +302,8 @@
       const leistung = g.stat_rate && PS.z[g.stat_rate] ? ` · ${PS.text(g.stat_rate)}` : "";
       const z = balken(name(g), `${PS.zahl(summe(g.stat_consumption), 2)} kWh${leistung}`, summe(g.stat_consumption) / max, farbe.get(g.stat_consumption) || "var(--leise)", PS.z[g.stat_consumption] ? g.stat_consumption : g.stat_rate);
       if (ein) z.classList.add("eingerueckt");
+      // Leistung läuft live mit (siehe diff-Wächter unten); der Verbrauch kommt aus der Statistik
+      if (g.stat_rate) { z.dataset.rate = g.stat_rate; z._kwh = `${PS.zahl(summe(g.stat_consumption), 2)} kWh`; }
       return z;
     };
     oben.sort((x, y) => summe(y.stat_consumption) - summe(x.stat_consumption)).forEach((g) => {
@@ -327,6 +329,15 @@
     dia.innerHTML = `<svg class="diagramm saeulen" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">${svg}</svg>`;
     legende.innerHTML = oben.map((g, j) => `<span><i style="background:${FARBEN[j % FARBEN.length]}"></i>${PS.esc(name(g))}</span>`).join("");
   }
+
+  // Geräteliste: Leistung an Ort und Stelle nachführen, sobald sich ein Leistungssensor ändert
+  PS.on("diff", (ids) => {
+    document.querySelectorAll(".balken-zeile[data-rate]").forEach((z) => {
+      const r = z.dataset.rate;
+      if (!ids.has(r) || !PS.z[r]) return;
+      const w = z.querySelector(".w"); if (w) w.textContent = `${z._kwh} · ${PS.text(r)}`;
+    });
+  });
 
   // Energiefluss (Sankey) mit LIVE-Leistung in Watt: Gesamt → Geräte → enthaltene Geräte, je Ebene mit „Nicht erfasst“
   // für den Rest. Grundlage sind allein die Energie-Einstellungen von Home Assistant (stat_rate der Geräte und

@@ -9,7 +9,8 @@ ausführlichen Text (Markdown), eine Kamera und seine Knöpfe. Popups ohne passe
 Priorität normal und Symbol info.
 
 Eine Meldung ist ein Dict:
-  id, tag, titel, text, icon, prio (low|normal|high), bestaetigen (input_button oder None),
+  id, tag, titel, text, icon, stufe (passiv|aktiv|zeitkritisch|kritisch), prio (low|normal|high, Altfeld),
+  bestaetigen (input_button oder None),
   details (Markdown oder ""), kamera, knoepfe [{text, domain, service, data, art}], seit, bis
 """
 
@@ -22,8 +23,31 @@ from typing import Any
 
 MAX_DAUER_S = 4 * 3600
 MAX_MELDUNGEN = 10
-LAUFZEIT_MIN = {"low": 15, "normal": 60, "high": 240}  # wie script.panel_meldung
-PRIO_RANG = {"low": 1, "normal": 2, "high": 3}
+# Mitteilungsstufen nach Apple-HIG („interruption levels“); die Laufzeit der alten Prioritäten bleibt erhalten
+STUFEN = ("passiv", "aktiv", "zeitkritisch", "kritisch")
+LAUFZEIT_MIN = {"passiv": 15, "aktiv": 60, "zeitkritisch": 120, "kritisch": 240}
+STUFE_RANG = {s: i + 1 for i, s in enumerate(STUFEN)}
+ALT_STUFE = {"low": "passiv", "normal": "aktiv", "high": "kritisch"}  # Rückwärtskompatibilität: prioritaet low|normal|high
+STUFE_ALT = {"passiv": "low", "aktiv": "normal", "zeitkritisch": "normal", "kritisch": "high"}  # Altfeld ``prio``
+RELEVANZ = {"passiv": 35, "aktiv": 65, "zeitkritisch": 90, "kritisch": 100}  # Sortierwert im Feed (0–100)
+
+
+def stufe_aus(daten: dict[str, Any]) -> str:
+    """Stufe aus ``stufe`` oder ``prioritaet``; ``low|normal|high`` gelten weiter, Fehlendes und Unbekanntes ist ``aktiv``."""
+    for key in ("stufe", "prioritaet", "prio"):
+        wert = str(daten.get(key) or "").strip().lower()
+        if wert in STUFEN:
+            return wert
+        if wert in ALT_STUFE:
+            return ALT_STUFE[wert]
+    return "aktiv"
+
+
+def weckt(stufe: str, nacht: bool) -> bool:
+    """Weckt die Meldung ein ruhendes Panel? kritisch immer, aktiv und zeitkritisch nur am Tag, passiv nie."""
+    return stufe == "kritisch" or (stufe in ("aktiv", "zeitkritisch") and not nacht)
+
+
 SERVICE_RE = re.compile(r"^[a-z0-9_]+\.[a-z0-9_]+$")
 KAMERA_RE = re.compile(r"^camera\.[a-z0-9_]+$")
 ENTITY_RE = re.compile(r"^[a-z_]+\.[a-z0-9_]+$")
@@ -122,6 +146,7 @@ class PopupSpeicher:
                 "titel": "Hinweis",
                 "text": "",
                 "icon": "info",
+                "stufe": "aktiv",
                 "prio": "normal",
                 "bestaetigen": None,
                 "details": "",
@@ -130,7 +155,7 @@ class PopupSpeicher:
                 "quelle": "",
                 "sicherheit": False,
                 "seit": jetzt,
-                "bis": jetzt + LAUFZEIT_MIN["normal"] * 60,
+                "bis": jetzt + LAUFZEIT_MIN["aktiv"] * 60,
             }
             self.meldungen[mid] = m
         return m
@@ -140,17 +165,18 @@ class PopupSpeicher:
         if not tag:
             return None
         m = self._eintrag(tag, jetzt)
-        prio = d.get("prioritaet") if d.get("prioritaet") in LAUFZEIT_MIN else "normal"
+        stufe = stufe_aus(d)
         try:
-            laufzeit = int(d.get("laufzeit_min") or 0) or LAUFZEIT_MIN[prio]
+            laufzeit = int(d.get("laufzeit_min") or 0) or LAUFZEIT_MIN[stufe]
         except (TypeError, ValueError):
-            laufzeit = LAUFZEIT_MIN[prio]
+            laufzeit = LAUFZEIT_MIN[stufe]
         bestaetigen = str(d.get("bestaetigen_entity") or "")
         m.update(
             titel=str(d.get("titel") or "Hinweis"),
             text=str(d.get("text") or ""),
             icon=str(d.get("icon") or "info"),
-            prio=prio,
+            stufe=stufe,
+            prio=STUFE_ALT[stufe],
             bestaetigen=bestaetigen if ENTITY_RE.match(bestaetigen) else None,
             quelle="panel",
             sicherheit=bool(d.get("sicherheit")),
@@ -187,7 +213,7 @@ class PopupSpeicher:
 
     def _begrenzen(self) -> None:
         while len(self.meldungen) > MAX_MELDUNGEN:
-            aelteste = min(self.meldungen.values(), key=lambda x: (PRIO_RANG[x["prio"]], x["seit"]))
+            aelteste = min(self.meldungen.values(), key=lambda x: (STUFE_RANG[x["stufe"]], x["seit"]))
             self.meldungen.pop(aelteste["id"])
 
     # ------------------------------------------------------------ Pflege und Ausgabe
@@ -204,13 +230,13 @@ class PopupSpeicher:
 
     def liste(self) -> list[dict[str, Any]]:
         """Höchste Priorität zuerst, innerhalb davon die neueste."""
-        return sorted(self.meldungen.values(), key=lambda m: (-PRIO_RANG[m["prio"]], -m["seit"]))
+        return sorted(self.meldungen.values(), key=lambda m: (-STUFE_RANG[m["stufe"]], -m["seit"]))
 
     def karten(self) -> list[dict[str, Any]]:
-        """Karussell-Karten; Priorität niedrig erscheint nur unter der Glocke (wie an den Panels)."""
+        """Karussell-Karten, mit ``relevanz`` für die Sortierung im Feed. Passive Meldungen stehen nur unter der Glocke."""
         out = []
         for m in self.liste():
-            if m["prio"] == "low":
+            if m["stufe"] == "passiv":
                 continue
             text = m["text"] or re.sub(r"[*_#`>]", "", m["details"]).strip()
             text = " · ".join(z.strip(" -·") for z in text.splitlines() if z.strip(" -·"))[:140]
@@ -220,7 +246,9 @@ class PopupSpeicher:
                     "art": "meldung",
                     "schluessel": "meldung",
                     "icon": m["icon"],
+                    "stufe": m["stufe"],
                     "prio": m["prio"],
+                    "relevanz": RELEVANZ[m["stufe"]],
                     "titel": m["titel"],
                     "wert": m["titel"],
                     "hinweis": text,

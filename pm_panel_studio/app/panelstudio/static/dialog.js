@@ -95,23 +95,33 @@
   // Ein Browser-Mod-Popup mit gleicher Kennung liefert den ausführlichen Text und ggf. eine Kamera dazu.
   const M_ICON = { info: "information-outline", kohle: "fire", alarm: "shield-alert-outline", tuer: "door-open", lueften: "window-open-variant",
     warnung: "alert-outline", termin: "calendar-clock-outline", muell: "trash-can-outline", fertig: "check-circle-outline", wetter: "weather-partly-cloudy" };
-  const M_FARBE = { high: "var(--krit)", normal: "var(--warn)", low: "var(--lavender)" };
-  const M_PRIO = { high: "Priorität hoch", normal: "Priorität normal", low: "Priorität niedrig" };
+  // Vier Stufen nach Apple-HIG („interruption levels“): passiv, aktiv, zeitkritisch, kritisch. Alt: prio low|normal|high
+  const M_FARBE = { passiv: "var(--lavender)", aktiv: "var(--info)", zeitkritisch: "var(--warn)", kritisch: "var(--krit)" };
+  const M_PRIO = { passiv: "Passiv", aktiv: "Aktiv", zeitkritisch: "Zeitkritisch", kritisch: "Kritisch" };
+  const ALT_STUFE = { low: "passiv", normal: "aktiv", high: "kritisch" };
+  PS.meldungStufe = (m) => (m && (M_PRIO[m.stufe] ? m.stufe : ALT_STUFE[m.stufe] || ALT_STUFE[m.prio])) || "aktiv";
+  PS.stufeName = (stufe) => M_PRIO[stufe] || M_PRIO.aktiv;
   PS.meldungIcon = (icon) => M_ICON[icon] || "information-outline";
-  PS.meldungFarbe = (prio) => M_FARBE[prio] || M_FARBE.normal;
+  PS.meldungFarbe = (m) => M_FARBE[typeof m === "string" ? (M_PRIO[m] ? m : ALT_STUFE[m] || "aktiv") : PS.meldungStufe(m)];
+  // Rahmenglühen (zeitkritisch gelb, kritisch rot); Farbe über --glut-farbe, siehe gesten.css
+  PS.rahmenGluehen = (stufe) => {
+    const g = $(".rahmen-glut"); if (!g || document.body.classList.contains("ohne-animation")) return;
+    g.classList.toggle("zeitkritisch", stufe === "zeitkritisch"); g.classList.remove("an"); void g.offsetWidth; g.classList.add("an");
+  };
   PS.popupZeigen = (id) => {
     const m = (PS.popups || []).find((x) => x.id === id); if (!m) return;
     offenFuer = null;
     const dlg = $("#dialog");
     dlg.querySelectorAll("img").forEach(PS.kameraStoppen);
     PS.kameraLiveStoppen(dlg);
+    const stufe = PS.meldungStufe(m);
     const zeit = new Date(m.seit * 1000).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
-    dlg.innerHTML = `<div class="meldung-ansicht" style="--farbe:${PS.meldungFarbe(m.prio)}">
+    dlg.innerHTML = `<div class="meldung-ansicht" style="--farbe:${PS.meldungFarbe(m)}">
       <button class="zu" aria-label="Schließen">${PS.ic("close")}</button>
       <div class="m-icon">${PS.ic(PS.meldungIcon(m.icon))}</div>
       <h2>${PS.esc(m.titel)}</h2>
       ${m.text ? `<p class="m-text">${PS.esc(m.text)}</p>` : ""}
-      <div class="m-wann">${zeit} · ${M_PRIO[m.prio] || ""}</div></div>`;
+      <div class="m-wann">${zeit} · ${M_PRIO[stufe]}</div></div>`;
     dlg.querySelector(".zu").addEventListener("click", () => { PS.tonStopp(); schliessen(); });
     if (m.details) { const md = document.createElement("div"); md.className = "md"; md.innerHTML = PS.markdown(m.details); dlg.appendChild(md); }
     if (m.kamera) { const k = document.createElement("div"); dlg.appendChild(k); PS.kameraLive(k, m.kamera); }
@@ -128,14 +138,38 @@
       r.appendChild(knopf(b.text, null, () => PS.dienst(b.domain, b.service, b.data || {}).then(() => { PS.toast(`${b.text} ausgeführt`); schliessen(); })));
     });
     dlg.appendChild(r);
-    // Meldungen mit Gewicht (Konzept Stufe 2): hoch fällt mit Feder herein und lässt den Rand dreimal glühen,
-    // normal gleitet ohne Feder ein
+    // Meldungen mit Gewicht (Konzept Stufe 2): kritisch fällt mit Feder herein, kritisch und zeitkritisch lassen den
+    // Rand dreimal glühen; aktiv und passiv gleiten ohne Feder ein
     dlg.classList.remove("meldung-hoch", "meldung-normal"); void dlg.offsetWidth;
-    dlg.classList.add(m.prio === "high" ? "meldung-hoch" : "meldung-normal");
-    if (m.prio === "high") { const g = $(".rahmen-glut"); if (g) { g.classList.remove("an"); void g.offsetWidth; g.classList.add("an"); } }
+    dlg.classList.add(stufe === "kritisch" ? "meldung-hoch" : "meldung-normal");
+    if (stufe === "kritisch" || stufe === "zeitkritisch") PS.rahmenGluehen(stufe);
     $("#dialog-grund").classList.add("offen");
     dlg.dataset.popup = m.id;
   };
+  // Eilmeldung aus der Hinweiszeile `eil|Titel|Wert|Hinweis`: Titel, Wert und der volle Hinweistext (Zeilenumbrüche bleiben)
+  PS.eilZeigen = (k) => {
+    offenFuer = null;
+    const dlg = $("#dialog");
+    dlg.querySelectorAll("img").forEach(PS.kameraStoppen);
+    PS.kameraLiveStoppen(dlg);
+    dlg.innerHTML = `<div class="meldung-ansicht" style="--farbe:var(--krit)">
+      <button class="zu" aria-label="Schließen">${PS.ic("close")}</button>
+      <div class="m-icon">${PS.ic("alert-outline")}</div>
+      <h2>${PS.esc(k.titel || "Eilmeldung")}</h2>
+      ${k.wert ? `<p class="m-text">${PS.esc(k.wert)}</p>` : ""}
+      <div class="m-wann">Eilmeldung</div></div>`;
+    dlg.querySelector(".zu").addEventListener("click", schliessen);
+    if (k.hinweis) { const md = document.createElement("div"); md.className = "md eil-text"; md.innerHTML = PS.markdown(k.hinweis); dlg.appendChild(md); }
+    const r = reihe(); r.classList.add("m-knoepfe"); r.appendChild(knopf("OK", "check", schliessen, "primaer")); dlg.appendChild(r);
+    dlg.classList.remove("meldung-hoch", "meldung-normal"); void dlg.offsetWidth; dlg.classList.add("meldung-normal");
+    $("#dialog-grund").classList.add("offen");
+    dlg.dataset.popup = "eil";
+  };
+  // Eilmeldung weg (Hinweiszeile entfernt): offenen Dialog schließen
+  PS.on("karten", () => {
+    const dlg = $("#dialog");
+    if (dlg.dataset.popup === "eil" && $("#dialog-grund").classList.contains("offen") && !(PS.karten || []).some((x) => x.schluessel === "eil")) schliessen();
+  });
   PS.on("popups", () => {
     const dlg = $("#dialog"), id = dlg.dataset.popup;
     if (id && $("#dialog-grund").classList.contains("offen") && !(PS.popups || []).some((x) => x.id === id)) schliessen();

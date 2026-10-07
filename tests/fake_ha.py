@@ -296,7 +296,7 @@ def default_states(jetzt: datetime) -> list[dict[str, Any]]:
             "3",
             None,
             friendly_name="Panel Bad Hinweise",
-            zeilen="termin|Termin|in 45 min|Zahnarzt\narbeit|Arbeitsweg|26 min|+4 min Verkehr\nlueften|Lüften|71 %|Fenster öffnen\noffen|Offen|1 offen|Büro Balkontür\nmuell|Müll|morgen|Biotonne, Gelber Sack\nwetter|Wetter|12–18°|70 % Regen",
+            zeilen="eil|Sturmwarnung|Orkanböen|Ab 18 Uhr sind im Raum Wien Orkanböen bis 120 km/h möglich. Bitte Fenster und Türen schließen, Gartenmöbel sichern und Fahrzeuge nicht unter Bäumen parken. Stromausfälle sind möglich; Taschenlampe und Powerbank bereitlegen. Weitere Informationen folgen über Radio und Warn-App der Gemeinde.\ntermin|Termin|in 45 min|Zahnarzt\narbeit|Arbeitsweg|26 min|+4 min Verkehr\nlueften|Lüften|71 %|Fenster öffnen\noffen|Offen|1 offen|Büro Balkontür\nmuell|Müll|morgen|Biotonne, Gelber Sack\nwetter|Wetter|12–18°|70 % Regen",
         ),
         s(
             "timer.kohle_timer",
@@ -517,6 +517,7 @@ class FakeHA:
         r.add_get("/core/api/states", self.rest_states)
         r.add_get("/core/api/config", self.rest_config)
         r.add_post("/core/api/services/{domain}/{service}", self.rest_service)
+        r.add_post("/core/api/states/{eid}", self.rest_zustand_setzen)
         r.add_get("/core/api/camera_proxy/{eid}", self.rest_camera)
         r.add_get("/core/api/media_player_proxy/{eid}", self.rest_cover)
         r.add_get("/core/api/camera_proxy_stream/{eid}", self.rest_camera_stream)
@@ -597,14 +598,27 @@ class FakeHA:
 
     async def rest_calendar(self, request):
         self._auth(request)
-        heute = datetime.now(UTC).replace(hour=16, minute=30, second=0, microsecond=0)
+        jetzt = datetime.now().astimezone()
+        morgen = (jetzt + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+
+        def ev(titel, start, std=1, ort=None):
+            e = {"summary": titel, "start": {"dateTime": start.isoformat()}, "end": {"dateTime": (start + timedelta(hours=std)).isoformat()}}
+            if ort:
+                e["location"] = ort
+            return e
+
         return web.json_response(
             [
-                {
-                    "summary": "Zahnarzt",
-                    "start": {"dateTime": heute.isoformat()},
-                    "end": {"dateTime": (heute + timedelta(hours=1)).isoformat()},
-                }
+                ev("Zahnarzt", jetzt + timedelta(minutes=95), ort="Praxis Dr. Berger"),
+                ev("Team-Call", jetzt + timedelta(minutes=170)),
+                ev("Spätschicht-Übergabe", jetzt + timedelta(hours=5)),
+                {"summary": "Geburtstag Oma", "start": {"date": morgen.date().isoformat()}, "end": {"date": (morgen + timedelta(days=1)).date().isoformat()}},
+                ev("Frühstück mit Anna", morgen.replace(hour=8, minute=30), 1, "Café Central"),
+                ev("Handwerker Heizung", morgen.replace(hour=10)),
+                ev("Mittagessen", morgen.replace(hour=12, minute=15)),
+                ev("Elternabend", morgen.replace(hour=18)),
+                ev("Fußball Training", morgen.replace(hour=19, minute=30)),
+                ev("Kino", morgen.replace(hour=21)),
             ]
         )
 
@@ -626,6 +640,13 @@ class FakeHA:
         data = await request.json()
         self.service(request.match_info["domain"], request.match_info["service"], data)
         return web.json_response([])
+
+    async def rest_zustand_setzen(self, request):
+        """Wie HA: POST /api/states/<eid> {state, attributes} (für Vorschau und Tests, z. B. sun.sun below_horizon)."""
+        self._auth(request)
+        data = await request.json()
+        self.set_state(request.match_info["eid"], str(data.get("state")), **(data.get("attributes") or {}))
+        return web.json_response({})
 
     # ------------------------------------------------------------------ Zustände ändern
     def set_state(self, eid: str, state: str, **attrs) -> None:

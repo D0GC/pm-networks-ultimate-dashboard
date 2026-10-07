@@ -369,7 +369,7 @@
           const pl = E('<div class="liste"></div>');
           pops.forEach((x) => {
             const z = E(`<div class="zeile">${PS.ic(PS.meldungIcon(x.icon))}<span class="n">${PS.esc(x.titel)}<small>${PS.esc([x.text, PS.zeitRelativ(new Date(x.seit * 1000).toISOString())].filter(Boolean).join(" · "))}</small></span></div>`);
-            z.firstElementChild.style.color = PS.meldungFarbe(x.prio);
+            z.firstElementChild.style.color = PS.meldungFarbe(x);
             z.addEventListener("click", () => PS.popupZeigen(x.id));
             pl.appendChild(z);
           });

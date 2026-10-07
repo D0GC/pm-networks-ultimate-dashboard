@@ -42,6 +42,7 @@
         PS.szenen = m.szenen || { stat: {}, farben: {} };
         modusSetzen(m);
         document.body.classList.toggle("ohne-animation", PS.einst.animationen === false);
+        document.body.classList.toggle("zugaenglich", PS.einst.zugaenglich === true);
         PS.emit("init");
         PS.emit("karten", PS.karten);
         PS.emit("ereignis", PS.ereignis);
@@ -59,6 +60,7 @@
       case "einstellungen":
         PS.einst = m.einstellungen || {};
         document.body.classList.toggle("ohne-animation", PS.einst.animationen === false);
+        document.body.classList.toggle("zugaenglich", PS.einst.zugaenglich === true);
         PS.emit("einstellungen"); modusSetzen({ modus: PS.modus, nacht: PS.nacht, verbunden: PS.verbunden });
         break;
       case "szenen": PS.szenen = { stat: m.stat || {}, farben: m.farben || {} }; PS.emit("szenen"); break;
@@ -432,6 +434,53 @@
     else if (d === "fan" && st && st.s === "on") pct = a.percentage ?? 100;
     else if (d === "media_player" && a.volume_level != null && st.s === "playing") pct = a.volume_level * 100;
     el.style.setProperty("--pct", pct + "%");
+    if (el._opt) {
+      // Optimistischer Zustand läuft: bestätigt der echte Zustand die Erwartung, ist er erledigt; sonst bleibt die Erwartung sichtbar
+      if (PS.istAn(eid) === el._opt.erwartet) optimistischEnde(el);
+      else optimistischAnzeige(el, eid, el._opt.erwartet);
+    }
+  };
+  // ------------------------------------------------------------ Optimistisches Schalten (Konzept Stufe 4)
+  // Die Kachel springt sofort auf den erwarteten Zustand. Ohne Bestätigung binnen 600 ms erscheint ein Warte-Kreis;
+  // scheitert der Dienst oder bleibt die Bestätigung 8 s aus, kehrt sie zum echten Zustand zurück (Schütteln + Toast).
+  const OPTIMISTISCH = ["light", "switch", "fan", "input_boolean", "siren", "humidifier"];
+  PS.optimistischSchaltbar = (eid) => OPTIMISTISCH.includes(PS.domain(eid)) && !PS.freigabe(eid) && !PS.kritisch(eid);
+  function optimistischAnzeige(el, eid, an) {
+    el.classList.toggle("an", an);
+    const a = PS.a(eid) || {};
+    const txt = !an ? "Aus" : PS.domain(eid) === "light" && a.brightness != null ? `${Math.round((a.brightness / 255) * 100)} %` : "An";
+    const k = el.querySelector("small"); if (k) k.textContent = txt;
+  }
+  function optimistischEnde(el) {
+    const o = el._opt; if (!o) return;
+    clearTimeout(o.warte); clearTimeout(o.frist);
+    el._opt = null; el.classList.remove("wartet");
+    const k = el.querySelector(":scope > .wart-kreis"); if (k) k.remove();
+  }
+  function optimistischFehl(el, eid, grund) {
+    optimistischEnde(el);
+    PS.kachelAktualisieren(el, el.dataset.bereich || undefined);
+    el.classList.remove("fehlschlag"); void el.offsetWidth; el.classList.add("fehlschlag");
+    setTimeout(() => el.classList.remove("fehlschlag"), 700);
+    PS.toast(grund, true);
+  }
+  PS.optimistisch = (el, eid) => {
+    if (el._opt) optimistischEnde(el);
+    const erwartet = !el.classList.contains("an");
+    const o = el._opt = { erwartet };
+    optimistischAnzeige(el, eid, erwartet);
+    o.warte = setTimeout(() => {
+      if (el._opt !== o) return;
+      el.classList.add("wartet");
+      if (!el.querySelector(":scope > .wart-kreis")) { const k = document.createElement("span"); k.className = "wart-kreis"; el.appendChild(k); }
+    }, 600);
+    o.frist = setTimeout(() => { if (el._opt === o) optimistischFehl(el, eid, `${PS.name(eid)} reagiert nicht`); }, 8000);
+    const p = PS.umschalten(eid);
+    if (p && p.catch) p.catch((e) => {
+      if (el._opt !== o) return;
+      const m = String((e && e.message) || "");
+      optimistischFehl(el, eid, !m || /Verbindung|Zeitüberschreitung/.test(m) ? `${PS.name(eid)} nicht erreichbar` : m);
+    });
   };
   PS.kachelVerdrahten = (el) => {
     PS.kachelAktualisieren(el, el.dataset.bereich || undefined);
@@ -452,7 +501,8 @@
       if (PS.freigabe(eid)) { PS.welle(el, ev); PS.mehrInfos(eid); return; }
       if (["light", "switch", "input_boolean", "fan", "siren", "humidifier"].includes(PS.domain(eid))) PS.bluete(el, ev, !PS.istAn(eid), PS.domain(eid) === "light");
       else PS.welle(el, ev);
-      if (PS.direktBedienbar(eid)) PS.umschalten(eid); else PS.mehrInfos(eid);
+      if (PS.optimistischSchaltbar(eid)) PS.optimistisch(el, eid);
+      else if (PS.direktBedienbar(eid)) PS.umschalten(eid); else PS.mehrInfos(eid);
     }, () => PS.mehrInfos(eid));
   };
   // Alle Kacheln im Container an Zustandsänderungen koppeln
@@ -583,16 +633,18 @@
       o.connect(g).connect(c.destination); o.start(jetzt + ab); o.stop(jetzt + ab + 1.2);
     });
   };
-  // Wiederholung (höchstens 3×, alle 20 s), bis die Meldung geöffnet, bestätigt oder geschlossen ist
+  // Ton je Stufe: kritisch wiederholt sich (höchstens 3×, alle 20 s), bis die Meldung geöffnet, bestätigt oder geschlossen
+  // ist; zeitkritisch spielt einmal und nachts gar nicht; aktiv und passiv bleiben stumm
   let tonTimer = null, tonFuer = null;
   PS.alarmTon = (m) => {
-    if (!m || m.prio !== "high" || PS.einst.ton_hoch === false) return;
+    const stufe = m && PS.meldungStufe(m);
+    if (!m || (stufe !== "kritisch" && !(stufe === "zeitkritisch" && !PS.nacht)) || PS.einst.ton_hoch === false) return;
     if (PS.s("input_boolean.alles_stumm") === "on" && !m.sicherheit) return;
     PS.tonStopp(); tonFuer = m.id;
     let n = 0;
     const spielen = () => {
       if (tonFuer !== m.id || !(PS.popups || []).some((x) => x.id === m.id)) return PS.tonStopp();
-      PS.ton(); if (++n < 3) tonTimer = setTimeout(spielen, 20000);
+      PS.ton(); if (stufe === "kritisch" && ++n < 3) tonTimer = setTimeout(spielen, 20000);
     };
     spielen();
   };

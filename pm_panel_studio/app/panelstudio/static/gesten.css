@@ -1,0 +1,15 @@
+/* PM Panel Studio – Gesten: Sheet folgt dem Finger, Feed-Wischen, Schließen zurück in die Kachel (Konzept Stufe 4) */
+
+/* Sheet folgt dem Finger: nur der Kopf nimmt Berührungen als Geste (touch-action none); beim Zurückfedern über den
+   Rand hinaus bleibt unter dem Sheet keine Lücke */
+.sheet-kopf{touch-action:none}
+.sheet.zieht{will-change:transform}
+.sheet.zieht::after{content:"";position:absolute;left:-1px;right:-1px;top:100%;height:8rem;background:rgba(15,12,42,.985);pointer-events:none}
+
+/* Feed-Wischen: senkrechtes Scrollen bleibt erlaubt, waagerechtes gehört der Karte */
+.karussell{touch-action:pan-y;user-select:none;-webkit-user-select:none}
+
+/* Mitteilungsstufen: zeitkritisch glüht gelb (kritisch bleibt rot), die Glocke färbt sich passend */
+.rahmen-glut.zeitkritisch.an{animation-name:rahmenpuls-gelb}
+@keyframes rahmenpuls-gelb{50%{box-shadow:inset 0 0 0 .3rem rgba(240,180,76,.65),inset 0 0 5rem rgba(240,180,76,.22)}}
+.glocke.zeitkritisch{color:var(--warn);border-color:rgba(240,180,76,.55);animation:glocke 3.2s ease-in-out infinite}
