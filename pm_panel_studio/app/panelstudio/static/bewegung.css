@@ -33,7 +33,7 @@
 .ring.atmet svg.komet .kopfpunkt{animation:kopf-atmen 1s ease-in-out infinite}
 
 /* ------------------------------------------------------------ Stufe 1 · Zahlenwalze */
-.walze{display:inline-flex;align-items:flex-start;font-variant-numeric:tabular-nums;line-height:1;white-space:nowrap}
+.walze{display:inline-flex;align-items:flex-start;justify-content:center;font-variant-numeric:tabular-nums;line-height:1;white-space:nowrap}
 .walze .stelle{display:inline-block;height:1em;overflow:hidden;width:.64em;transition:width var(--t-mittel) var(--e-auftakt)}
 .walze .stelle .band{display:flex;flex-direction:column;align-items:center;transition:transform var(--t-mittel) var(--e-auftakt)}
 .walze .stelle .band span{height:1em;line-height:1;display:block}
@@ -42,6 +42,8 @@
 .walze .fest.neu{max-width:0;opacity:0}
 .walze .stelle.geht{width:0}
 .walze .fest.geht{max-width:0;opacity:0}
+/* Im Ring: Zahlenfeld nicht auf die Breite der Beschriftung strecken, sonst steht eine kurze Zahl links */
+.ring .innen>.walze{justify-self:center}
 
 /* ------------------------------------------------------------ Stufe 1 · Kacheln: Nachgeben, Licht vom Finger, Glanz */
 .kachel{transition:transform var(--t-tipp) var(--e-gleit),background-color var(--t-mittel) ease,border-color var(--t-mittel) ease}
