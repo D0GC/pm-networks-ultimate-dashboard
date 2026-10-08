@@ -1,5 +1,11 @@
 # Änderungen
 
+## 2026.10.17 – 2026-10-09
+
+- Musik-Karte: Sie erschien, obwohl in Music Assistant nichts lief. Alexa-Geräte melden dort oft dauerhaft „playing“,
+  entweder ganz ohne Titel oder mit einem Titel, der nach dem Start auf 0:00 stehen bleibt. Solche Player zeigen
+  keine Karte mehr (ohne Titel sofort, bei stehender Position nach 90 Sekunden).
+
 ## 2026.10.16 – 2026-10-08
 
 - Räume: Die Geräte-Box zeigt höchstens sechs Einträge; Schreibtisch und Serverschrank fielen im Büro hinten heraus.

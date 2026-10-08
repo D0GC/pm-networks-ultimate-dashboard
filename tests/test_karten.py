@@ -110,6 +110,23 @@ def test_musik_karte_gruppen_einmal():
     assert abs(k["ring"] - 0.75) < 0.01
 
 
+def test_musik_haengende_player_ohne_karte():
+    # Alexa-Geräte in Music Assistant: „playing“ ohne Titel, oder ein Titel, der seit Minuten auf 0:00 steht
+    haengt = {
+        "media_title": "Berlin",
+        "media_duration": 178,
+        "media_position": 0,
+        "media_position_updated_at": JETZT.isoformat(),
+    }
+    states = {
+        "media_player.leer": st("playing", media_content_type="music"),
+        "media_player.dot": {**st("playing", **haengt), "last_changed": (JETZT - timedelta(minutes=2)).isoformat()},
+        "media_player.neu": {**st("playing", **haengt), "last_changed": (JETZT - timedelta(seconds=20)).isoformat()},
+    }
+    karten = kt.akt_musik(states, JETZT, ["media_player.leer", "media_player.dot", "media_player.neu"])
+    assert [k["id"] for k in karten] == ["akt:musik:media_player.neu"]
+
+
 def test_unwetter_aus_dwd_sensoren_ersetzt_warnzeile():
     jetzt = datetime(2026, 10, 7, 12, 0, tzinfo=UTC)
     states = {

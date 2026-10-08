@@ -371,6 +371,7 @@ def akt_rams(states: States, jetzt: datetime, lokal: datetime | None = None) -> 
         },
     }
 MAX_MUSIK = 2
+MUSIK_STILL_S = 90  # so lange darf ein laufender Titel nach dem Start auf 0:00 stehen
 
 
 def akt_musik(states: States, jetzt: datetime, player: list[str]) -> list[dict]:
@@ -382,7 +383,15 @@ def akt_musik(states: States, jetzt: datetime, player: list[str]) -> list[dict]:
         if st.get("state") != "playing":
             continue
         a = st.get("attributes") or {}
-        titel = a.get("media_title") or "Wiedergabe"
+        # Music Assistant meldet bei Alexa-Geräten oft „playing“, obwohl nichts läuft: ohne Titel, oder der Titel
+        # steht nach dem Start dauerhaft auf 0:00. Solche Player zeigen keine Karte.
+        if not a.get("media_title"):
+            continue
+        seit = _parse_zeit(st.get("last_changed"))
+        steht = _num(a.get("media_duration")) and not _num(a.get("media_position"))
+        if steht and seit and (jetzt - seit).total_seconds() > MUSIK_STILL_S:
+            continue
+        titel = a.get("media_title")
         schluessel = (titel, a.get("media_artist"))
         if schluessel in gesehen:
             continue
