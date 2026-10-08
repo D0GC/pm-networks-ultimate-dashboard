@@ -1,5 +1,16 @@
 # Änderungen
 
+## 2026.10.16 – 2026-10-08
+
+- Räume: Die Geräte-Box zeigt höchstens sechs Einträge; Schreibtisch und Serverschrank fielen im Büro hinten heraus.
+  Gesicherte Hauptschalter stehen jetzt direkt nach „PC starten“ vorn. Die Relais der NS-Panels Bad und Büro sind in
+  Home Assistant ausgeblendet und erscheinen nicht mehr.
+- Wohnzimmer: Der Hauptschalter „Wohnzimmer“ (`switch.wohnzimmer_wohnzimmer`) ist gesichert wie die Büro-Schalter,
+  mit eigener Freigabe `input_boolean.wohnzimmerstrom_schaltfreigabe`.
+- Wetter auf der Startseite: Regnet es gerade, steht hinter der Regenwahrscheinlichkeit die gemessene Menge des
+  Regenradars (`sensor.niederschlag_lokal`, z. B. „Regen 70 % · 0,2 mm“). Bei 0 mm entfällt sie.
+- Live-Kapsel: Beim Rams-Spiel stand der Spielstand doppelt; rechts stehen jetzt Viertel und Spieluhr.
+
 ## 2026.10.15 – 2026-10-07
 
 - Kamera: Das Livebild blieb in Detailansicht und Benachrichtigungs-Popup leer. Die Kamerafläche trägt die Klasse

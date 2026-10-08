@@ -18,12 +18,16 @@
     } catch { vorhersage = []; }
     wetter();
   }
+  const REGEN_MENGE = "sensor.niederschlag_lokal";
   function wetter() {
     const w = PS.opt.wetter_entitaet, st = PS.z[w];
     const el = $("#wetter"); if (!st) { el.hidden = true; return; } el.hidden = false;
     const aussen = PS.opt.aussentemperatur && PS.z[PS.opt.aussentemperatur] ? PS.s(PS.opt.aussentemperatur) : st.a.temperature;
     const heute = vorhersage[0] || {};
-    const regen = heute.precipitation_probability != null ? ` · Regen ${heute.precipitation_probability} %` : "";
+    // Gemessene Regenmenge (Regenradar, wie im Lovelace-Dashboard) nur, solange es tatsächlich regnet
+    const menge = Number(PS.s(REGEN_MENGE));
+    const mm = PS.z[REGEN_MENGE] && isFinite(menge) && Math.round(menge * 10) > 0 ? ` · ${PS.zahl(menge, 1)} mm` : "";
+    const regen = heute.precipitation_probability != null || mm ? ` · Regen${heute.precipitation_probability != null ? ` ${heute.precipitation_probability} %` : ""}${mm}` : "";
     // Symbol nur bei neuem Zustand austauschen: Ein Neuaufbau startet die Animation von vorn (sichtbarer Sprung)
     const text = `<b class="tabular">${PS.zahl(aussen, 1)}°</b><small>${PS.esc(PS.text(w))}${heute.temperature != null ? ` · ${PS.zahl(heute.templow, 0)}–${PS.zahl(heute.temperature, 0)}°` : ""}${regen}</small>`;
     if (el.dataset.z !== st.s || !el.querySelector(":scope > div")) {

@@ -536,8 +536,9 @@ def default_states(jetzt: datetime) -> list[dict[str, Any]]:
         ),
         # Büro: Server-Hauptschalter mit Freigabe, Wake on LAN
         s("switch.buro_buro", "on", "buro", friendly_name="Büro", icon="mdi:home-lightning-bolt-outline"),
-        s("switch.schreibtisch", "on", "buro", friendly_name="Schreibtisch"),
-        s("switch.serverschrank", "on", "buro", friendly_name="Serverschrank"),
+        s("switch.schreibtisch", "on", "buro", friendly_name="Schreibtisch", icon="mdi:desk"),
+        s("switch.serverschrank", "on", "buro", friendly_name="Serverschrank", icon="mdi:server"),
+        s("sensor.niederschlag_lokal", "0.2", None, friendly_name="Niederschlag lokal", unit_of_measurement="mm", device_class="precipitation"),
         s("input_boolean.burostrom_schaltfreigabe", "off", "buro", friendly_name="Bürostrom Schaltfreigabe"),
         s("timer.burostrom_schaltfreigabe", "idle", "buro", friendly_name="Bürostrom Schaltfreigabe"),
         s("button.buro_wol_main_pc", "unknown", "buro", friendly_name="Main PC starten", icon="mdi:desktop-tower-monitor"),

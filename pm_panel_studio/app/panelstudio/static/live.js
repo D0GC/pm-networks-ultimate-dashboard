@@ -31,6 +31,8 @@
     return [k.titel && k.titel !== name(k) ? k.titel : "", k.hinweis, fertig].filter(Boolean).join(" · ");
   };
   function zeit(k, rest) {
+    // Rams: der Titel trägt schon den Spielstand, rechts daher Viertel und Spieluhr (z. B. „Q3 · 8:42“)
+    if (k.schluessel === "rams") return String(k.hinweis || "").split(" · ").slice(0, 2).join(" · ");
     if (rest == null) return String(k.wert || "");
     const g = Math.ceil(rest), z2 = (n) => String(n).padStart(2, "0");
     if (SEK.includes(k.schluessel)) return g >= 3600 ? `${Math.floor(g / 3600)}:${z2(Math.floor(g % 3600 / 60))}:${z2(g % 60)}` : `${Math.floor(g / 60)}:${z2(g % 60)}`;
