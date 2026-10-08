@@ -68,4 +68,5 @@ def test_standard_freigaben_bleiben_bei_gespeicherten():
     e = Einstellungen.from_dict({"freigaben": {"switch.x": "input_boolean.y"}})
     for eid in ("switch.buro_buro", "switch.schreibtisch", "switch.serverschrank"):
         assert e.freigaben[eid] == "input_boolean.burostrom_schaltfreigabe"
+    assert e.freigaben["switch.wohnzimmer_wohnzimmer"] == "input_boolean.wohnzimmerstrom_schaltfreigabe"
     assert e.freigaben["switch.x"] == "input_boolean.y"

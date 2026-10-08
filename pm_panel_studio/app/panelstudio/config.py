@@ -160,6 +160,7 @@ STANDARD_FREIGABEN = {
     "switch.buro_buro": "input_boolean.burostrom_schaltfreigabe",
     "switch.schreibtisch": "input_boolean.burostrom_schaltfreigabe",
     "switch.serverschrank": "input_boolean.burostrom_schaltfreigabe",
+    "switch.wohnzimmer_wohnzimmer": "input_boolean.wohnzimmerstrom_schaltfreigabe",
 }
 
 # Außenluftfeuchte: der erste verfügbare Sensor gilt (lokale Wetterstation, DWD als Rückfall)
