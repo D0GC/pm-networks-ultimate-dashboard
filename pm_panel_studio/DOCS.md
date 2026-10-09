@@ -123,7 +123,8 @@ Die Karte „Pakete“ liest `pakete_entitaet` (Standard `sensor.pakete`) und er
 Sendungen) größer als 0 ist oder das Attribut `zugestellt_heute` größer als 0. Der Ring zeigt die Stufe der ersten Sendung
 von 4, die Zahl die aktiven Sendungen; die Liste nennt bis zu fünf Sendungen mit Versender, Titel, Status und Termin. Ein
 Tipp öffnet das Popup mit allen Sendungen (Stufenleiste, Termin, letztes Ereignis, Sendungsnummer). Die Hinweiszeilen
-`paket` und `spueler` des Hinweis-Sensors werden im Feed nicht gezeigt, weil es dafür eigene Karten gibt. Im Editor
+`paket` (nur bei gesetzter Option) und `spueler` des Hinweis-Sensors werden im Feed nicht gezeigt, weil es dafür eigene
+Karten gibt. Im Editor
 lässt sich die Karte unter „Pakete“ abwählen.
 
 ## Hinweise eigens für den Flur

@@ -20,12 +20,15 @@ from __future__ import annotations
 
 import ast
 import json
+import logging
 import math
 import re
 from collections.abc import Mapping
 from datetime import UTC, date, datetime, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
+_LOGGER = logging.getLogger(__name__)
 
 State = dict[str, Any]
 States = dict[str, State]
@@ -55,7 +58,8 @@ QUELLEN = {
 }
 
 VORRANG = ("eil", "warnung")
-HINWEISE_MIT_EIGENER_KARTE = ("paket", "spueler")
+HINWEIS_PAKET = "paket"  # nur unterdrückt, solange die Paketkarte (Option pakete_entitaet) möglich ist
+HINWEIS_SPUELER = "spueler"
 RELEVANZ_STANDARD = 40  # Hinweise ohne eigene Regel
 MAX_HINWEISE = 8
 
@@ -212,11 +216,11 @@ def akt_waesche(states: States, jetzt: datetime) -> dict | None:
 def akt_spueler(states: States, jetzt: datetime) -> dict | None:
     status = str(_state(states, QUELLEN["spueler_status"]) or "")
     kurz = status.rsplit(".", 1)[-1].lower()
-    if kurz not in ("run", "delayedstart", "pause"):
+    if kurz not in ("run", "delayedstart", "pause", "actionrequired"):
         return None
     rest, _ende = _rest_aus_sensor(states, QUELLEN["spueler_rest"], jetzt)
     pct = _num(_state(states, QUELLEN["spueler_fortschritt"]))
-    hinweis = {"run": "läuft", "delayedstart": "Startzeit", "pause": "pausiert"}[kurz]
+    hinweis = {"run": "läuft", "delayedstart": "Startzeit", "pause": "pausiert", "actionrequired": "Eingriff nötig"}[kurz]
     if pct is not None and kurz == "run":
         hinweis = f"läuft {round(pct)} %"
     return {
@@ -549,15 +553,23 @@ def berechne(
     aus = aus or []
     lokal = lokal or jetzt.astimezone()
     hinweise = parse_hinweise(_attr(states, hinweise_entitaet, "zeilen")) if hinweise_entitaet else []
-    # Eigene Karten ersetzen diese Hinweiszeilen (Paket heute: Pakete, Geschirrspüler läuft: Spülmaschine)
-    hinweise = [k for k in hinweise if k["schluessel"] not in HINWEISE_MIT_EIGENER_KARTE]
+    # Eigene Karten ersetzen diese Hinweiszeilen (Geschirrspüler läuft: Spülmaschine; Paket heute: Pakete, aber nur,
+    # wenn die Paketkarte nicht abgeschaltet ist)
+    ersetzt = (HINWEIS_SPUELER, HINWEIS_PAKET) if pakete_entitaet else (HINWEIS_SPUELER,)
+    hinweise = [k for k in hinweise if k["schluessel"] not in ersetzt]
     akt = [k for fn in AKTIVITAETEN if (k := fn(states, jetzt))] + akt_musik(states, jetzt, musik or [])
     if rams := akt_rams(states, jetzt, lokal):
         akt.append(rams)
     if heimweg is not None:
         akt += heimweg.karten(states, jetzt, lokal, personen or [])
-    if pakete_entitaet and (paket := pakete_karte(states, pakete_entitaet, jetzt, lokal)):
-        akt.append(paket)
+    if pakete_entitaet:
+        try:
+            paket = pakete_karte(states, pakete_entitaet, jetzt, lokal)
+        except Exception:  # Fremddaten dürfen den Feed nie blockieren
+            _LOGGER.exception("Paketkarte nicht berechnet (%s)", pakete_entitaet)
+            paket = None
+        if paket:
+            akt.append(paket)
     unwetter = unwetter_karten(states, jetzt)
     if any(k["id"].startswith("warn:") for k in unwetter) or _dwd_vorhanden(states):
         # Die DWD-Sensoren ersetzen die knappe Warnzeile der Hinweisvorlage
@@ -841,11 +853,11 @@ def _struktur(value: Any) -> Any:
         return None
     try:
         return json.loads(text)
-    except ValueError:
+    except (ValueError, RecursionError):
         pass
     try:
         return ast.literal_eval(text)
-    except (ValueError, SyntaxError, MemoryError, RecursionError):
+    except (ValueError, TypeError, SyntaxError, MemoryError, RecursionError):
         return None
 
 
@@ -905,7 +917,7 @@ def _ereignis_zeit(text: str, heute: date, tz: Any) -> str:
             tag, uhr = date(int(m[3]), int(m[2]), int(m[1])), (f"{int(m[4]):02d}:{m[5]}" if m[4] else "")
         else:
             return _kurz(text, 40)
-    except ValueError:
+    except (ValueError, OverflowError):
         return _kurz(text, 40)
     diff = (tag - heute).days
     name = "gestern" if diff == -1 else _tag_text(tag, heute)
@@ -944,7 +956,7 @@ def _sendung(roh: Any, heute: date, tz: Any) -> dict | None:
         "nummer": _kurz(_text(roh.get("nummer")), 40),
         "titel": _kurz(_text(roh.get("titel")), 40),
         "versender": _kurz(versender, 24),
-        "status": _text(roh.get("status")) or PAKETE_STATUS.get(sc, "unterwegs"),
+        "status": _kurz(_text(roh.get("status")), 30) or PAKETE_STATUS.get(sc, "unterwegs"),
         "status_code": sc,
         "stufe": stufe,
         "problem": problem,

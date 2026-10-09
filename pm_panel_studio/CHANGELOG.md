@@ -15,7 +15,12 @@
 - Neue App-Option `pakete_entitaet` (Standard `sensor.pakete`, leer = keine Paketkarte). Der Standard gilt auch, wenn die
   gespeicherten App-Optionen die Option noch nicht enthalten.
 - Die Hinweiszeilen `paket` (Paket heute) und `spueler` (Geschirrspüler läuft) aus dem Hinweis-Sensor erscheinen nicht
-  mehr als Karte, weil es dafür eigene Karten gibt („Pakete“ und „Spülmaschine“). „Fertig“ bleibt unverändert.
+  mehr als Karte, weil es dafür eigene Karten gibt („Pakete“ und „Spülmaschine“). `paket` wird nur unterdrückt, solange
+  `pakete_entitaet` gesetzt ist; bei leerer Option bleibt die Hinweiszeile. „Fertig“ bleibt unverändert.
+- Die Karte „Spülmaschine“ zeigt jetzt auch den Zustand „Eingriff nötig“ (ActionRequired), den bisher nur die
+  Hinweiszeile meldete.
+- Fehlerhafte Fremddaten im Paket-Sensor (unlesbare Attribute, unmögliche Zeitangaben) lassen den Feed nie ausfallen;
+  im Zweifel fehlt nur die Paketkarte, der Fehler steht im Protokoll.
 
 ## 2026.10.21 – 2026-10-09
 

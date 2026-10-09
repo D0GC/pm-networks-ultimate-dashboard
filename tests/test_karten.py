@@ -510,12 +510,56 @@ def test_pakete_tag_fenster_und_ereigniszeit():
 
 def test_hinweise_paket_und_spueler_werden_unterdrueckt():
     zeilen = "paket|Paket|heute|DHL, Amazon\nspueler|Spüler|läuft|noch 45 min\nfertig|Fertig|Wäsche|Waschmaschine\nmuell|Müll|morgen|Bio"
-    k = kt.berechne({"sensor.h": st("4", zeilen=zeilen)}, "sensor.h", JETZT, lokal=LOKAL_ABEND)
+    k = kt.berechne({"sensor.h": st("4", zeilen=zeilen)}, "sensor.h", JETZT, lokal=LOKAL_ABEND, pakete_entitaet=PAKET)
     assert sorted(x["schluessel"] for x in k) == ["fertig", "muell"]  # fertig bleibt unverändert
     # auch mit Paketkarte: eine Karte, keine Doppelung
     s = {"sensor.h": st("4", zeilen=zeilen), **_pakete([_sendung(sc=4)])}
     k = kt.berechne(s, "sensor.h", JETZT, lokal=LOKAL_ABEND, pakete_entitaet=PAKET)
     assert [x["schluessel"] for x in k].count("pakete") == 1 and not {"paket", "spueler"} & {x["schluessel"] for x in k}
+
+
+def test_hinweis_paket_bleibt_bei_abgeschalteter_paketkarte():
+    zeilen = "paket|Paket|heute|DHL\nspueler|Spüler|läuft|noch 45 min"
+    states = {"sensor.h": st("2", zeilen=zeilen), **_pakete([_sendung(sc=4)])}
+    # Option leer: keine Paketkarte, die Hinweiszeile „Paket heute“ bleibt; der Spüler ist immer ersetzt
+    k = kt.berechne(states, "sensor.h", JETZT, lokal=LOKAL_PAKETE, pakete_entitaet="")
+    assert [x["schluessel"] for x in k] == ["paket"]
+    k = kt.berechne(states, "sensor.h", JETZT, lokal=LOKAL_PAKETE, pakete_entitaet=PAKET)
+    assert [x["schluessel"] for x in k] == ["pakete"]
+
+
+def test_pakete_fremddaten_brechen_den_feed_nicht_ab(monkeypatch):
+    # Überlauf bei der Zeitumrechnung
+    heute = date(2026, 10, 1)
+    assert kt._ereignis_zeit("9999-12-31T23:59:59Z", heute, BERLIN) == "9999-12-31T23:59:59Z"
+    assert kt._ereignis_zeit("0001-01-01T00:00:00+02:00", heute, BERLIN) == "0001-01-01T00:00:00+02:00"
+    # Text-Attribute, die json oder literal_eval überfordern (TypeError, RecursionError)
+    assert kt._struktur("{[1]:2}") is None
+    assert kt._struktur("[" * 100_000 + "]" * 100_000) is None
+    assert kt._struktur('{"a": ' * 50_000) is None
+    k = _karte({PAKET: st("1", sendungen="[" * 100_000, zugestellt_heute=0)})
+    assert k["anzahl"] == 1 and k["sendungen"] == []
+    # Eine kaputte Paketkarte blockiert die übrigen Karten nicht
+    def kaputt(*_a):
+        raise RuntimeError("kaputt")
+
+    monkeypatch.setattr(kt, "_sendung", kaputt)
+    states = {"switch.balkon_kohlegrill": st("on"), **_pakete([_sendung()])}
+    assert [x["schluessel"] for x in kt.berechne(states, "", JETZT, lokal=LOKAL_PAKETE, pakete_entitaet=PAKET)] == ["kohle"]
+    monkeypatch.undo()
+    # Status wird wie die übrigen Felder gekürzt
+    assert len(_karte(_pakete([_sendung(status="S" * 100)]))["sendungen"][0]["status"]) == 30
+
+
+def test_spuelmaschine_eingriff_noetig():
+    prefix = "BSH.Common.EnumType.OperationState."
+    k = kt.akt_spueler({kt.QUELLEN["spueler_status"]: st(prefix + "ActionRequired")}, JETZT)
+    assert k["id"] == "akt:spueler" and k["hinweis"] == "Eingriff nötig" and k["wert"] == "–"
+    # bestehendes Verhalten bleibt
+    assert kt.akt_spueler({kt.QUELLEN["spueler_status"]: st(prefix + "Run"), kt.QUELLEN["spueler_fortschritt"]: st("40")}, JETZT)["hinweis"] == "läuft 40 %"
+    assert kt.akt_spueler({kt.QUELLEN["spueler_status"]: st(prefix + "Pause")}, JETZT)["hinweis"] == "pausiert"
+    assert kt.akt_spueler({kt.QUELLEN["spueler_status"]: st(prefix + "Ready")}, JETZT) is None
+    assert kt.akt_spueler({}, JETZT) is None
 
 
 def test_pakete_entitaet_loest_neuberechnung_aus():
