@@ -1,5 +1,10 @@
 # Änderungen
 
+## 2026.10.19 – 2026-10-09
+
+- Termine im Feed ohne Müllabfuhr: Die Einträge des Abfuhrkalenders (Waste Collection Schedule) erscheinen nicht mehr
+  in den Terminkarten und in der Karte „Morgen“; die Müllabfuhr hat ihre eigene Karte. Im Kalender-Modul bleiben sie.
+
 ## 2026.10.18 – 2026-10-09
 
 - Wetterwarnungen: je Wettergefahr nur noch eine Karte. Der DWD meldet dieselbe Lage oft mehrfach – gestaffelt
