@@ -459,10 +459,28 @@ def parse_hinweise(zeilen: Any) -> list[dict]:
         )
         if len(out) >= MAX_HINWEISE:
             break
+    out = [k for k in (_muell_filtern(k) for k in out) if k]
     out.sort(key=lambda k: (k["schluessel"] != "eil", k["_pos"]))
     for k in out:
         del k["_pos"]
     return out
+
+
+# Abfuhren ohne Bedeutung für den Feed (Sondermüll-/Schadstoffmobil kommt selten und muss nicht an die Straße)
+MUELL_UNWICHTIG = ("sondermüll", "sondermuell", "schadstoff", "problemabfall", "giftmobil")
+
+
+def _muell_filtern(k: dict) -> dict | None:
+    """Müll-Hinweis ohne unwichtige Abfuhren; bleibt nichts übrig, entfällt die Karte."""
+    if k["schluessel"] != "muell":
+        return k
+    unwichtig = lambda s: any(w in s.lower() for w in MUELL_UNWICHTIG)  # noqa: E731
+    arten = [a.strip() for a in k["hinweis"].split(",") if a.strip()]
+    rest = [a for a in arten if not unwichtig(a)]
+    if (arten and not rest) or (not arten and unwichtig(k["titel"] + " " + k["wert"])):
+        return None
+    k["hinweis"] = ", ".join(rest)
+    return k
 
 
 # ------------------------------------------------------------ Relevanz (0–100)

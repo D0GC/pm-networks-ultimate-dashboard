@@ -565,3 +565,10 @@ def test_spuelmaschine_eingriff_noetig():
 def test_pakete_entitaet_loest_neuberechnung_aus():
     assert PAKET in kt.relevante_entitaeten("sensor.h", PAKET) and PAKET not in kt.relevante_entitaeten("sensor.h")
     assert "sensor.h" in kt.relevante_entitaeten("sensor.h", PAKET) and kt.relevante_entitaeten("", "") == kt.relevante_entitaeten("")
+
+
+def test_muell_ohne_sondermuell():
+    (k,) = kt.parse_hinweise("muell|Müll|morgen|Biotonne, Sondermüll")
+    assert k["hinweis"] == "Biotonne"
+    assert kt.parse_hinweise("muell|Müll|morgen|Sondermüll") == []
+    assert kt.parse_hinweise("muell|Müll|morgen|Schadstoffmobil\nwetter|W|x|y")[0]["schluessel"] == "wetter"

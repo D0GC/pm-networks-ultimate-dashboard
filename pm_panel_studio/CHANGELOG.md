@@ -1,5 +1,10 @@
 # Änderungen
 
+## 2026.10.23 – 2026-10-09
+
+- Müll-Karte ohne Sondermüll: Sondermüll- und Schadstoffabholungen erscheinen nicht mehr im Feed. Stehen am selben
+  Tag weitere Tonnen an, bleibt die Karte mit diesen; ist es nur der Sondermüll, entfällt sie.
+
 ## 2026.10.22 – 2026-10-09
 
 - Neue Feed-Karte „Pakete“: Sie zeigt die Sendungen aus `sensor.pakete` (normalisierter Paket-Sensor aus der Integration
