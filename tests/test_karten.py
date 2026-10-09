@@ -293,3 +293,43 @@ def test_rams_reihenfolge_im_feed():
     assert [k["schluessel"] for k in kt.berechne(live, "sensor.h", JETZT)] == ["rams", "kohle", "neutral"]
     assert "sensor.la_rams" in kt.relevante_entitaeten("") and "binary_sensor.rams_spieltag" in kt.relevante_entitaeten("")
     assert not [k for k in kt.berechne(live, "sensor.h", JETZT, aus=["rams"]) if k["schluessel"] == "rams"]
+
+
+def _heimweg_states(d_m, richtung="towards", person_state="not_home"):
+    return {
+        "person.gina_perina": st(person_state, friendly_name="Gina Perina"),
+        "sensor.zuhause_entfernung_von_gina_perina": st(str(d_m), device_class="distance", unit_of_measurement="m"),
+        "sensor.zuhause_bewegung_von_gina_perina": st(richtung, device_class="enum", options=["arrived", "away_from", "stationary", "towards"]),
+    }
+
+
+def test_heimweg_karte_ring_und_ankunft():
+    hw = kt.Heimweg()
+    lokal = datetime(2026, 10, 1, 18, 0)
+    p = ["person.gina_perina"]
+    # Start bei 20 km
+    (k,) = hw.karten(_heimweg_states(20000), JETZT, lokal, p)
+    assert k["titel"] == "Gina ist auf dem Heimweg" and k["wert"] == "20" and k["ring"] == 0
+    # 5 min später 15 km: 5 km in 300 s → 16,7 m/s, Rest 900 s
+    (k,) = hw.karten(_heimweg_states(15000), JETZT + timedelta(minutes=5), lokal + timedelta(minutes=5), p)
+    assert abs(k["ring"] - 0.25) < 1e-9 and k["rest_min"] == 15 and k["hinweis"] == "Ankunft gegen 18:20"
+    # an der Ampel bleibt die Karte, bei Ankunft verschwindet sie
+    assert hw.karten(_heimweg_states(15000, "stationary"), JETZT + timedelta(minutes=6), lokal, p)
+    assert hw.karten(_heimweg_states(8000, "away_from"), JETZT + timedelta(minutes=7), lokal, p) == []
+    (k,) = hw.karten(_heimweg_states(5000), JETZT + timedelta(minutes=8), lokal, p)
+    assert k["ring"] == 0.75 and k["wert"] == "5,0"  # Fahrt (Start 20 km) blieb gemerkt
+    assert hw.karten(_heimweg_states(100, "arrived"), JETZT + timedelta(minutes=12), lokal, p) == []
+    assert not hw.fahrten
+
+
+def test_heimweg_ohne_fahrt_keine_karte():
+    hw = kt.Heimweg()
+    lokal = datetime(2026, 10, 1, 18, 0)
+    p = ["person.gina_perina"]
+    assert hw.karten(_heimweg_states(500), JETZT, lokal, p) == []  # zu nah für eine Heimfahrt
+    assert hw.karten(_heimweg_states(20000, "away_from"), JETZT, lokal, p) == []
+    assert hw.karten(_heimweg_states(20000, person_state="home"), JETZT, lokal, p) == []
+    # Relevanz: kurz vor der Ankunft vorn
+    states = _heimweg_states(20000)
+    karten = kt.berechne(states, "", JETZT, lokal=lokal, heimweg=hw, personen=p)
+    assert [k["relevanz"] for k in karten if k["schluessel"] == "heimweg"] == [65]

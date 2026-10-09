@@ -163,7 +163,7 @@
     dusche: ["shower-head", "var(--info)"], spa: ["hot-tub", "var(--akzent)"], kohle: ["fire", "#ff9a5c"], waesche: ["washing-machine", "var(--info)"],
     unwetter: ["alert-outline", "#f0964c"], wetterwechsel: ["weather-partly-cloudy", "var(--info)"], ok: ["shield-check-outline", "var(--gut)"],
     naechstes: ["calendar-arrow-right", "#c99bf0"],
-    meldung: ["bell-ring-outline", "var(--warn)"], spueler: ["dishwasher", "var(--info)"], robo: ["robot-vacuum", "var(--gut)"], musik: ["music-note-outline", "#c99bf0"], ruhig: ["leaf", "var(--gut)"],
+    meldung: ["bell-ring-outline", "var(--warn)"], spueler: ["dishwasher", "var(--info)"], robo: ["robot-vacuum", "var(--gut)"], musik: ["music-note-outline", "#c99bf0"], ruhig: ["leaf", "var(--gut)"], heimweg: ["home-import-outline", "var(--gut)"],
   };
   PS.kartenIcon = (k) => (KARTE[k] || KARTE.neutral)[0];
   let aktuell = 0, liste = [], wechselZeit = 0, wischt = false;
@@ -197,6 +197,11 @@
   function modell(k) {
     let [icon, farbe] = KARTE[k.schluessel] || KARTE.neutral;
     const m = { kopf: k.titel || "Hinweis", farbe, anteil: 1, zahl: null, einheit: "", icon, h2: k.wert, p: k.hinweis };
+    if (k.art === "aktivitaet" && k.schluessel === "heimweg") {
+      // Ring = zurückgelegter Anteil der Strecke (bei 0 km voll), im Ring die verbleibenden Kilometer
+      return { ...m, kopf: "Heimweg", h2: k.titel, anteil: k.ring, zahl: k.wert, einheit: "km",
+        p: [k.hinweis, k.rest_min != null ? `noch etwa ${k.rest_min} min` : null].filter(Boolean).join(" · ") };
+    }
     if (k.art === "aktivitaet") {
       m.kopf = AKT_KOPF[k.schluessel] || "Aktivität"; m.h2 = k.titel; m.anteil = k.ring;
       const sek = k.ende ? (new Date(k.ende).getTime() - Date.now()) / 1000 : null;

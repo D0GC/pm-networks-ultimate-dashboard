@@ -124,6 +124,7 @@ class Hub:
         self._hintergrund: set[asyncio.Task] = set()
         self._registry_neu = asyncio.Event()
         self._relevant = kt.relevante_entitaeten(opts.hinweise_entitaet)
+        self.heimweg = kt.Heimweg()
         # Ruhe/Wach
         self.letzte_bewegung = time.monotonic()
         self.letzte_beruehrung = 0.0
@@ -346,7 +347,7 @@ class Hub:
             self._diff[eid] = kompakt(neu)
         if self._flush_task is None or self._flush_task.done():
             self._flush_task = self.spawn(self._flush())
-        if eid in self._relevant or "warnstufe" in eid:
+        if eid in self._relevant or "warnstufe" in eid or kt.heimweg_quelle(eid):
             self._karten_neu()
         if eid in self.opts.bewegung and neu and neu.get("state") == "on":
             self.letzte_bewegung = time.monotonic()
@@ -375,7 +376,14 @@ class Hub:
     def _karten_neu(self, senden: bool = True) -> None:
         jetzt = datetime.now(UTC)
         karten = kt.berechne(
-            self.states, self.opts.hinweise_entitaet, jetzt, self.einstellungen.karten_aus, self.musik, self._lokal(jetzt)
+            self.states,
+            self.opts.hinweise_entitaet,
+            jetzt,
+            self.einstellungen.karten_aus,
+            self.musik,
+            self._lokal(jetzt),
+            self.heimweg,
+            self.opts.personen,
         )
         if "meldung" not in self.einstellungen.karten_aus:
             karten = kt.sortiere(self.popups.karten() + karten)
