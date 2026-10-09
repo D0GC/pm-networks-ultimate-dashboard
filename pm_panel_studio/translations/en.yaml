@@ -2,6 +2,9 @@ configuration:
   hinweise_entitaet:
     name: Hint sensor
     description: Sensor with the attribute zeilen as used by the bathroom and office panels. Empty = no hint cards.
+  pakete_entitaet:
+    name: Parcel sensor
+    description: Sensor whose state counts the active shipments (attributes sendungen, zugestellt_heute), default sensor.pakete. Empty = no parcel card.
   bewegung:
     name: Hallway motion sensors
     description: Motion wakes the panel from rest mode.

@@ -1,5 +1,5 @@
 name: PM Panel Studio
-version: "2026.10.21"
+version: "2026.10.22"
 slug: pm_panel_studio
 description: >-
   Wandpanel-Oberfläche für den Flur: rotierende Hinweiskarten mit Ringtimern, Ruhe- und Wachzustand,
@@ -27,6 +27,7 @@ timeout: 20
 watchdog: "http://[HOST]:[PORT:8099]/api/health"
 options:
   hinweise_entitaet: sensor.panel_bad_hinweise
+  pakete_entitaet: sensor.pakete
   bewegung:
     - binary_sensor.bewegungsmelder_flur_1_bewegung
     - binary_sensor.bewegungsmelder_flur_2_bewegung
@@ -49,6 +50,7 @@ options:
   log_level: info
 schema:
   hinweise_entitaet: str?
+  pakete_entitaet: str?
   bewegung:
     - str?
   personen:

@@ -1,4 +1,5 @@
-from datetime import UTC, datetime, timedelta
+import json
+from datetime import UTC, date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
 from panelstudio import karten as kt
@@ -333,3 +334,234 @@ def test_heimweg_ohne_fahrt_keine_karte():
     states = _heimweg_states(20000)
     karten = kt.berechne(states, "", JETZT, lokal=lokal, heimweg=hw, personen=p)
     assert [k["relevanz"] for k in karten if k["schluessel"] == "heimweg"] == [65]
+
+
+# ------------------------------------------------------------ Pakete (sensor.pakete)
+BERLIN = ZoneInfo("Europe/Berlin")
+LOKAL_PAKETE = JETZT.astimezone(BERLIN)  # Do 01.10.2026, 16:00
+PAKET = "sensor.pakete"
+
+
+def _sendung(versender="DHL", titel="Kopfhörer", sc=2, stufe=None, erwartet="", von="", bis="", heute=False, zug_heute=False, **extra):
+    stufen = {8: 1, 2: 2, 1: 2, 5: 2, 6: 2, 7: 2, 3: 3, 4: 3, 0: 4}
+    status = {8: "angekündigt", 2: "unterwegs", 6: "Zustellversuch", 7: "Problem", 3: "abholbereit", 4: "in Zustellung", 0: "zugestellt"}
+    return {
+        "nummer": "NR" + titel[:3], "titel": titel, "versender": versender, "code": versender.lower(), "status_code": sc,
+        "status": status.get(sc, "unterwegs"), "stufe": stufe or stufen[sc], "problem": sc in (6, 7), "erwartet": erwartet,
+        "fenster_von": von, "fenster_bis": bis, "heute": heute, "zugestellt_heute": zug_heute, "ereignis": "", "ort": "",
+        "ereignis_zeit": "", **extra,
+    }
+
+
+def _pakete(sendungen, state=None, zugestellt=0, **attrs):
+    aktiv = sum(s["status_code"] != 0 for s in sendungen)
+    a = {"verfuegbar": True, "heute": 0, "zugestellt_heute": zugestellt, "sendungen": sendungen, **attrs}
+    return {PAKET: st(str(aktiv if state is None else state), **a)}
+
+
+def _karte(states, lokal=LOKAL_PAKETE):
+    return kt.pakete_karte(states, PAKET, JETZT, lokal)
+
+
+def test_pakete_erscheint_nur_mit_aktiven_oder_heute_zugestellten():
+    assert _karte({}) is None
+    assert _karte({PAKET: st("unavailable")}) is None and _karte({PAKET: st("unknown")}) is None
+    assert _karte(_pakete([])) is None  # Zustand 0, nichts zugestellt: keine Karte
+    assert _karte({PAKET: st("0", zugestellt_heute=0, sendungen=[])}) is None
+    assert _karte(_pakete([_sendung()]))["id"] == "akt:pakete"
+    # nur Zugestelltes von heute genügt
+    assert _karte(_pakete([_sendung(sc=0, zug_heute=True)], zugestellt=1)) is not None
+    # fehlende Zahlen im Sensor (Vorlage noch nicht fertig) ergeben keine Karte
+    assert _karte({PAKET: st("0", zugestellt_heute="abc")}) is None
+
+
+def test_pakete_karte_ring_zahl_titel_wert_hinweis():
+    k = _karte(_pakete([_sendung(sc=4, erwartet="2026-10-01", von="14:00", bis="18:00", heute=True)]))
+    assert (k["art"], k["schluessel"], k["id"]) == ("pakete", "pakete", "akt:pakete")
+    assert (k["titel"], k["wert"], k["hinweis"]) == ("Paket", "in Zustellung", "DHL · 14–18 Uhr")
+    assert (k["anzahl"], k["stufe"], k["ring"], k["relevanz"], k["problem"]) == (1, 3, 0.75, 75, False)
+    assert k["ende"] is None and k["dauer_s"] is None
+    zwei = _karte(_pakete([_sendung(sc=2, stufe=2, erwartet="2026-10-01", heute=True), _sendung("Amazon", "Buch", sc=8)]))
+    assert (zwei["titel"], zwei["anzahl"], zwei["ring"], zwei["wert"], zwei["hinweis"]) == ("Pakete", 2, 0.5, "heute", "DHL, Amazon")
+    drei = _karte(_pakete([_sendung(erwartet="2026-10-01"), _sendung("Amazon", "Buch", erwartet="2026-10-01"), _sendung("GLS", "X")]))
+    assert drei["wert"] == "2 heute"
+    # Ring folgt der ersten Sendung, die Zahl zählt die aktiven
+    erste = _karte(_pakete([_sendung(sc=8), _sendung(sc=4)]))
+    assert erste["ring"] == 0.25 and erste["anzahl"] == 2
+    assert _karte(_pakete([_sendung(erwartet="2026-10-02")]))["wert"] == "unterwegs"
+    assert _karte(_pakete([_sendung(sc=3)]))["wert"] == "abholbereit"
+    assert _karte(_pakete([_sendung(sc=7), _sendung(sc=6)]))["wert"] == "2 Probleme"
+    assert _karte(_pakete([_sendung(sc=4), _sendung(sc=4)]))["wert"] == "2 in Zustellung"
+    # eine Sendung ohne Zeitfenster: Hinweis mit Tag
+    assert _karte(_pakete([_sendung(erwartet="2026-10-02")]))["hinweis"] == "DHL · morgen"
+    assert _karte(_pakete([_sendung()]))["hinweis"] == "DHL"
+
+
+def test_pakete_relevanz_stufen():
+    def rel(*sendungen, **kw):
+        return _karte(_pakete(list(sendungen), **kw))["relevanz"]
+
+    assert rel(_sendung(sc=4)) == 75
+    assert rel(_sendung(sc=7)) == 70 and rel(_sendung(sc=6)) == 70
+    assert rel(_sendung(erwartet="2026-10-01")) == 60 and rel(_sendung(heute=True)) == 60
+    assert rel(_sendung(erwartet="2026-10-02")) == 40 and rel(_sendung(sc=8)) == 40
+    # höchster Wert der Sendungen gewinnt
+    assert rel(_sendung(sc=8), _sendung(sc=7), _sendung(erwartet="2026-10-01")) == 70
+    assert rel(_sendung(sc=8), _sendung(sc=4)) == 75
+    # nur noch heute Zugestelltes
+    assert rel(_sendung(sc=0, zug_heute=True), zugestellt=1) == 30
+    # Problem färbt die Karte rot, wenn die erste Sendung ein Problem hat
+    assert _karte(_pakete([_sendung(sc=7), _sendung(sc=4)]))["problem"] is True
+    assert _karte(_pakete([_sendung(sc=4), _sendung(sc=7)]))["problem"] is False
+
+
+def test_pakete_im_feed_sortiert_nach_relevanz():
+    live = {"sensor.la_rams": {"state": "IN", "attributes": RAMS_ATTR}, "switch.balkon_kohlegrill": st("on")}
+
+    def feed(sendungen):
+        s = {**live, **_pakete(sendungen)}
+        return [k["schluessel"] for k in kt.berechne(s, "", JETZT, lokal=LOKAL_PAKETE, pakete_entitaet=PAKET)]
+
+    assert feed([_sendung(sc=4)]) == ["rams", "pakete", "kohle"]  # 85 > 75 > 70
+    assert feed([_sendung(sc=7)]) == ["rams", "kohle", "pakete"]  # 70 gleich: Aktivitäten zuerst
+    assert feed([_sendung(erwartet="2026-10-01")]) == ["rams", "kohle", "pakete"]  # 60
+    # ohne Option oder Quelle keine Karte
+    assert "pakete" not in [k["schluessel"] for k in kt.berechne({**live, **_pakete([_sendung()])}, "", JETZT, lokal=LOKAL_PAKETE)]
+    assert kt.berechne(live, "", JETZT, lokal=LOKAL_PAKETE, pakete_entitaet=PAKET)[-1]["schluessel"] == "kohle"
+    # im Editor abwählbar
+    s = {**live, **_pakete([_sendung(sc=4)])}
+    assert "pakete" not in [k["schluessel"] for k in kt.berechne(s, "", JETZT, ["pakete"], lokal=LOKAL_PAKETE, pakete_entitaet=PAKET)]
+
+
+def test_pakete_liste_zeilen_und_weitere():
+    s = [
+        _sendung("Amazon", "Kopfhörer", sc=4, erwartet="2026-10-01", von="14:00", bis="18:30", heute=True),
+        _sendung("DHL", "Amazon-Sendung", erwartet="2026-10-02"),  # Titel nur Platzhalter: nicht wiederholen
+        _sendung("Deutsche Post", "Ein sehr langer Titel einer Sendung aus dem Netz", erwartet="2026-10-04"),
+        _sendung("Hermes", "Schuhe", sc=6, erwartet="2026-09-30"),
+        _sendung("DPD", "Kabel", sc=8),
+        _sendung("GLS", "Lampe"),
+        _sendung("UPS", "Stuhl"),
+    ]
+    k = _karte(_pakete(s))
+    assert k["liste"][0] == ["Amazon", "Kopfhörer · in Zustellung, heute 14–18:30 Uhr"]
+    assert k["liste"][1] == ["DHL", "Amazon-Sendung · unterwegs, morgen"]
+    assert k["liste"][2][0] == "Deutsche Post" and k["liste"][2][1].endswith("unterwegs, So 04.10.") and "…" in k["liste"][2][1]
+    assert k["liste"][3] == ["Hermes", "Schuhe · Zustellversuch, Mi 30.09."]
+    assert k["liste"][4] == ["DPD", "Kabel · angekündigt"]
+    assert k["liste"][5] == ["", "+2 weitere"] and len(k["liste"]) == 6
+    assert len(k["sendungen"]) == 7 and k["anzahl"] == 7
+    assert _karte(_pakete(s[:5]))["liste"][-1][0] == "DPD"  # genau fünf: kein „weitere“
+    # generischer Titel entfällt in der Zeile
+    assert _karte(_pakete([_sendung("Amazon", "Amazon-Sendung")]))["liste"] == [["Amazon", "unterwegs"]]
+
+
+def test_pakete_attribute_als_text_robust():
+    s = [_sendung(sc=4, erwartet="2026-10-01", von="09:00", bis="12:00", heute=True)]
+    erwartet = _karte(_pakete(s))
+    # JSON-Text und Python-Schreibweise (HA gibt Attribute je nach Vorlage als Text aus)
+    for text in (json.dumps(s, ensure_ascii=False), str(s)):
+        k = _karte({PAKET: st("1", zugestellt_heute="0", sendungen=text)})
+        assert k["liste"] == erwartet["liste"] and k["ring"] == 0.75 and k["hinweis"] == "DHL · 9–12 Uhr"
+    # Zahlen und Wahrheitswerte als Text
+    t = [{**s[0], "stufe": "3", "problem": "false", "heute": "true", "status_code": "4"}]
+    k = _karte({PAKET: st("1", zugestellt_heute="0", sendungen=t)})
+    assert k["ring"] == 0.75 and k["problem"] is False and k["sendungen"][0]["heute"] is True
+    # unlesbar oder falscher Typ: Karte bleibt (Zähler stimmt), nur ohne Liste
+    for kaputt in ("{kaputt", "", None, 5, {"x": 1}, ["x", 3, None]):
+        k = _karte({PAKET: st("2", zugestellt_heute=0, sendungen=kaputt)})
+        assert k["anzahl"] == 2 and k["liste"] == [] and k["sendungen"] == [] and k["ring"] is None and k["wert"] == "unterwegs"
+    # ein einzelnes Dict statt Liste
+    assert _karte({PAKET: st("1", sendungen=s[0])})["liste"] == erwartet["liste"]
+    # fehlende Felder in der Sendung
+    k = _karte({PAKET: st("1", sendungen=[{"status_code": 2}])})
+    assert k["liste"] == [["Paket", "unterwegs"]] and k["ring"] == 0.5
+
+
+def test_pakete_nur_zugestellt_heute():
+    s = [_sendung(sc=0, zug_heute=True, ereignis_zeit="01.10.2026 11:05"), _sendung("Amazon", "Alt", sc=0, zug_heute=False)]
+    k = _karte(_pakete(s, zugestellt=1))
+    assert (k["titel"], k["wert"], k["anzahl"], k["ring"], k["relevanz"], k["stufe"]) == ("Paket", "zugestellt", 1, 1.0, 30, 4)
+    assert len(k["sendungen"]) == 1 and k["liste"] == [["DHL", "Kopfhörer · zugestellt"]] and k["hinweis"] == "DHL"
+    assert k["sendungen"][0]["ereignis_zeit"] == "heute 11:05"
+    # Zustand 0 und nur ältere Zustellungen: nichts anzeigen
+    assert _karte(_pakete([_sendung(sc=0)], zugestellt=0)) is None
+    # aktiv und zugestellt gemischt: Zahl = aktive, Zugestelltes steht hinten in der Liste
+    gemischt = _karte(_pakete([_sendung(sc=2), _sendung("Amazon", "Buch", sc=0, zug_heute=True)], zugestellt=1))
+    assert gemischt["anzahl"] == 1 and gemischt["titel"] == "Paket" and gemischt["relevanz"] == 40 and gemischt["wert"] == "unterwegs"
+    assert [z[0] for z in gemischt["liste"]] == ["DHL", "Amazon"] and gemischt["zugestellt_heute"] == 1
+
+
+def test_pakete_tag_fenster_und_ereigniszeit():
+    heute = date(2026, 10, 1)
+    assert [kt._tag_text(date(2026, 10, d), heute) for d in (1, 2, 5, 12)] == ["heute", "morgen", "Mo 05.10.", "Mo 12.10."]
+    assert kt._fenster("14:00", "18:00") == "14–18 Uhr" and kt._fenster("08:30", "10:00") == "8:30–10 Uhr"
+    assert kt._fenster("14:00", "") == "ab 14 Uhr" and kt._fenster("", "18:00") == "bis 18 Uhr" and kt._fenster("", "") == ""
+    assert kt._fenster("14:00", "14:00") == "14 Uhr" and kt._fenster("x", "y") == ""
+    z = lambda t: kt._ereignis_zeit(t, heute, BERLIN)  # noqa: E731
+    assert z("01.10.2026 08:15") == "heute 08:15" and z("2026-09-30 14:32:00") == "gestern 14:32"
+    assert z("03.10.2026, 9:05") == "Sa 03.10. 09:05" and z("2026-10-01") == "heute"
+    assert z("2026-10-01T10:00:00Z") == "heute 12:00"  # Zone wird nach lokal umgerechnet
+    assert z("gestern Abend") == "gestern Abend" and z("") == "" and z("31.02.2026 10:00") == "31.02.2026 10:00"
+    # Ereignis, Ort und Nummer bleiben erhalten und werden begrenzt
+    k = _karte(_pakete([_sendung(ereignis="E" * 200, ort="Kulmbach", nummer="0034")]))
+    assert len(k["sendungen"][0]["ereignis"]) == 80 and k["sendungen"][0]["ort"] == "Kulmbach" and k["sendungen"][0]["nummer"] == "0034"
+
+
+def test_hinweise_paket_und_spueler_werden_unterdrueckt():
+    zeilen = "paket|Paket|heute|DHL, Amazon\nspueler|Spüler|läuft|noch 45 min\nfertig|Fertig|Wäsche|Waschmaschine\nmuell|Müll|morgen|Bio"
+    k = kt.berechne({"sensor.h": st("4", zeilen=zeilen)}, "sensor.h", JETZT, lokal=LOKAL_ABEND, pakete_entitaet=PAKET)
+    assert sorted(x["schluessel"] for x in k) == ["fertig", "muell"]  # fertig bleibt unverändert
+    # auch mit Paketkarte: eine Karte, keine Doppelung
+    s = {"sensor.h": st("4", zeilen=zeilen), **_pakete([_sendung(sc=4)])}
+    k = kt.berechne(s, "sensor.h", JETZT, lokal=LOKAL_ABEND, pakete_entitaet=PAKET)
+    assert [x["schluessel"] for x in k].count("pakete") == 1 and not {"paket", "spueler"} & {x["schluessel"] for x in k}
+
+
+def test_hinweis_paket_bleibt_bei_abgeschalteter_paketkarte():
+    zeilen = "paket|Paket|heute|DHL\nspueler|Spüler|läuft|noch 45 min"
+    states = {"sensor.h": st("2", zeilen=zeilen), **_pakete([_sendung(sc=4)])}
+    # Option leer: keine Paketkarte, die Hinweiszeile „Paket heute“ bleibt; der Spüler ist immer ersetzt
+    k = kt.berechne(states, "sensor.h", JETZT, lokal=LOKAL_PAKETE, pakete_entitaet="")
+    assert [x["schluessel"] for x in k] == ["paket"]
+    k = kt.berechne(states, "sensor.h", JETZT, lokal=LOKAL_PAKETE, pakete_entitaet=PAKET)
+    assert [x["schluessel"] for x in k] == ["pakete"]
+
+
+def test_pakete_fremddaten_brechen_den_feed_nicht_ab(monkeypatch):
+    # Überlauf bei der Zeitumrechnung
+    heute = date(2026, 10, 1)
+    assert kt._ereignis_zeit("9999-12-31T23:59:59Z", heute, BERLIN) == "9999-12-31T23:59:59Z"
+    assert kt._ereignis_zeit("0001-01-01T00:00:00+02:00", heute, BERLIN) == "0001-01-01T00:00:00+02:00"
+    # Text-Attribute, die json oder literal_eval überfordern (TypeError, RecursionError)
+    assert kt._struktur("{[1]:2}") is None
+    assert kt._struktur("[" * 100_000 + "]" * 100_000) is None
+    assert kt._struktur('{"a": ' * 50_000) is None
+    k = _karte({PAKET: st("1", sendungen="[" * 100_000, zugestellt_heute=0)})
+    assert k["anzahl"] == 1 and k["sendungen"] == []
+    # Eine kaputte Paketkarte blockiert die übrigen Karten nicht
+    def kaputt(*_a):
+        raise RuntimeError("kaputt")
+
+    monkeypatch.setattr(kt, "_sendung", kaputt)
+    states = {"switch.balkon_kohlegrill": st("on"), **_pakete([_sendung()])}
+    assert [x["schluessel"] for x in kt.berechne(states, "", JETZT, lokal=LOKAL_PAKETE, pakete_entitaet=PAKET)] == ["kohle"]
+    monkeypatch.undo()
+    # Status wird wie die übrigen Felder gekürzt
+    assert len(_karte(_pakete([_sendung(status="S" * 100)]))["sendungen"][0]["status"]) == 30
+
+
+def test_spuelmaschine_eingriff_noetig():
+    prefix = "BSH.Common.EnumType.OperationState."
+    k = kt.akt_spueler({kt.QUELLEN["spueler_status"]: st(prefix + "ActionRequired")}, JETZT)
+    assert k["id"] == "akt:spueler" and k["hinweis"] == "Eingriff nötig" and k["wert"] == "–"
+    # bestehendes Verhalten bleibt
+    assert kt.akt_spueler({kt.QUELLEN["spueler_status"]: st(prefix + "Run"), kt.QUELLEN["spueler_fortschritt"]: st("40")}, JETZT)["hinweis"] == "läuft 40 %"
+    assert kt.akt_spueler({kt.QUELLEN["spueler_status"]: st(prefix + "Pause")}, JETZT)["hinweis"] == "pausiert"
+    assert kt.akt_spueler({kt.QUELLEN["spueler_status"]: st(prefix + "Ready")}, JETZT) is None
+    assert kt.akt_spueler({}, JETZT) is None
+
+
+def test_pakete_entitaet_loest_neuberechnung_aus():
+    assert PAKET in kt.relevante_entitaeten("sensor.h", PAKET) and PAKET not in kt.relevante_entitaeten("sensor.h")
+    assert "sensor.h" in kt.relevante_entitaeten("sensor.h", PAKET) and kt.relevante_entitaeten("", "") == kt.relevante_entitaeten("")

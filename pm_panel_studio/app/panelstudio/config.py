@@ -61,6 +61,8 @@ class Options:
     """Feste Zuordnungen aus den App-Optionen. Leere Felder schalten die jeweilige Funktion ab."""
 
     hinweise_entitaet: str = "sensor.panel_bad_hinweise"
+    # Paket-Sensor für die Feed-Karte „Pakete“ (Zustand = aktive Sendungen); leer = keine Paketkarte
+    pakete_entitaet: str = "sensor.pakete"
     bewegung: list[str] = field(
         default_factory=lambda: ["binary_sensor.bewegungsmelder_flur_1_bewegung", "binary_sensor.bewegungsmelder_flur_2_bewegung"]
     )

@@ -56,9 +56,29 @@ async def test_init_enthaelt_zustaende_und_karten(ingress):
     # (die Müllkarte rückt abends vor dem Abholtag nach vorn, daher nur die festen Plätze prüfen)
     assert schluessel[:4] == ["eil", "unwetter", "termin", "rams"]
     assert {"kohle", "waesche"} <= set(schluessel)
+    # Pakete: Demo-Sensor mit einer Sendung in Zustellung (75), dahinter die Aktivitäten (Rams live 85 bleibt davor)
+    assert schluessel.index("rams") < schluessel.index("pakete")
+    paket = next(k for k in m["karten"] if k["schluessel"] == "pakete")
+    assert (paket["art"], paket["id"], paket["relevanz"], paket["anzahl"], paket["ring"]) == ("pakete", "akt:pakete", 75, 3, 0.75)
+    assert len(paket["sendungen"]) == 3 and paket["liste"][0][0] == "DHL"
     assert [k["relevanz"] for k in m["karten"]] == sorted((k["relevanz"] for k in m["karten"]), reverse=True)
     assert m["karten"][1]["stufe"] == 3 and m["karten"][1]["titel"] == "Schweres Gewitter"
     assert "muell" in schluessel
+    await ws.close()
+
+
+async def test_pakete_karte_folgt_dem_sensor(ingress, fake):
+    ws = await ingress.ws_connect("/api/ws")
+    m = await _init(ws)
+    assert "pakete" in [k["schluessel"] for k in m["karten"]]
+    # alles zugestellt und nichts von heute: die Karte verschwindet
+    fake.set_state("sensor.pakete", "0", zugestellt_heute=0)
+    await _warte_auf(ws, "karten", lambda m: "pakete" not in [k["schluessel"] for k in m["karten"]])
+    # nur noch heute Zugestelltes: Karte mit Relevanz 30
+    fake.set_state("sensor.pakete", "0", zugestellt_heute=1, sendungen=[])
+    k = await _warte_auf(ws, "karten", lambda m: "pakete" in [k["schluessel"] for k in m["karten"]])
+    paket = next(x for x in k["karten"] if x["schluessel"] == "pakete")
+    assert (paket["wert"], paket["relevanz"], paket["anzahl"]) == ("zugestellt", 30, 1)
     await ws.close()
 
 

@@ -1,5 +1,27 @@
 # Änderungen
 
+## 2026.10.22 – 2026-10-09
+
+- Neue Feed-Karte „Pakete“: Sie zeigt die Sendungen aus `sensor.pakete` (normalisierter Paket-Sensor aus der Integration
+  Parcel). Die Karte erscheint, solange Sendungen aktiv sind oder heute etwas zugestellt wurde. Der Ring zeigt die
+  Stufe der ersten Sendung (angekündigt, unterwegs, in Zustellung, zugestellt; Anteil Stufe von 4), die Zahl darin die
+  aktiven Sendungen. Darunter stehen bis zu fünf Zeilen mit Versender und „Titel · Status, Tag Zeitfenster“
+  (heute, morgen, sonst „Mo 12.10.“), der Rest als „+n weitere“. Relevanz: in Zustellung 75, Problem (Zustellversuch,
+  Problem) 70, heute erwartet oder abholbereit 60, sonst 40, nur noch heute Zugestelltes 30. Ein Tipp öffnet ein
+  Popup mit allen Sendungen: Versender, Titel, Stufenleiste mit vier Schritten (ein Problem färbt den Schritt rot),
+  erwarteter Tag und Zeitfenster, letztes Ereignis mit Ort und Zeit sowie die Sendungsnummer. Das Popup folgt dem Sensor
+  und schließt, sobald die Karte verschwindet. Die Attribute des Sensors kommen je nach Auswertung der Vorlage als
+  Liste oder als Text an; beides wird gelesen. Im Editor unter „Pakete“ abwählbar.
+- Neue App-Option `pakete_entitaet` (Standard `sensor.pakete`, leer = keine Paketkarte). Der Standard gilt auch, wenn die
+  gespeicherten App-Optionen die Option noch nicht enthalten.
+- Die Hinweiszeilen `paket` (Paket heute) und `spueler` (Geschirrspüler läuft) aus dem Hinweis-Sensor erscheinen nicht
+  mehr als Karte, weil es dafür eigene Karten gibt („Pakete“ und „Spülmaschine“). `paket` wird nur unterdrückt, solange
+  `pakete_entitaet` gesetzt ist; bei leerer Option bleibt die Hinweiszeile. „Fertig“ bleibt unverändert.
+- Die Karte „Spülmaschine“ zeigt jetzt auch den Zustand „Eingriff nötig“ (ActionRequired), den bisher nur die
+  Hinweiszeile meldete.
+- Fehlerhafte Fremddaten im Paket-Sensor (unlesbare Attribute, unmögliche Zeitangaben) lassen den Feed nie ausfallen;
+  im Zweifel fehlt nur die Paketkarte, der Fehler steht im Protokoll.
+
 ## 2026.10.21 – 2026-10-09
 
 - Neue Feed-Karte „Heimweg“: Ist Dominik oder Gina auf dem Weg nach Hause (Proximity-Integration meldet „towards“,
