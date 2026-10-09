@@ -475,7 +475,9 @@
   }
   function feedAufbauen() {
     let k = (PS.karten || []).filter((x) => x.schluessel !== "wetter");
-    const ww = (PS.einst.karten_aus || []).includes("wetter") ? null : wetterwechsel(); if (ww) k.push(ww);
+    // Kein „Wetterwechsel“, wenn der DWD dieselbe Lage schon als Warnung meldet (Gewitter, Regen, Schnee)
+    const gewarnt = k.some((x) => x.art === "warnung" && ["gewitter", "regen", "schnee"].includes(x.familie));
+    const ww = (PS.einst.karten_aus || []).includes("wetter") || gewarnt ? null : wetterwechsel(); if (ww) k.push(ww);
     if (!k.length) k.push(okKarte());
     if (!(PS.einst.karten_aus || []).includes("termin")) { k.push(...terminKarten()); const mk = morgenKarte(); if (mk) k.push(mk); }
     kartenSetzen(sortiert(k));

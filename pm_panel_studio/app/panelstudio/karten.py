@@ -564,12 +564,28 @@ def _dwd_vorhanden(states: States) -> bool:
     )
 
 
-def unwetter_karten(states: States, jetzt: datetime) -> list[dict]:
-    """Amtliche Warnungen des DWD (Integration dwd_weather_warnings) als eigene Karten.
+# Wettergefahren für das Zusammenfassen der DWD-Warnungen; Reihenfolge zählt („starkes Gewitter mit Starkregen“
+# ist ein Gewitter, „Sturmböen“ Wind)
+FAMILIEN = (
+    ("gewitter", ("gewitter",)),
+    ("wind", ("böen", "boeen", "sturm", "orkan", "wind")),
+    ("regen", ("regen",)),
+    ("schnee", ("schnee",)),
+    ("glaette", ("glätte", "glaette", "glatteis", "eisregen")),
+    ("frost", ("frost",)),
+    ("nebel", ("nebel",)),
+    ("hitze", ("hitze", "uv-")),
+    ("tauwetter", ("tauwetter",)),
+)
 
-    Erkannt werden die Sensoren der Integration an ihren Attributen (``region_name``, ``warning_count``); der Sensor
-    „Aktuelle Warnstufe“ liefert aktive Warnungen, „Vorwarnstufe“ die Vorabinformationen. Je Warnung eine Karte,
-    höchste Stufe zuerst, höchstens drei."""
+
+def warn_familie(name: str) -> str:
+    n = name.lower()
+    return next((fam for fam, worte in FAMILIEN if any(w in n for w in worte)), n)
+
+
+def _dwd_warnungen(states: States, jetzt: datetime) -> list[dict]:
+    """Alle noch gültigen Einzelwarnungen aller DWD-Sensoren (aktuell und Vorabinformation, alle Regionen)."""
     out: list[dict] = []
     for eid, st in states.items():
         a = st.get("attributes") or {}
@@ -584,25 +600,74 @@ def unwetter_karten(states: States, jetzt: datetime) -> list[dict]:
             ende_dt = ende if isinstance(ende, datetime) else _zeit_oder_none(ende)
             if ende_dt and ende_dt < jetzt:
                 continue
-            stufe = int(_num(a.get(f"warning_{i}_level")) or 1)
+            start = a.get(f"warning_{i}_start")
             out.append(
                 {
-                    "id": f"warn:{'vorab' if vorab else 'aktiv'}:{name}",
-                    "art": "warnung",
-                    "schluessel": "unwetter",
-                    "titel": str(name),
-                    "wert": str(stufe),
-                    "hinweis": str(a.get(f"warning_{i}_headline") or ""),
-                    "stufe": max(1, min(4, stufe)),
+                    "name": str(name),
+                    "stufe": max(1, min(4, int(_num(a.get(f"warning_{i}_level")) or 1))),
                     "vorab": vorab,
+                    "headline": str(a.get(f"warning_{i}_headline") or ""),
                     "region": a.get("region_name"),
-                    "start": _iso(a.get(f"warning_{i}_start")),
-                    "bis": _iso(ende),
-                    "ring": max(1, min(4, stufe)) / 4,
-                    "ende": None,
-                    "dauer_s": None,
+                    "start": start,
+                    "start_dt": start if isinstance(start, datetime) else _zeit_oder_none(start),
+                    "ende": ende,
+                    "ende_dt": ende_dt,
                 }
             )
+    return out
+
+
+def unwetter_karten(states: States, jetzt: datetime) -> list[dict]:
+    """Amtliche Warnungen des DWD (Integration dwd_weather_warnings), je Wettergefahr EINE Karte.
+
+    Erkannt werden die Sensoren der Integration an ihren Attributen (``region_name``, ``warning_count``); „Aktuelle
+    Warnstufe“ liefert aktive Warnungen, „Vorwarnstufe“ die Vorabinformationen. Der DWD meldet dieselbe Lage oft
+    mehrfach: als gestaffelte Einzelwarnungen (Windböen, Sturmböen …), in beiden Sensoren oder für mehrere Regionen.
+    Daraus wird je Gefahr eine Karte: höchste aktive Stufe mit Namen und Überschrift, Zeitraum vom frühesten Beginn bis
+    zum spätesten Ende; eine Vorabinformation zählt nur, wenn zur selben Gefahr keine aktive Warnung besteht, und steht
+    sonst als Ausblick im Hinweis, wenn sie eine höhere Stufe erwarten lässt. Höchste Stufe zuerst, höchstens drei."""
+    gruppen: dict[str, list[dict]] = {}
+    for w in _dwd_warnungen(states, jetzt):
+        gruppen.setdefault(warn_familie(w["name"]), []).append(w)
+    out: list[dict] = []
+    for fam, alle in gruppen.items():
+        aktiv = [w for w in alle if not w["vorab"]]
+        basis = aktiv or alle
+        top = max(basis, key=lambda w: (w["stufe"], w["ende_dt"] or jetzt))
+        starts = [w["start_dt"] for w in basis if w["start_dt"]]
+        enden = [w["ende_dt"] for w in basis if w["ende_dt"]]
+        teile = []
+        # Überschrift nur, wenn sie mehr sagt als „Amtliche Warnung vor <Name>“
+        if top["headline"] and top["name"].lower() not in top["headline"].lower():
+            teile.append(top["headline"])
+        andere = sorted({w["name"] for w in basis if w["name"] != top["name"]})
+        if andere:
+            teile.append("zeitweise " + ", ".join(andere))
+        if aktiv:
+            hoeher = [w for w in alle if w["vorab"] and w["stufe"] > top["stufe"]]
+            if hoeher:
+                v = max(hoeher, key=lambda w: w["stufe"])
+                teile.append(f"später möglich: {v['name']} (Stufe {v['stufe']})")
+        stufe = top["stufe"]
+        out.append(
+            {
+                "id": f"warn:{fam}",
+                "art": "warnung",
+                "schluessel": "unwetter",
+                "familie": fam,
+                "titel": top["name"],
+                "wert": str(stufe),
+                "hinweis": " · ".join(teile),
+                "stufe": stufe,
+                "vorab": not aktiv,
+                "region": top["region"],
+                "start": min(starts).isoformat() if starts else _iso(top["start"]),
+                "bis": max(enden).isoformat() if enden else _iso(top["ende"]),
+                "ring": stufe / 4,
+                "ende": None,
+                "dauer_s": None,
+            }
+        )
     out.sort(key=lambda k: (k["vorab"], -k["stufe"]))
     return out[:3]
 
