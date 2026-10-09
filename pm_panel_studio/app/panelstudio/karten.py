@@ -17,6 +17,7 @@ Eine Karte ist ein Dict:
 
 from __future__ import annotations
 
+import re
 from datetime import UTC, datetime, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -457,7 +458,8 @@ def parse_hinweise(zeilen: Any) -> list[dict]:
 # ------------------------------------------------------------ Relevanz (0–100)
 # eil 100 · aktive Warnung 90–100 (Vorabinformation 55) · Timer: Restzeit < 2 min 95, sonst 70 (pausiert 50) ·
 # Termin 60 + 35·(1 − Rest/3 h) · Müll am Vorabend ab 18 Uhr und morgens vor der Abholung 80, sonst 30 ·
-# Lüften/Offen 55 · Wetter 45 · Fahrt 50 · Musik 45 · Roborock 60 · Rams live 85, am Spieltag 50, nach dem Spiel 20 ·
+# Lüften/Offen 55 · Wetter 45 · Fahrt 50 · Musik 45 · Roborock 60 · Heimweg 65 (≤ 5 min 90) ·
+# Rams live 85, am Spieltag 50, nach dem Spiel 20 ·
 # „Alles ruhig“ 10 · übrige Hinweise 40
 def _rest_sek(k: dict, jetzt: datetime) -> float | None:
     ende = _parse_zeit(k.get("ende"))
@@ -485,6 +487,8 @@ def relevanz(k: dict, jetzt: datetime, lokal: datetime) -> int:
             return 45
         if schl == "robo":
             return 60
+        if schl == "heimweg":
+            return 90 if (k.get("rest_min") or 99) <= 5 else 65  # kurz vor der Ankunft nach vorn
         if k.get("hinweis") == "pausiert":
             return 50
         rest = _rest_sek(k, jetzt)
@@ -526,6 +530,8 @@ def berechne(
     aus: list[str] | None = None,
     musik: list[str] | None = None,
     lokal: datetime | None = None,
+    heimweg: Heimweg | None = None,
+    personen: list[str] | None = None,
 ) -> list[dict]:
     """Alle Karten nach Relevanz sortiert. Gleichstand: Eilmeldung und Warnung, dann Aktivitäten, dann übrige Hinweise.
 
@@ -536,6 +542,8 @@ def berechne(
     akt = [k for fn in AKTIVITAETEN if (k := fn(states, jetzt))] + akt_musik(states, jetzt, musik or [])
     if rams := akt_rams(states, jetzt, lokal):
         akt.append(rams)
+    if heimweg is not None:
+        akt += heimweg.karten(states, jetzt, lokal, personen or [])
     unwetter = unwetter_karten(states, jetzt)
     if any(k["id"].startswith("warn:") for k in unwetter) or _dwd_vorhanden(states):
         # Die DWD-Sensoren ersetzen die knappe Warnzeile der Hinweisvorlage
@@ -680,6 +688,114 @@ def _zeit_oder_none(value: Any) -> datetime | None:
     except ValueError:
         return None
     return dt if dt.tzinfo else None
+
+
+# ------------------------------------------------------------ Heimweg (Proximity-Integration)
+HEIMWEG_MIN_START_M = 1000  # kürzere Wege sind ein Spaziergang ums Haus, keine Heimfahrt
+HEIMWEG_ANGEKOMMEN_M = 150
+HEIMWEG_PAUSE = timedelta(minutes=20)  # so lange überlebt eine Fahrt ohne „towards“ (Umweg, Tankstelle)
+HEIMWEG_FENSTER = timedelta(minutes=10)  # Messfenster für die Annäherungsgeschwindigkeit
+HEIMWEG_V_ERSATZ = 50 / 3.6 / 1.3  # m/s Luftlinie: 50 km/h auf einer Straße, die rund 30 % länger als die Luftlinie ist
+
+
+def _slug(text: str) -> str:
+    t = text.lower()
+    for a, b in (("ä", "a"), ("ö", "o"), ("ü", "u"), ("ß", "ss")):
+        t = t.replace(a, b)
+    return re.sub(r"[^a-z0-9]+", "_", t).strip("_")
+
+
+def heimweg_quelle(eid: str) -> bool:
+    """Entitäten, deren Änderung die Heimweg-Karte neu berechnet (Personen und Proximity-Sensoren)."""
+    return eid.startswith("person.") or (
+        eid.startswith("sensor.") and any(w in eid for w in ("entfernung", "distance", "bewegung_von", "direction_of_travel"))
+    )
+
+
+def _proximity(states: States, person: str) -> tuple[str | None, str | None]:
+    """Entfernungs- und Richtungssensor der Proximity-Integration zu einer Person (über den Namen gefunden)."""
+    name = _slug(str(((states.get(person) or {}).get("attributes") or {}).get("friendly_name") or person.split(".", 1)[1]))
+    dist = richt = None
+    for eid, st in states.items():
+        if not eid.startswith("sensor.") or not eid.endswith("_" + name):
+            continue
+        a = st.get("attributes") or {}
+        if a.get("device_class") == "distance":
+            dist = eid
+        elif "towards" in (a.get("options") or []):
+            richt = eid
+    return dist, richt
+
+
+class Heimweg:
+    """Merkt sich je Person den Beginn der Heimfahrt und die letzten Entfernungen.
+
+    Eine Fahrt beginnt, wenn die Proximity-Integration „towards“ meldet und die Person mindestens 1 km entfernt ist;
+    der Ring füllt sich mit der zurückgelegten Strecke (bei 0 km voll). Die Ankunftszeit ergibt sich aus der Geschwindigkeit, mit
+    der die Entfernung in den letzten Minuten abnimmt; ohne Messung gilt ein Ersatzwert."""
+
+    def __init__(self) -> None:
+        self.fahrten: dict[str, dict] = {}
+
+    def karten(self, states: States, jetzt: datetime, lokal: datetime, personen: list[str]) -> list[dict]:
+        out = []
+        for person in personen:
+            if k := self._karte(states, jetzt, lokal, person):
+                out.append(k)
+        return out
+
+    def _karte(self, states: States, jetzt: datetime, lokal: datetime, person: str) -> dict | None:
+        dist_eid, richt_eid = _proximity(states, person)
+        d = _num(_state(states, dist_eid)) if dist_eid else None
+        richtung = _state(states, richt_eid) if richt_eid else None
+        if d is not None and str(_attr(states, dist_eid, "unit_of_measurement") or "m") == "km":
+            d *= 1000
+        f = self.fahrten.get(person)
+        if d is None or _state(states, person) == "home" or richtung == "arrived" or d <= HEIMWEG_ANGEKOMMEN_M:
+            self.fahrten.pop(person, None)
+            return None
+        if richtung == "towards":
+            if f is None:
+                if d < HEIMWEG_MIN_START_M:
+                    return None
+                f = self.fahrten[person] = {"start_m": d, "start_t": jetzt, "proben": []}
+            f["zuletzt_hin"] = jetzt
+        elif f is None:
+            return None
+        elif jetzt - f.get("zuletzt_hin", f["start_t"]) > HEIMWEG_PAUSE:
+            self.fahrten.pop(person, None)
+            return None
+        if not f["proben"] or f["proben"][-1][1] != d:
+            f["proben"].append((jetzt, d))
+        f["proben"] = [p for p in f["proben"] if jetzt - p[0] <= HEIMWEG_FENSTER]
+        if richtung not in ("towards", "stationary"):
+            return None  # Umweg: Karte ruht, die Fahrt bleibt gemerkt (an der Ampel „stationary“ bleibt sie sichtbar)
+        f["start_m"] = max(f["start_m"], d)
+        # Annäherung aus dem ältesten Messpunkt im Fenster (mind. 2 min alt), sonst seit Fahrtbeginn, sonst Ersatzwert
+        v = None
+        alt = f["proben"][0]
+        if (jetzt - alt[0]).total_seconds() >= 120:
+            v = (alt[1] - d) / (jetzt - alt[0]).total_seconds()
+        elif (jetzt - f["start_t"]).total_seconds() >= 120:
+            v = (f["start_m"] - d) / (jetzt - f["start_t"]).total_seconds()
+        if v is None or not 1.5 <= v <= 45:
+            v = HEIMWEG_V_ERSATZ
+        rest_s = d / v
+        name = str(_attr(states, person, "friendly_name") or person.split(".", 1)[1]).split(" ")[0]
+        ankunft = (lokal + timedelta(seconds=rest_s)).strftime("%H:%M") if rest_s < 3 * 3600 else None
+        km = d / 1000
+        return {
+            "id": f"akt:heimweg:{person}",
+            "art": "aktivitaet",
+            "schluessel": "heimweg",
+            "titel": f"{name} ist auf dem Heimweg",
+            "wert": f"{km:.1f}".replace(".", ",") if km < 10 else str(round(km)),
+            "hinweis": f"Ankunft gegen {ankunft}" if ankunft else "",
+            "rest_min": round(rest_s / 60),
+            "ring": max(0.0, min(1.0, 1 - d / f["start_m"])),
+            "ende": None,
+            "dauer_s": None,
+        }
 
 
 def relevante_entitaeten(hinweise_entitaet: str) -> set[str]:

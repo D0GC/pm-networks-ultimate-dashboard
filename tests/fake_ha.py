@@ -102,6 +102,8 @@ def default_states(jetzt: datetime) -> list[dict[str, Any]]:
         ),
         s("person.dominik", "home", None, friendly_name="Dominik"),
         s("person.gina_perina", "not_home", None, friendly_name="Gina Perina"),
+        s("sensor.zuhause_entfernung_von_gina_perina", "12400", None, friendly_name="Entfernung von Gina Perina", device_class="distance", unit_of_measurement="m"),
+        s("sensor.zuhause_bewegung_von_gina_perina", "towards", None, friendly_name="Bewegung von Gina Perina", device_class="enum", options=["arrived", "away_from", "stationary", "towards"]),
         s("alarm_control_panel.alarmo", "armed_home", None, friendly_name="Alarmsystem", code_format="number"),
         s(
             "binary_sensor.bewegungsmelder_flur_1_bewegung",

@@ -1,5 +1,14 @@
 # Änderungen
 
+## 2026.10.21 – 2026-10-09
+
+- Neue Feed-Karte „Heimweg“: Ist Dominik oder Gina auf dem Weg nach Hause (Proximity-Integration meldet „towards“,
+  Start mindestens 1 km entfernt), zeigt die Karte die verbleibenden Kilometer im Ring und eine geschätzte
+  Ankunftszeit. Der Ring füllt sich mit der zurückgelegten Strecke und ist bei 0 km voll. Die Ankunftszeit folgt
+  aus der gemessenen Annäherung der letzten Minuten (ohne Messung: 50 km/h auf der Straße). An der Ampel bleibt die
+  Karte stehen, bei einem Umweg ruht sie, bei Ankunft verschwindet sie. Relevanz 65, in den letzten 5 Minuten 90.
+  Im Editor unter „Heimweg“ abwählbar.
+
 ## 2026.10.20 – 2026-10-09
 
 - Klingelton am Haustür-Overlay: Sobald das Overlay „Haustür“ wegen eines Klingelns erscheint, spielt das Panel ein
