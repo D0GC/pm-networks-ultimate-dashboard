@@ -32,6 +32,56 @@ async def test_klingel_startet_haustuer_overlay(ingress, hub, fake):
     await ws.close()
 
 
+async def test_klingel_zaehler_steigt_bei_jedem_klingeln(ingress, hub, fake):
+    ws = await ingress.ws_connect("/api/ws")
+    await _init(ws)
+    ziel = "binary_sensor.haustur_klingelt"
+    fake.set_state(ziel, "off")
+    fake.set_state(ziel, "on")
+    m = await _warte_auf(ws, lambda m: m["typ"] == "ereignis" and m.get("aktiv"))
+    assert m["intercom"] is True and m["klingel"] == 1
+    seit = m["seit"]
+    # aus -> an bei offenem Overlay: erneutes Klingeln, gleiche Startzeit
+    fake.set_state(ziel, "off")
+    fake.set_state(ziel, "on")
+    m = await _warte_auf(ws, lambda m: m["typ"] == "ereignis" and m.get("aktiv") and m.get("klingel") == 2)
+    assert m["seit"] == seit
+    assert hub.ereignis["klingel"] == 2
+    # Nach dem Ende des Overlays beginnt der Zähler wieder bei 1
+    hub.ereignis_beenden()
+    await _warte_auf(ws, lambda m: m["typ"] == "ereignis" and not m.get("aktiv"))
+    fake.set_state(ziel, "off")
+    fake.set_state(ziel, "on")
+    m = await _warte_auf(ws, lambda m: m["typ"] == "ereignis" and m.get("aktiv"))
+    assert m["klingel"] == 1
+    await ws.close()
+
+
+async def test_klingel_zaehler_im_init_paket(ingress, hub, fake):
+    hub.ereignis_starten("binary_sensor.haustur_klingelt", "Haustür", intercom=True)
+    hub.ereignis_starten("binary_sensor.haustur_klingelt", "Haustür", intercom=True)
+    ws = await ingress.ws_connect("/api/ws")
+    init = await _init(ws)
+    assert init["ereignis"]["aktiv"] is True and init["ereignis"]["klingel"] == 2
+    await ws.close()
+
+
+async def test_editor_haustuer_test_klingelt(ingress, hub):
+    ws = await ingress.ws_connect("/api/ws")
+    await _init(ws)
+    await ws.send_json({"typ": "ereignis_test", "intercom": True, "id": 1})
+    m = await _warte_auf(ws, lambda m: m["typ"] == "ereignis" and m.get("aktiv"))
+    assert m["intercom"] is True and m["klingel"] == 1
+    await ws.close()
+
+
+async def test_ereignis_ohne_intercom_hat_keinen_klingel_zaehler(ingress, hub):
+    hub.ereignis_starten("binary_sensor.wohnungstuer_person")
+    hub.ereignis_starten("binary_sensor.wohnungstuer_person")
+    assert hub.ereignis["intercom"] is False
+    assert "klingel" not in hub.ereignis
+
+
 async def test_person_overlay_ohne_gegensprechen(ingress, fake):
     ws = await ingress.ws_connect("/api/ws")
     init = await _init(ws)
@@ -40,6 +90,7 @@ async def test_person_overlay_ohne_gegensprechen(ingress, fake):
     fake.set_state("binary_sensor.wohnungstuer_person", "on")
     m = await _warte_auf(ws, lambda m: m["typ"] == "ereignis" and m.get("aktiv"))
     assert m["intercom"] is False
+    assert "klingel" not in m
     assert m["kamera"] == "camera.wohnungstuer_standardauflosung"
     await ws.close()
 

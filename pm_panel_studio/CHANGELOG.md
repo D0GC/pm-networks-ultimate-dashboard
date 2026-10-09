@@ -1,5 +1,20 @@
 # Änderungen
 
+## 2026.10.20 – 2026-10-09
+
+- Klingelton am Haustür-Overlay: Sobald das Overlay „Haustür“ wegen eines Klingelns erscheint, spielt das Panel ein
+  zweitöniges „Ding-Dong“ (eigene Web-Audio-Synthese, keine Datei; klar vom dreistimmigen Alarm-Gong unterscheidbar).
+  Er klingelt einmal und nach etwa 4,5 Sekunden ein zweites Mal, solange das Overlay offen ist und kein Gespräch läuft.
+  Ein erneutes Klingeln bei offenem Overlay klingelt erneut (mindestens 3 Sekunden Abstand); dafür zählt der Server
+  im Ereignis ein neues Feld `klingel` hoch. Nach einem Neuladen oder Reconnect merkt sich das Panel nur den Zähler und
+  bleibt stumm, damit ein App-Update nicht klingelt.
+- Der Klingelton ist bewusst „immer voll“: `alles_stumm`, Finn, Gina lernt und die Nacht unterdrücken ihn nicht.
+  Neue Einstellungen im Editor: „Lautstärke Klingelton“ (`klingel_lautstaerke`, 5–100, Standard 100) und ein Schalter
+  „Klingelton beim Haustür-Overlay“ (`ton_klingel`, Standard an), damit er abschaltbar bleibt.
+- Der Ton endet sofort, wenn das Overlay schließt oder ein Gespräch beginnt, damit das Mikrofon ihn nicht aufnimmt.
+  „Haustür testen“ im Editor spielt den Klingelton ebenfalls. Alarmton, Meldungen und das übrige Overlay bleiben
+  unverändert; Overlays für Person und Ereignis klingeln nicht.
+
 ## 2026.10.19 – 2026-10-09
 
 - Termine im Feed ohne Müllabfuhr: Die Einträge des Abfuhrkalenders (Waste Collection Schedule) erscheinen nicht mehr
