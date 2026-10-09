@@ -155,14 +155,42 @@ def test_unwetter_aus_dwd_sensoren_ersetzt_warnzeile():
     }
     karten = kt.berechne(states, "sensor.panel_bad_hinweise", jetzt)
     warn = [k for k in karten if k["art"] == "warnung"]
-    assert [k["titel"] for k in warn] == ["Sturmböen", "Windböen", "Orkanböen"]  # aktiv vor vorab, höchste Stufe zuerst
-    assert warn[0]["stufe"] == 2 and warn[0]["ring"] == 0.5 and not warn[0]["vorab"] and warn[2]["vorab"]
+    # Windböen, Sturmböen und die Vorabinformation Orkanböen sind dieselbe Lage: eine Karte „Wind“
+    (w,) = warn
+    assert w["familie"] == "wind" and w["titel"] == "Sturmböen" and w["stufe"] == 2 and w["ring"] == 0.5 and not w["vorab"]
+    assert w["hinweis"] == "zeitweise Windböen · später möglich: Orkanböen (Stufe 3)"
+    assert w["bis"] == (jetzt + timedelta(hours=6)).isoformat()  # spätestes Ende der Lage
     assert all(k["schluessel"] != "warnung" for k in karten)  # Warnzeile der Vorlage entfällt
     assert karten[0]["art"] == "warnung"
     # abgelaufene Warnung entfällt; ausgeblendet über „warnung“
     states["sensor.kreis_x_aktuelle_warnstufe"]["attributes"]["warning_2_end"] = (jetzt - timedelta(minutes=1)).isoformat()
-    assert "Sturmböen" not in [k["titel"] for k in kt.berechne(states, "sensor.panel_bad_hinweise", jetzt)]
+    (w,) = [k for k in kt.berechne(states, "sensor.panel_bad_hinweise", jetzt) if k["art"] == "warnung"]
+    assert w["titel"] == "Windböen" and w["stufe"] == 1
     assert not [k for k in kt.berechne(states, "sensor.panel_bad_hinweise", jetzt, aus=["warnung"]) if k["art"] == "warnung"]
+
+
+def test_unwetter_doppelt_gemeldet_eine_karte_je_gefahr():
+    jetzt = datetime(2026, 10, 7, 12, 0, tzinfo=UTC)
+
+    def sensor(region, *warnungen):
+        a = {"region_name": region, "warning_count": len(warnungen)}
+        for i, (name, stufe) in enumerate(warnungen, 1):
+            a |= {f"warning_{i}_name": name, f"warning_{i}_level": stufe, f"warning_{i}_headline": f"Amtliche Warnung vor {name}"}
+        return {"state": "1", "attributes": a}
+
+    states = {
+        # dieselbe Gewitterwarnung aktuell und als Vorabinformation, dazu eine zweite Region
+        "sensor.kreis_x_aktuelle_warnstufe": sensor("Kreis X", ("Gewitter", 1), ("Dauerregen", 2)),
+        "sensor.kreis_x_vorwarnstufe": sensor("Kreis X", ("Gewitter", 1)),
+        "sensor.stadt_y_aktuelle_warnstufe": sensor("Stadt Y", ("starkes Gewitter", 2)),
+    }
+    warn = kt.unwetter_karten(states, jetzt)
+    assert [(k["familie"], k["titel"], k["stufe"]) for k in warn] == [("gewitter", "starkes Gewitter", 2), ("regen", "Dauerregen", 2)]
+    assert warn[0]["hinweis"] == "zeitweise Gewitter"
+    assert warn[1]["hinweis"] == ""  # Überschrift wiederholt nur den Namen
+    # nur Vorabinformation: eine Karte als Vorab
+    (v,) = kt.unwetter_karten({"sensor.kreis_x_vorwarnstufe": sensor("Kreis X", ("Orkanböen", 3))}, jetzt)
+    assert v["vorab"] and v["familie"] == "wind"
 
 
 LOKAL_ABEND = datetime(2026, 10, 1, 19, 0)

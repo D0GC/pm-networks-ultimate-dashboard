@@ -1,5 +1,15 @@
 # Änderungen
 
+## 2026.10.18 – 2026-10-09
+
+- Wetterwarnungen: je Wettergefahr nur noch eine Karte. Der DWD meldet dieselbe Lage oft mehrfach – gestaffelt
+  (Windböen, Sturmböen), zugleich als aktuelle Warnung und als Vorabinformation oder für mehrere Regionen; das ergab
+  zwei oder drei fast gleiche Karten. Jetzt fasst das Panel Gewitter, Wind, Regen, Schnee, Glätte, Frost, Nebel, Hitze
+  und Tauwetter zusammen: höchste aktive Stufe als Titel, Zeitraum bis zum spätesten Ende, weitere Stufen als
+  „zeitweise …“ und eine höhere Vorabinformation als „später möglich: … (Stufe n)“. Eine reine Vorabinformation
+  erscheint nur, wenn zur selben Gefahr nichts Aktives vorliegt.
+- Die Karte „Wetterwechsel“ entfällt, solange der DWD vor Gewitter, Regen oder Schnee warnt.
+
 ## 2026.10.17 – 2026-10-09
 
 - Musik-Karte: Sie erschien, obwohl in Music Assistant nichts lief. Alexa-Geräte melden dort oft dauerhaft „playing“,
