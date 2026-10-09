@@ -75,7 +75,9 @@ Gegensprechen an der Haustür: Browser geben das Mikrofon sonst nur über HTTPS 
 die Mikrofon-Abfrage bestätigt. Die Adresse muss genau der im Kiosk geöffneten entsprechen (Schema, Name, Port).
 
 `--autoplay-policy=no-user-gesture-required` erlaubt den Hinweiston bei Meldungen mit Priorität hoch auch ohne
-vorherige Berührung. Ohne den Parameter spielt das Panel Ton erst nach der ersten Berührung seit dem Start.
+vorherige Berührung, ebenso den Klingelton am Haustür-Overlay (siehe „Gegensprechen an der Haustür“). Ohne den
+Parameter spielt das Panel Ton erst nach der ersten Berührung seit dem Start; nach einem Neuladen klingelt es also erst
+wieder, wenn das Panel einmal berührt wurde.
 
 Beim ersten Start einmal die Adresse mit `?token=…` aus dem Editor öffnen. Bildschirmschoner und Energiesparen des
 Desktops abschalten; die App dunkelt selbst ab. Für den Autostart eine `.desktop`-Datei unter `~/.config/autostart/`
@@ -102,7 +104,8 @@ unter dem Horizont (`sun.sun`).
 
 Alte Werte gelten weiter: `high` = kritisch, `normal` = aktiv, `low` = passiv; fehlt die Angabe, ist es aktiv. Der Ton
 folgt der Einstellung „Ton bei hoher Priorität“ (`ton_hoch`) und `input_boolean.alles_stumm` (Sicherheitsmeldungen
-ausgenommen). Passive Meldungen erscheinen jetzt auch als Karte im Feed (zuvor nur unter der Glocke).
+ausgenommen). Der Klingelton der Haustür ist davon unabhängig (siehe „Gegensprechen an der Haustür“). Passive
+Meldungen erscheinen jetzt auch als Karte im Feed (zuvor nur unter der Glocke).
 
 ### Reihenfolge im Feed
 
@@ -129,7 +132,24 @@ Auslöser aus `intercom_ausloeser` (Standard `binary_sensor.haustur_klingelt`) a
 - Die App vermittelt nur den Verbindungsaufbau (WebRTC über Home Assistant), der Ton läuft direkt zwischen Panel und
   Ring.
 - Ohne freigegebenes Mikrofon meldet das Panel „Mikrofon gesperrt“. Dann fehlen die Chromium-Parameter oben.
-- Test ohne Klingeln: im Editor „Haustür testen“.
+- Test ohne Klingeln: im Editor „Haustür testen“ (spielt auch den Klingelton).
 
 Ob Ring für die Intercom eine Live-Sitzung annimmt, zeigt der erste Versuch. Den Verlauf der Signalisierung enthält
 die Diagnose der Integration PM Ring Intercom.
+
+### Klingelton
+
+Zusammen mit dem Overlay „Haustür“ spielt das Panel ein zweitöniges „Ding-Dong“, das es selbst erzeugt (Web Audio,
+keine Datei). Es unterscheidet sich vom dreistimmigen Hinweiston bei Meldungen.
+
+- Der Ton erklingt einmal und nach etwa 4,5 Sekunden ein zweites Mal, solange das Overlay offen ist und kein Gespräch
+  läuft. Klingelt es bei offenem Overlay erneut, klingelt auch das Panel erneut (mindestens 3 Sekunden Abstand). Der
+  Server zählt dazu im Ereignis das Feld `klingel` hoch; Overlays für Person und Ereignis klingeln nicht.
+- Er endet sofort, wenn das Overlay schließt oder ein Gespräch beginnt, damit das Mikrofon ihn nicht aufnimmt.
+- Nach einem Neuladen oder einer neuen Verbindung (etwa nach einem Update der App) bleibt das Panel stumm, auch wenn das
+  Overlay gerade offen ist.
+- Der Ton ist immer voll: `input_boolean.alles_stumm`, Finn, Gina lernt und die Nachtabsenkung gelten für ihn nicht.
+  Im Editor lassen sich „Lautstärke Klingelton“ (`klingel_lautstaerke`, 5–100 %, Standard 100) und der Schalter
+  „Klingelton beim Haustür-Overlay“ (`ton_klingel`) einstellen; die Lautstärke des Hinweistons gilt hier nicht.
+- Ohne `--autoplay-policy=no-user-gesture-required` (siehe Kiosk) spielt Chromium nach einem Neuladen erst nach der
+  ersten Berührung des Panels Ton ab.

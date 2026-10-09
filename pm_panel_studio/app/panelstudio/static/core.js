@@ -49,6 +49,7 @@
         PS.emit("init");
         PS.emit("karten", PS.karten);
         PS.emit("ereignis", PS.ereignis);
+        PS.klingelPruefen(PS.ereignis, true);  // Zähler nur merken: nach Neuladen oder Reconnect kein Ton
         document.body.classList.add("bereit");
         break;
       case "diff": {
@@ -59,7 +60,7 @@
       }
       case "karten": PS.karten = m.karten || []; PS.emit("karten", PS.karten); break;
       case "modus": modusSetzen(m); break;
-      case "ereignis": PS.ereignis = m; PS.emit("ereignis", m); break;
+      case "ereignis": PS.ereignis = m; PS.emit("ereignis", m); PS.klingelPruefen(m); break;
       case "intercom": PS.emit("intercom", m); break;
       case "einstellungen":
         PS.einst = m.einstellungen || {};
@@ -657,6 +658,59 @@
     spielen();
   };
   PS.tonStopp = () => { clearTimeout(tonTimer); tonTimer = null; tonFuer = null; };
+  // Klingelton für das Haustür-Overlay: zweitöniges „Ding-Dong“ (Web Audio, ohne Datei), unabhängig vom Alarmton oben.
+  // Bewusst immer voll: weder „alles_stumm“ noch Finn, Gina-lernt oder Nacht unterdrücken ihn; abschaltbar nur über
+  // ton_klingel, Lautstärke über klingel_lautstaerke. Klingelt einmal, nach 4,5 s noch einmal, solange das Overlay offen
+  // ist und kein Gespräch läuft (das Mikrofon soll den Gong nicht aufnehmen).
+  let klingelStand = 0, klingelLetzte = 0, klingelTimer = null, klingelPegel = null, klingelLauf = 0;
+  const klingelOffen = () => document.body.classList.contains("ereignis-an") && !document.body.classList.contains("gespraech");
+  const klingelSpielen = () => {
+    const c = audioCtx(); if (!c) return;
+    const lauf = klingelLauf, angefordert = Date.now();
+    // Erst spielen, wenn der Kontext läuft; ein suspendierter Kontext würde sonst den Anfang verschlucken. Löst resume()
+    // erst bei einer späteren Berührung auf (Autoplay gesperrt), ist das Klingeln längst vorbei und bleibt stumm.
+    (c.state === "running" ? Promise.resolve() : c.resume()).then(() => {
+      if (lauf !== klingelLauf || c.state !== "running" || Date.now() - angefordert > 1500 || !klingelOffen()) return;
+      const laut = Math.max(0.05, Math.min(1, (PS.einst.klingel_lautstaerke ?? 100) / 100)) * 0.7;
+      const pegel = c.createGain();
+      pegel.gain.value = 1; pegel.connect(c.destination); klingelPegel = pegel;
+      const jetzt = c.currentTime + 0.05;
+      [[659.3, 0, 1.4], [523.3, 0.55, 1.5]].forEach(([hz, ab, aus]) => {
+        // Grundton plus ein leiser Oberton (Faktor 2) und kürzerem Ausklang
+        [[hz, 1, aus], [hz * 2, 0.25, aus * 0.5]].forEach(([f, anteil, dauer]) => {
+          const o = c.createOscillator(), g = c.createGain();
+          o.type = "sine"; o.frequency.value = f;
+          g.gain.setValueAtTime(0, jetzt + ab);
+          g.gain.linearRampToValueAtTime(laut * anteil, jetzt + ab + 0.015);
+          g.gain.exponentialRampToValueAtTime(0.0001, jetzt + ab + dauer);
+          o.connect(g).connect(pegel); o.start(jetzt + ab); o.stop(jetzt + ab + dauer + 0.05);
+        });
+      });
+    }).catch(() => {});
+  };
+  PS.klingelStopp = () => {
+    clearTimeout(klingelTimer); klingelTimer = null; klingelLauf++;
+    const pegel = klingelPegel; klingelPegel = null;
+    if (!pegel) return;
+    try {
+      const t = pegel.context.currentTime;
+      pegel.gain.cancelScheduledValues(t); pegel.gain.setTargetAtTime(0, t, 0.02);
+      setTimeout(() => { try { pegel.disconnect(); } catch { /* bereits getrennt */ } }, 300);
+    } catch { /* Kontext geschlossen */ }
+  };
+  // Aufruf bei jeder Ereignis-Meldung des Servers; spielt nur, wenn der Klingel-Zähler gegenüber dem zuletzt gesehenen
+  // steigt (oder nach einem Ende des Overlays wieder bei 1 beginnt). Mit nurMerken (Init, Reconnect) bleibt es stumm.
+  PS.klingelPruefen = (e, nurMerken) => {
+    if (!e || !e.aktiv) PS.klingelStopp();
+    const z = (e && e.aktiv && e.intercom && e.klingel) || 0;
+    const neu = z !== 0 && z !== klingelStand;
+    klingelStand = z;
+    if (nurMerken || !neu || PS.einst.ton_klingel === false || !klingelOffen()) return;
+    if (Date.now() - klingelLetzte < 3000) return;
+    klingelLetzte = Date.now();
+    PS.klingelStopp(); klingelSpielen();
+    klingelTimer = setTimeout(() => { klingelTimer = null; if (klingelOffen() && PS.einst.ton_klingel !== false) klingelSpielen(); }, 4500);
+  };
   PS.kameraUrl = (eid) => "api/kamera?eid=" + encodeURIComponent(eid) + "&t=" + Date.now();
   // Livebild (MJPEG); fällt bei Fehlern auf Einzelbilder zurück, die nacheinander (nie überlappend) geladen werden.
   PS.kameraStarten = (img, eid) => {

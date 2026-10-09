@@ -431,6 +431,8 @@ class Hub:
         st = self.states.get(ausloeser) or {}
         name = titel or (st.get("attributes") or {}).get("friendly_name") or ausloeser
         alt = self.ereignis or {}
+        # Jedes Klingeln zählt hoch, damit das Panel bei offenem Overlay erneut klingeln kann; ohne Overlay beginnt es bei 1
+        klingel = int(alt.get("klingel") or 0) + (1 if intercom else 0)
         self.ereignis = {
             "aktiv": True,
             "ausloeser": ausloeser,
@@ -442,6 +444,7 @@ class Hub:
             "intercom": intercom or bool(alt.get("intercom")),
             "tag": tag or alt.get("tag"),
             "seit": alt.get("seit") or datetime.now(UTC).isoformat(),
+            **({"klingel": klingel} if klingel else {}),
         }
         self._ereignis_bis = time.monotonic() + self.einstellungen.ereignis_dauer_s
         self.letzte_bewegung = time.monotonic()
