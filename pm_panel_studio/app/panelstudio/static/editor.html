@@ -28,6 +28,7 @@
       <button class="knopf" id="test-haustuer" type="button">Haustür testen</button>
       <button class="knopf gefahr" id="token-neu" type="button">Neuen Schlüssel erzeugen</button>
     </div>
+    <p class="klein">„Haustür testen“ zeigt das Overlay „Haustür“ auf den verbundenen Panels und spielt dort auch den Klingelton, sofern er unter „Verhalten“ eingeschaltet ist.</p>
     <p class="klein" id="token-hinweis" hidden>Neuer Schlüssel aktiv. Verbundene Panels wurden getrennt und brauchen die neue Adresse.</p>
   </section>
 
@@ -41,9 +42,11 @@
       <label>Abdunklung nachts <span><input id="nacht_helligkeit" type="number" min="0" max="95"> %</span></label>
       <label>Kamera-Overlay zeigen für <span><input id="ereignis_dauer_s" type="number" min="15" max="600"> s</span></label>
       <label>Lautstärke Hinweiston <span><input id="ton_lautstaerke" type="number" min="5" max="100"> %</span></label>
+      <label>Lautstärke Klingelton <span><input id="klingel_lautstaerke" type="number" min="5" max="100"> %</span></label>
       <label class="haken"><input id="animationen" type="checkbox"> Animationen</label>
       <label class="haken"><input id="zugaenglich" type="checkbox"> Lesbarkeit: mehr Kontrast, größere Tippflächen, Zustände auch als Form</label>
       <label class="haken"><input id="ton_hoch" type="checkbox"> Ton bei zeitkritischen und kritischen Meldungen</label>
+      <label class="haken"><input id="ton_klingel" type="checkbox"> Klingelton beim Haustür-Overlay (immer in voller Lautstärke, auch bei „Alles stumm“ und nachts)</label>
       <label class="haken"><input id="gruss" type="checkbox"> Begrüßung unten links (Ankunft, morgens, nachts)</label>
     </div>
 

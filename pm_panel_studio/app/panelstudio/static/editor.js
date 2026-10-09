@@ -5,7 +5,7 @@
   const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const MODULE = { raeume: "Räume", klima: "Klima", studio: "Klima Studio", licht: "Licht", sicherheit: "Sicherheit", medien: "Medien", musik: "Music Assistant", haushalt: "Haushaltsgeräte", listen: "Listen", energie: "Energie", shisha: "Shisha", wartung: "Wartung", suche: "Suche" };
   const KARTEN = { meldung: "Panel-Meldungen", eil: "Eilmeldung", warnung: "Warnung", termin: "Termin", arbeit: "Fahrten", wetter: "Wetter", muell: "Müll", fertig: "Gerät fertig", offen: "Offen", lueften: "Lüften", pollen: "Pollen", eigen: "Eigener Hinweis", dusche: "Duschmodus", spa: "Spa", kohle: "Kohle", waesche: "Waschmaschine", spueler: "Spülmaschine", robo: "Roborock", musik: "Musik" };
-  const ZAHLEN = ["verweildauer_s", "ruhe_nach_s", "bedienung_zurueck_s", "ruhe_helligkeit", "nacht_helligkeit", "ereignis_dauer_s", "ton_lautstaerke"];
+  const ZAHLEN = ["verweildauer_s", "ruhe_nach_s", "bedienung_zurueck_s", "ruhe_helligkeit", "nacht_helligkeit", "ereignis_dauer_s", "ton_lautstaerke", "klingel_lautstaerke"];
   let daten = null, bereiche = [], ws = null, wsId = 1, moduleReihe = [];
 
   async function laden(nurStatus = false) {
@@ -32,6 +32,7 @@
     $("#animationen").checked = e.animationen !== false;
     $("#zugaenglich").checked = e.zugaenglich === true;
     $("#ton_hoch").checked = e.ton_hoch !== false;
+    $("#ton_klingel").checked = e.ton_klingel !== false;
     $("#schnellzugriff").value = (e.schnellzugriff || []).join("\n");
     $("#raum_schalter").value = Object.entries(e.raum_schalter || {}).map(([b, ids]) => `${b}: ${ids.join(", ")}`).join("\n");
     $("#szenen_angeheftet").value = (e.szenen_angeheftet || []).join("\n");
@@ -73,6 +74,7 @@
     neu.animationen = $("#animationen").checked;
     neu.zugaenglich = $("#zugaenglich").checked;
     neu.ton_hoch = $("#ton_hoch").checked;
+    neu.ton_klingel = $("#ton_klingel").checked;
     neu.schnellzugriff = $("#schnellzugriff").value.split(/\s+/).map((s) => s.trim()).filter(Boolean);
     neu.raum_schalter = {};
     $("#raum_schalter").value.split("\n").forEach((z) => {

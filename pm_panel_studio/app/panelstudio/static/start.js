@@ -734,7 +734,7 @@
     const an = !!(e && e.aktiv);
     document.body.classList.toggle("ereignis-an", an);
     const box = $("#ereignis-kamera");
-    if (!an) { PS.kameraLiveStoppen(box.parentElement); box._eid = null; if (PS.intercomBeenden) PS.intercomBeenden(); return; }
+    if (!an) { PS.klingelStopp(); PS.kameraLiveStoppen(box.parentElement); box._eid = null; if (PS.intercomBeenden) PS.intercomBeenden(); return; }
     document.body.classList.remove("ruhe");
     $("#ereignis-titel").textContent = e.titel || "Tür";
     // Läuft das Overlay schon mit derselben Kamera, nur den Titel nachführen (kein Neustart des Streams)

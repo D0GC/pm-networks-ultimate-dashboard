@@ -198,6 +198,8 @@ class Einstellungen:
     gruss_anrede: dict[str, str] = field(default_factory=lambda: {"person.dominik": "Sir"})
     ton_hoch: bool = True  # Hinweiston bei Meldungen mit Priorität hoch (Lautsprecher des Panels)
     ton_lautstaerke: int = 70
+    ton_klingel: bool = True  # Klingelton beim Haustür-Overlay; bewusst unabhängig von ton_hoch und „alles_stumm“
+    klingel_lautstaerke: int = 100
 
     GRENZEN = {  # noqa: RUF012
         "verweildauer_s": (3, 60),
@@ -207,6 +209,7 @@ class Einstellungen:
         "nacht_helligkeit": (0, 95),
         "ereignis_dauer_s": (15, 600),
         "ton_lautstaerke": (5, 100),
+        "klingel_lautstaerke": (5, 100),
     }
 
     @classmethod
@@ -287,7 +290,7 @@ class Einstellungen:
             elif key in ("bereiche_reihenfolge", "bereiche_ausblenden", "start_raeume", "karten_aus"):
                 vals = val if isinstance(val, list) else []
                 setattr(self, key, [s for s in dict.fromkeys(str(v).strip() for v in vals) if re.match(r"^[a-z0-9_]{1,64}$", s)])
-            elif key in ("animationen", "ton_hoch", "gruss", "zugaenglich"):
+            elif key in ("animationen", "ton_hoch", "ton_klingel", "gruss", "zugaenglich"):
                 setattr(self, key, bool(val))
             else:
                 abgewiesen.append(key)

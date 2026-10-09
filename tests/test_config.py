@@ -35,6 +35,33 @@ def test_ton_einstellungen():
     assert e.ton_hoch is False and e.ton_lautstaerke == 100
 
 
+def test_klingel_einstellungen():
+    e = Einstellungen()
+    assert e.ton_klingel is True and e.klingel_lautstaerke == 100
+    assert Einstellungen.from_dict({}).klingel_lautstaerke == 100
+    assert e.aktualisieren({"ton_klingel": False, "klingel_lautstaerke": 40}) == []
+    assert e.ton_klingel is False and e.klingel_lautstaerke == 40
+    e.aktualisieren({"klingel_lautstaerke": 1})
+    assert e.klingel_lautstaerke == 5
+    e.aktualisieren({"klingel_lautstaerke": 500})
+    assert e.klingel_lautstaerke == 100
+    assert e.aktualisieren({"klingel_lautstaerke": "laut"}) == ["klingel_lautstaerke"]
+    assert e.klingel_lautstaerke == 100
+    # unabhängig vom Hinweiston
+    e.aktualisieren({"ton_lautstaerke": 20, "ton_hoch": False, "ton_klingel": True})
+    assert e.klingel_lautstaerke == 100 and e.ton_klingel is True and e.ton_lautstaerke == 20
+
+
+def test_klingel_einstellungen_speichern(tmp_path):
+    sp = EinstellungsSpeicher(tmp_path)
+    e = Einstellungen()
+    e.aktualisieren({"ton_klingel": False, "klingel_lautstaerke": 55})
+    sp.speichern(e)
+    geladen = sp.laden()
+    assert geladen.ton_klingel is False and geladen.klingel_lautstaerke == 55
+    assert geladen.to_dict()["klingel_lautstaerke"] == 55
+
+
 def test_raum_schalter_und_wartung():
     e = Einstellungen()
     assert "input_button.shower_mode" in e.raum_schalter["badezimmer"]
