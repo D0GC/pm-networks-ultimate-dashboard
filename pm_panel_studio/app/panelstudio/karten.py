@@ -6,7 +6,8 @@ Abschnitte 7a und 7b). Hinweise kommen fertig aus Home Assistant (``sensor.panel
 
 Eine Karte ist ein Dict:
   id         stabiler Schlüssel (Rotation hält die Position, solange die ID bleibt)
-  art        ``hinweis`` | ``aktivitaet`` | ``sport`` (Rams, mit ``spiel``-Details für das Popup)
+  art        ``hinweis`` | ``aktivitaet`` | ``sport`` (Rams, mit ``spiel``-Details für das Popup) |
+             ``pakete`` (Sendungen aus ``sensor.pakete``, mit ``liste`` für die Karte und ``sendungen`` für das Popup)
   schluessel Symbol- und Farbklasse (``eil``, ``warnung``, ``kohle``, ``waesche`` …)
   titel, wert, hinweis  Texte
   ring       Anteil 0..1 oder None (kein Ring)
@@ -17,8 +18,12 @@ Eine Karte ist ein Dict:
 
 from __future__ import annotations
 
+import ast
+import json
+import math
 import re
-from datetime import UTC, datetime, timedelta
+from collections.abc import Mapping
+from datetime import UTC, date, datetime, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -50,6 +55,7 @@ QUELLEN = {
 }
 
 VORRANG = ("eil", "warnung")
+HINWEISE_MIT_EIGENER_KARTE = ("paket", "spueler")
 RELEVANZ_STANDARD = 40  # Hinweise ohne eigene Regel
 MAX_HINWEISE = 8
 
@@ -460,6 +466,8 @@ def parse_hinweise(zeilen: Any) -> list[dict]:
 # Termin 60 + 35·(1 − Rest/3 h) · Müll am Vorabend ab 18 Uhr und morgens vor der Abholung 80, sonst 30 ·
 # Lüften/Offen 55 · Wetter 45 · Fahrt 50 · Musik 45 · Roborock 60 · Heimweg 65 (≤ 5 min 90) ·
 # Rams live 85, am Spieltag 50, nach dem Spiel 20 ·
+# Pakete (höchster Wert der aktiven Sendungen): in Zustellung 75, Problem (Zustellversuch, Problem) 70, heute erwartet
+# oder abholbereit 60, sonst 40; nur noch heute Zugestelltes 30 ·
 # „Alles ruhig“ 10 · übrige Hinweise 40
 def _rest_sek(k: dict, jetzt: datetime) -> float | None:
     ende = _parse_zeit(k.get("ende"))
@@ -532,18 +540,24 @@ def berechne(
     lokal: datetime | None = None,
     heimweg: Heimweg | None = None,
     personen: list[str] | None = None,
+    pakete_entitaet: str = "",
 ) -> list[dict]:
     """Alle Karten nach Relevanz sortiert. Gleichstand: Eilmeldung und Warnung, dann Aktivitäten, dann übrige Hinweise.
 
-    ``lokal`` ist die Ortszeit (Vorgabe: Zeitzone des Systems) für Regeln wie „Müll ab 18 Uhr“."""
+    ``lokal`` ist die Ortszeit (Vorgabe: Zeitzone des Systems) für Regeln wie „Müll ab 18 Uhr“.
+    ``pakete_entitaet`` ist der Paket-Sensor (leer = keine Paketkarte)."""
     aus = aus or []
     lokal = lokal or jetzt.astimezone()
     hinweise = parse_hinweise(_attr(states, hinweise_entitaet, "zeilen")) if hinweise_entitaet else []
+    # Eigene Karten ersetzen diese Hinweiszeilen (Paket heute: Pakete, Geschirrspüler läuft: Spülmaschine)
+    hinweise = [k for k in hinweise if k["schluessel"] not in HINWEISE_MIT_EIGENER_KARTE]
     akt = [k for fn in AKTIVITAETEN if (k := fn(states, jetzt))] + akt_musik(states, jetzt, musik or [])
     if rams := akt_rams(states, jetzt, lokal):
         akt.append(rams)
     if heimweg is not None:
         akt += heimweg.karten(states, jetzt, lokal, personen or [])
+    if pakete_entitaet and (paket := pakete_karte(states, pakete_entitaet, jetzt, lokal)):
+        akt.append(paket)
     unwetter = unwetter_karten(states, jetzt)
     if any(k["id"].startswith("warn:") for k in unwetter) or _dwd_vorhanden(states):
         # Die DWD-Sensoren ersetzen die knappe Warnzeile der Hinweisvorlage
@@ -798,5 +812,232 @@ class Heimweg:
         }
 
 
-def relevante_entitaeten(hinweise_entitaet: str) -> set[str]:
-    return {*QUELLEN.values(), *([hinweise_entitaet] if hinweise_entitaet else [])}
+# ------------------------------------------------------------ Pakete (sensor.pakete aus Home Assistant)
+# Vertrag: Zustand = Anzahl aktiver Sendungen; Attribute ``zugestellt_heute`` (int) und ``sendungen`` (Liste von Dicts,
+# höchstens 10, bereits sortiert: in Zustellung, Problem, heute, nach Datum, Zugestelltes zuletzt).
+PAKETE_MAX_LISTE = 5  # Zeilen auf der Karte, der Rest steht als „+n weitere“ da
+PAKETE_MAX_SENDUNGEN = 10
+PAKETE_MAX_TITEL_KARTE = 24  # längere Titel kürzen, damit Status und Termin in der Zeile sichtbar bleiben
+PAKETE_STUFEN = {8: 1, 1: 2, 2: 2, 5: 2, 6: 2, 7: 2, 3: 3, 4: 3, 0: 4}
+PAKETE_STATUS = {
+    8: "angekündigt",
+    2: "unterwegs",
+    1: "keine Updates",
+    5: "nicht gefunden",
+    4: "in Zustellung",
+    3: "abholbereit",
+    6: "Zustellversuch",
+    7: "Problem",
+    0: "zugestellt",
+}
+
+
+def _struktur(value: Any) -> Any:
+    """Attribute kommen je nach Auswertung der HA-Vorlage als echte Liste oder Dict, als JSON-Text oder in Python-Schreibweise."""
+    if not isinstance(value, str):
+        return value
+    text = value.strip()
+    if not text or len(text) > 200_000:
+        return None
+    try:
+        return json.loads(text)
+    except ValueError:
+        pass
+    try:
+        return ast.literal_eval(text)
+    except (ValueError, SyntaxError, MemoryError, RecursionError):
+        return None
+
+
+def _ganz(value: Any, vorgabe: int = 0) -> int:
+    num = _num(value)
+    return int(num) if num is not None and math.isfinite(num) else vorgabe
+
+
+def _wahr(value: Any) -> bool:
+    return value.strip().lower() in ("true", "1", "yes", "on") if isinstance(value, str) else bool(value)
+
+
+def _kurz(text: str, n: int) -> str:
+    return text if len(text) <= n else text[: n - 1].rstrip() + "…"
+
+
+def _tag_text(tag: date, heute: date) -> str:
+    """„heute“, „morgen“, sonst „Mo 12.10.“."""
+    diff = (tag - heute).days
+    if diff == 0:
+        return "heute"
+    if diff == 1:
+        return "morgen"
+    return f"{WOCHENTAGE[tag.weekday()]} {tag.day:02d}.{tag.month:02d}."
+
+
+def _uhr(text: str) -> str | None:
+    m = re.fullmatch(r"(\d{1,2}):(\d{2})", text.strip())
+    return None if not m else (str(int(m[1])) if m[2] == "00" else f"{int(m[1])}:{m[2]}")
+
+
+def _fenster(von: str, bis: str) -> str:
+    """Zeitfenster „14–18 Uhr“, „14:30–16 Uhr“, „ab 14 Uhr“, „bis 18 Uhr“."""
+    a, b = _uhr(von), _uhr(bis)
+    if a and b:
+        return f"{a} Uhr" if a == b else f"{a}–{b} Uhr"
+    if a:
+        return f"ab {a} Uhr"
+    return f"bis {b} Uhr" if b else ""
+
+
+_ZEIT_ISO = re.compile(r"(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{1,2}):(\d{2}))?")
+_ZEIT_DE = re.compile(r"(\d{1,2})\.(\d{1,2})\.(\d{4})(?:[, ]+(?:um\s+)?(\d{1,2}):(\d{2}))?")
+
+
+def _ereignis_zeit(text: str, heute: date, tz: Any) -> str:
+    """Datumsfreitext des Versenders lesbar machen („heute 08:15“, „gestern 14:32“, „Do 08.10. 14:32“); sonst unverändert."""
+    if not text:
+        return ""
+    try:
+        if re.search(r"\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?\s*(?:Z|[+-]\d{2}:?\d{2})$", text):
+            dt = datetime.fromisoformat(text.replace("Z", "+00:00")).astimezone(tz)
+            tag, uhr = dt.date(), f"{dt:%H:%M}"
+        elif m := _ZEIT_ISO.search(text):
+            tag, uhr = date(int(m[1]), int(m[2]), int(m[3])), (f"{int(m[4]):02d}:{m[5]}" if m[4] else "")
+        elif m := _ZEIT_DE.search(text):
+            tag, uhr = date(int(m[3]), int(m[2]), int(m[1])), (f"{int(m[4]):02d}:{m[5]}" if m[4] else "")
+        else:
+            return _kurz(text, 40)
+    except ValueError:
+        return _kurz(text, 40)
+    diff = (tag - heute).days
+    name = "gestern" if diff == -1 else _tag_text(tag, heute)
+    return f"{name} {uhr}".strip()
+
+
+def _sendung(roh: Any, heute: date, tz: Any) -> dict | None:
+    """Eine Sendung des Sensors für Karte und Popup aufbereiten; Relevanz je Sendung (siehe Regelkommentar oben)."""
+    if not isinstance(roh, Mapping):
+        return None
+    sc = _ganz(roh.get("status_code"), -1)
+    stufe = _ganz(roh.get("stufe"))
+    if not 1 <= stufe <= 4:
+        stufe = PAKETE_STUFEN.get(sc, 2)
+    zugestellt = stufe == 4
+    problem = not zugestellt and (_wahr(roh.get("problem")) or sc in (6, 7))
+    code = _text(roh.get("code"))
+    versender = _text(roh.get("versender")) or code.upper() or "Paket"
+    try:
+        erwartet = date.fromisoformat(_text(roh.get("erwartet"))[:10])
+    except ValueError:
+        erwartet = None
+    ist_heute = not zugestellt and (_wahr(roh.get("heute")) or sc == 4 or erwartet == heute)
+    von, bis = _text(roh.get("fenster_von")), _text(roh.get("fenster_bis"))
+    if zugestellt:
+        relevanz_wert = 30
+    elif sc == 4:
+        relevanz_wert = 75
+    elif problem:
+        relevanz_wert = 70
+    elif ist_heute or sc == 3:
+        relevanz_wert = 60
+    else:
+        relevanz_wert = 40
+    return {
+        "nummer": _kurz(_text(roh.get("nummer")), 40),
+        "titel": _kurz(_text(roh.get("titel")), 40),
+        "versender": _kurz(versender, 24),
+        "status": _text(roh.get("status")) or PAKETE_STATUS.get(sc, "unterwegs"),
+        "status_code": sc,
+        "stufe": stufe,
+        "problem": problem,
+        "zugestellt": zugestellt,
+        "zugestellt_heute": zugestellt and _wahr(roh.get("zugestellt_heute")),
+        "heute": ist_heute,
+        "tag": "" if zugestellt else ("heute" if ist_heute else _tag_text(erwartet, heute) if erwartet else ""),
+        "fenster": "" if zugestellt else _fenster(von, bis),
+        "ereignis": _kurz(_text(roh.get("ereignis")), 80),
+        "ort": _kurz(_text(roh.get("ort")), 60),
+        "ereignis_zeit": _ereignis_zeit(_text(roh.get("ereignis_zeit")), heute, tz),
+        "relevanz": relevanz_wert,
+    }
+
+
+def _paket_zeile(s: dict) -> list[str]:
+    """Zeile der Karte: Versender (fett) und „Titel · Status, Tag Zeitfenster“."""
+    titel = s["titel"] if s["titel"] not in ("", "Sendung", f"{s['versender']}-Sendung") else ""
+    kopf = " · ".join(x for x in (_kurz(titel, PAKETE_MAX_TITEL_KARTE), s["status"]) if x)
+    zeit = " ".join(x for x in (s["tag"], s["fenster"]) if x)
+    return [s["versender"], f"{kopf}, {zeit}" if zeit else kopf]
+
+
+def pakete_karte(states: States, eid: str, jetzt: datetime, lokal: datetime | None = None) -> dict | None:
+    """Feed-Karte „Pakete“ aus ``sensor.pakete``: sichtbar bei aktiven Sendungen oder heute Zugestelltem.
+
+    Der Ring zeigt die Stufe der ersten Sendung (1 angekündigt … 4 zugestellt, Anteil Stufe/4), die Zahl die aktiven
+    Sendungen (ohne aktive: heute zugestellte). Fehlt der Sensor oder ist er nicht verfügbar, gibt es keine Karte."""
+    st = states.get(eid)
+    if not st or st.get("state") in INAKTIV:
+        return None
+    a = st.get("attributes") or {}
+    aktiv, zugestellt = _ganz(st.get("state")), _ganz(a.get("zugestellt_heute"))
+    if aktiv <= 0 and zugestellt <= 0:
+        return None
+    tz = _tz(lokal)
+    heute = (lokal if lokal is not None else jetzt.astimezone(tz)).date()
+    roh = _struktur(a.get("sendungen"))
+    if isinstance(roh, Mapping) and {"status_code", "nummer", "versender"} & roh.keys():
+        roh = [roh]  # eine einzelne Sendung statt einer Liste
+    roh = roh if isinstance(roh, list) else []
+    # Aktive Sendungen und heute Zugestelltes; ältere Zustellungen bleiben im Sensor, gehören aber nicht auf die Karte
+    sendungen = [s for r in roh[:PAKETE_MAX_SENDUNGEN] if (s := _sendung(r, heute, tz))]
+    items = [s for s in sendungen if not s["zugestellt"] or s["zugestellt_heute"]]
+    aktive = [s for s in items if not s["zugestellt"]]
+    massgeblich = aktive or items  # die erste aktive Sendung bestimmt Ring und Hinweis, nur Zugestelltes erst danach
+    erste = massgeblich[0] if massgeblich else None
+    anzahl = aktiv if aktiv > 0 else zugestellt
+    if aktiv > 0:
+        zustellung = sum(s["status_code"] == 4 for s in aktive)
+        probleme = sum(s["problem"] for s in aktive)
+        abholbereit = sum(s["status_code"] == 3 for s in aktive)
+        heute_n = sum(s["heute"] for s in aktive) if aktive else _ganz(a.get("heute"))
+        if zustellung:
+            wert = "in Zustellung" if zustellung == 1 else f"{zustellung} in Zustellung"
+        elif probleme:
+            wert = "Problem" if probleme == 1 else f"{probleme} Probleme"
+        elif abholbereit:
+            wert = "abholbereit" if abholbereit == 1 else f"{abholbereit} abholbereit"
+        elif heute_n:
+            wert = "heute" if heute_n == 1 else f"{heute_n} heute"
+        else:
+            wert = "unterwegs"
+    else:
+        wert = "zugestellt"
+    versender = list(dict.fromkeys(s["versender"] for s in massgeblich))
+    if len(massgeblich) == 1 and (zeit := massgeblich[0]["fenster"] or massgeblich[0]["tag"]):
+        hinweis = f"{versender[0]} · {zeit}"  # eine Sendung: „DHL · 14–18 Uhr“
+    else:
+        hinweis = ", ".join(versender[:3]) + (" …" if len(versender) > 3 else "")
+    liste = [_paket_zeile(s) for s in items[:PAKETE_MAX_LISTE]]
+    if len(items) > PAKETE_MAX_LISTE:
+        liste.append(["", f"+{len(items) - PAKETE_MAX_LISTE} weitere"])
+    return {
+        "id": "akt:pakete",
+        "art": "pakete",
+        "schluessel": "pakete",
+        "titel": "Paket" if anzahl == 1 else "Pakete",
+        "wert": wert,
+        "hinweis": hinweis,
+        "anzahl": anzahl,
+        "zugestellt_heute": zugestellt,
+        "stufe": erste["stufe"] if erste else (1 if aktiv > 0 else 4),
+        "problem": bool(erste and erste["problem"]),
+        "ring": erste["stufe"] / 4 if erste else None,
+        "ende": None,
+        "dauer_s": None,
+        "relevanz": max((s["relevanz"] for s in massgeblich), default=40 if aktiv > 0 else 30),
+        "liste": liste,
+        "sendungen": items,
+    }
+
+
+def relevante_entitaeten(hinweise_entitaet: str, pakete_entitaet: str = "") -> set[str]:
+    eigene = [e for e in (hinweise_entitaet, pakete_entitaet) if e]
+    return {*QUELLEN.values(), *eigene}

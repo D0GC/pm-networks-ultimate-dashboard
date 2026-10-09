@@ -123,7 +123,7 @@ class Hub:
         self._tasks: list[asyncio.Task] = []
         self._hintergrund: set[asyncio.Task] = set()
         self._registry_neu = asyncio.Event()
-        self._relevant = kt.relevante_entitaeten(opts.hinweise_entitaet)
+        self._relevant = kt.relevante_entitaeten(opts.hinweise_entitaet, opts.pakete_entitaet)
         self.heimweg = kt.Heimweg()
         # Ruhe/Wach
         self.letzte_bewegung = time.monotonic()
@@ -255,7 +255,7 @@ class Hub:
         self._klima_zuordnen(reg)
         self.registry = reg
         self.musik = sorted(eid for eid, r in reg.items() if r.get("p") == "music_assistant" and eid.startswith("media_player."))
-        self._relevant = kt.relevante_entitaeten(self.opts.hinweise_entitaet) | set(self.musik)
+        self._relevant = kt.relevante_entitaeten(self.opts.hinweise_entitaet, self.opts.pakete_entitaet) | set(self.musik)
 
     def _klima_zuordnen(self, reg: dict[str, dict[str, Any]]) -> None:
         """PM-Klima-Thermostate ohne Bereich über ihren Namen zuordnen (climate.pm_kuche -> Bereich kuche)."""
@@ -384,6 +384,7 @@ class Hub:
             self._lokal(jetzt),
             self.heimweg,
             self.opts.personen,
+            self.opts.pakete_entitaet,
         )
         if "meldung" not in self.einstellungen.karten_aus:
             karten = kt.sortiere(self.popups.karten() + karten)

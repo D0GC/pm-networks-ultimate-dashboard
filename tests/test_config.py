@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from panelstudio.config import Einstellungen, EinstellungsSpeicher, Options
 
 
@@ -5,6 +7,31 @@ def test_optionen_filtern_ungueltige_entitaeten():
     o = Options.from_dict({"bewegung": ["binary_sensor.a", "kein text", "binary_sensor.a"], "ereignis_kamera": "x"})
     assert o.bewegung == ["binary_sensor.a"]
     assert o.ereignis_kamera == ""
+
+
+def test_pakete_entitaet_vorgabe_und_abschalten(tmp_path):
+    # Ohne Eintrag in den gespeicherten App-Optionen (Update von einer älteren Version) gilt die Vorgabe
+    assert Options().pakete_entitaet == "sensor.pakete"
+    assert Options.from_dict({}).pakete_entitaet == "sensor.pakete"
+    assert Options.from_dict({"hinweise_entitaet": "sensor.x"}).pakete_entitaet == "sensor.pakete"
+    pfad = tmp_path / "options.json"
+    pfad.write_text('{"log_level": "info"}', encoding="utf-8")
+    assert Options.load(pfad).pakete_entitaet == "sensor.pakete"
+    assert Options.load(tmp_path / "fehlt.json").pakete_entitaet == "sensor.pakete"
+    # eigene Entität, leer = Karte aus, ungültig = aus
+    assert Options.from_dict({"pakete_entitaet": "sensor.sendungen"}).pakete_entitaet == "sensor.sendungen"
+    assert Options.from_dict({"pakete_entitaet": ""}).pakete_entitaet == ""
+    assert Options.from_dict({"pakete_entitaet": None}).pakete_entitaet == ""
+    assert Options.from_dict({"pakete_entitaet": "kein text"}).pakete_entitaet == ""
+    assert Options().public()["pakete_entitaet"] == "sensor.pakete"
+
+
+def test_app_optionen_in_config_yaml_und_uebersetzungen():
+    app = Path(__file__).resolve().parents[1] / "pm_panel_studio"
+    yaml = (app / "config.yaml").read_text(encoding="utf-8")
+    assert "  pakete_entitaet: sensor.pakete\n" in yaml and "  pakete_entitaet: str?\n" in yaml
+    for sprache in ("de", "en"):
+        assert "  pakete_entitaet:\n    name:" in (app / "translations" / f"{sprache}.yaml").read_text(encoding="utf-8")
 
 
 def test_einstellungen_grenzen_und_abweisung():

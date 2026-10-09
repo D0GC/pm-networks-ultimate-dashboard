@@ -2,6 +2,9 @@ configuration:
   hinweise_entitaet:
     name: Hinweis-Sensor
     description: Sensor mit dem Attribut zeilen wie bei den Panels Bad und Büro (Standard sensor.panel_bad_hinweise). Leer = keine Hinweiskarten.
+  pakete_entitaet:
+    name: Paket-Sensor
+    description: Sensor, dessen Zustand die aktiven Sendungen zählt (Attribute sendungen, zugestellt_heute), Standard sensor.pakete. Leer = keine Paketkarte.
   bewegung:
     name: Bewegungsmelder Flur
     description: Bewegung weckt das Panel aus dem Ruhezustand.

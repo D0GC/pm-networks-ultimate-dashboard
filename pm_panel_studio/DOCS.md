@@ -17,6 +17,7 @@ Der Zugangsschlüssel liegt in `/data/panel_token`. „Neuen Schlüssel erzeugen
 | Option | Bedeutung |
 |--------|-----------|
 | `hinweise_entitaet` | Sensor mit Attribut `zeilen` (Format der Panels Bad und Büro). Vorgabe `sensor.panel_bad_hinweise` |
+| `pakete_entitaet` | Sensor der Feed-Karte „Pakete“: Zustand = aktive Sendungen, Attribute `sendungen` und `zugestellt_heute`. Vorgabe `sensor.pakete`; leer = keine Paketkarte. Der Standard gilt auch ohne Eintrag in den gespeicherten Optionen |
 | `bewegung` | Bewegungsmelder, die das Panel wecken |
 | `personen` | Personen auf der Startseite |
 | `wetter_entitaet`, `aussentemperatur` | Wetter und große Temperaturanzeige |
@@ -113,6 +114,17 @@ Der Feed ist nach Relevanz (0–100) sortiert und rotiert wie zuvor; je höher d
 Verweildauer (× 0,8 bis × 1,4). Beispiele: Eilmeldung und Warnung ab Stufe 2 100, kritische Meldung 100, zeitkritische 90,
 Timer kurz vor Ende (unter 2 min) 95, sonst 70, Termin 60 + 35 · (1 − Rest/3 h), Müll am Vorabend ab 18 Uhr und morgens
 vor der Abholung 80 (sonst 30), Lüften und Offen 55, Wetterwechsel 45, übrige Hinweise 40, „Alles in Ordnung“ 10.
+Pakete (höchster Wert der aktiven Sendungen): in Zustellung 75, Problem 70, heute erwartet oder abholbereit 60, sonst 40,
+nur noch heute Zugestelltes 30.
+
+### Pakete
+
+Die Karte „Pakete“ liest `pakete_entitaet` (Standard `sensor.pakete`) und erscheint, wenn der Zustand (aktive
+Sendungen) größer als 0 ist oder das Attribut `zugestellt_heute` größer als 0. Der Ring zeigt die Stufe der ersten Sendung
+von 4, die Zahl die aktiven Sendungen; die Liste nennt bis zu fünf Sendungen mit Versender, Titel, Status und Termin. Ein
+Tipp öffnet das Popup mit allen Sendungen (Stufenleiste, Termin, letztes Ereignis, Sendungsnummer). Die Hinweiszeilen
+`paket` und `spueler` des Hinweis-Sensors werden im Feed nicht gezeigt, weil es dafür eigene Karten gibt. Im Editor
+lässt sich die Karte unter „Pakete“ abwählen.
 
 ## Hinweise eigens für den Flur
 

@@ -18,6 +18,7 @@ import json
 import math
 from datetime import UTC, datetime, timedelta
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from aiohttp import WSMsgType, web
 
@@ -76,6 +77,10 @@ PNG_1PX = bytes.fromhex(
 
 def _iso(dt: datetime) -> str:
     return dt.astimezone(UTC).isoformat()
+
+
+def _berlin(dt: datetime) -> datetime:
+    return dt.astimezone(ZoneInfo("Europe/Berlin"))
 
 
 def default_states(jetzt: datetime) -> list[dict[str, Any]]:
@@ -576,6 +581,74 @@ def default_states(jetzt: datetime) -> list[dict[str, Any]]:
             opponent_winner=None,
             season="2026",
             league="NFL",
+        ),
+        # Pakete (normalisiert wie in HA, sensor.pakete): in Zustellung, unterwegs für morgen, Zustellversuch
+        s(
+            "sensor.pakete",
+            "3",
+            None,
+            friendly_name="Pakete",
+            icon="mdi:package-variant-closed",
+            verfuegbar=True,
+            heute=1,
+            zugestellt_heute=0,
+            sendungen=[
+                {
+                    "nummer": "00340434161094042557",
+                    "titel": "Bluetooth-Kopfhörer",
+                    "versender": "DHL",
+                    "code": "dhl",
+                    "status_code": 4,
+                    "status": "in Zustellung",
+                    "stufe": 3,
+                    "problem": False,
+                    "erwartet": _berlin(jetzt).date().isoformat(),
+                    "fenster_von": "14:00",
+                    "fenster_bis": "18:00",
+                    "heute": True,
+                    "zugestellt_heute": False,
+                    "ereignis": "Die Sendung wird zugestellt",
+                    "ort": "Kulmbach",
+                    "ereignis_zeit": _berlin(jetzt).strftime("%d.%m.%Y 07:42"),
+                },
+                {
+                    "nummer": "DE9876543210",
+                    "titel": "Kaffeemühle",
+                    "versender": "Amazon",
+                    "code": "amzlde",
+                    "status_code": 2,
+                    "status": "unterwegs",
+                    "stufe": 2,
+                    "problem": False,
+                    "erwartet": (_berlin(jetzt) + timedelta(days=1)).date().isoformat(),
+                    "fenster_von": "",
+                    "fenster_bis": "",
+                    "heute": False,
+                    "zugestellt_heute": False,
+                    "ereignis": "Das Paket ist im Verteilzentrum eingetroffen",
+                    "ort": "Nürnberg",
+                    "ereignis_zeit": _berlin(jetzt).strftime("%d.%m.%Y 05:10"),
+                },
+                {
+                    "nummer": "H1234567890123",
+                    "titel": "Hermes-Sendung",
+                    "versender": "Hermes",
+                    "code": "hermes",
+                    "status_code": 6,
+                    "status": "Zustellversuch",
+                    "stufe": 2,
+                    "problem": True,
+                    "erwartet": (_berlin(jetzt) + timedelta(days=3)).date().isoformat(),
+                    "fenster_von": "",
+                    "fenster_bis": "",
+                    "heute": False,
+                    "zugestellt_heute": False,
+                    "ereignis": "Empfänger nicht angetroffen, neuer Versuch folgt",
+                    "ort": "Kasendorf",
+                    "ereignis_zeit": (_berlin(jetzt) - timedelta(days=1)).strftime("%d.%m.%Y 16:20"),
+                },
+            ],
+            stand=_iso(jetzt),
         ),
         s("binary_sensor.panel_tabeltop_nextion_display", "unavailable", None, friendly_name="Panel Tabletop Display"),
         s("sensor.panel_tabeltop_temperatur", "unavailable", None, friendly_name="Panel Tabletop Temperatur"),
