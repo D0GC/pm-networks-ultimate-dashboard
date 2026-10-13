@@ -3,6 +3,7 @@
 import asyncio
 import json
 import time
+from datetime import UTC, datetime, timedelta
 
 import aiohttp
 import pytest
@@ -110,7 +111,7 @@ async def test_ohne_telefon_leere_listen_und_fehler(hub):
     assert await hub.anfrage({"typ": "telefon_kontakte"}) == []
     with pytest.raises(ValueError, match="nicht eingerichtet"):
         await hub.anfrage({"typ": "telefon_auflegen", "anruf": "a1"})
-    assert hub.init_daten()["telefon"] == {"aktiv": False}
+    assert hub.init_daten()["telefon"] == {"aktiv": False, "verpasst": []}
 
 
 async def test_anfragen_und_meldungen(ingress, hub):
@@ -178,3 +179,94 @@ async def test_anruf_haelt_panel_wach(hub):
     hub.letzte_beruehrung = 0
     hub._takt(1)
     assert hub.modus == "wach"
+
+
+# ---------------------------------------------------------------- Verpasste Anrufe
+
+
+def _gespeichert(hub) -> list[dict]:
+    return json.loads(hub.verpasst_pfad.read_text(encoding="utf-8"))
+
+
+async def test_verpasste_anrufe_werden_je_nummer_gezaehlt_und_gesendet(ingress, hub):
+    ws = await ingress.ws_connect("/api/ws")
+    m = await _warte_auf(ws, lambda m: m["typ"] == "init")
+    assert m["telefon"]["verpasst"] == []
+
+    hub.telefon_verpasst("0921123", "")
+    m = await _warte_auf(ws, lambda m: m["typ"] == "telefon")
+    (e,) = m["verpasst"]
+    assert e["nummer"] == "0921123" and e["anzahl"] == 1 and e["name"] == "" and e["zuletzt"] == e["erste"]
+
+    hub.telefon_verpasst("0921123", "Anna")  # zweiter Anruf derselben Nummer: eine Karte, Name nachgeführt
+    hub.telefon_verpasst("555", "Max")
+    m = await _warte_auf(ws, lambda m: m["typ"] == "telefon" and len(m["verpasst"]) == 2)
+    anna = next(x for x in m["verpasst"] if x["nummer"] == "0921123")
+    assert anna["anzahl"] == 2 and anna["name"] == "Anna"
+    assert _gespeichert(hub) == hub.verpasst
+    assert hub.init_daten()["telefon"]["verpasst"] == hub.verpasst
+    # ein Statuswechsel des Telefons behält die Liste
+    hub._telefon_melden(_anruf("klingelt"))
+    m = await _warte_auf(ws, lambda m: m["typ"] == "telefon" and m.get("anruf"))
+    assert len(m["verpasst"]) == 2
+
+
+async def test_verpasst_erledigt_und_rueckruf_entfernen_den_eintrag(ingress, hub):
+    tel = TelefonAttrappe()
+    hub.telefon = tel
+    hub.telefon_verpasst("0921123", "Anna")
+    hub.telefon_verpasst("555", "Max")
+    ws = await ingress.ws_connect("/api/ws")
+    await _warte_auf(ws, lambda m: m["typ"] == "init")
+
+    await ws.send_str(json.dumps({"typ": "telefon_verpasst_erledigt", "id": 1, "nummer": "555"}))
+    m = await _warte_auf(ws, lambda m: m["typ"] == "antwort" and m["id"] == 1)
+    assert m["ok"] and m["ergebnis"] is True
+    assert [e["nummer"] for e in hub.verpasst] == ["0921123"]
+    assert [e["nummer"] for e in _gespeichert(hub)] == ["0921123"]
+
+    # Rückruf: der Eintrag verschwindet, sobald der Anruf gestartet ist
+    await ws.send_str(json.dumps({"typ": "telefon_waehlen", "id": 2, "nummer": "0921123"}))
+    m = await _warte_auf(ws, lambda m: m["typ"] == "antwort" and m["id"] == 2)
+    assert m["ok"] and ("waehlen", "0921123") in tel.aufrufe
+    assert hub.verpasst == [] and _gespeichert(hub) == []
+
+    # unbekannte Nummer: nichts zu tun
+    assert hub.verpasst_erledigt("999") is False
+
+
+async def test_verpasst_wird_geladen_und_alte_tage_fallen_weg(hub):
+    jetzt = datetime.now(UTC)
+    gestern = jetzt - timedelta(days=2)
+    hub.verpasst_pfad.write_text(
+        json.dumps(
+            [
+                {"nummer": "1", "name": "Heute", "anzahl": 3, "zuletzt": jetzt.isoformat(), "erste": jetzt.isoformat()},
+                {"nummer": "2", "name": "Alt", "anzahl": 1, "zuletzt": gestern.isoformat(), "erste": gestern.isoformat()},
+                {"nummer": "3", "kaputt": True},
+                "quatsch",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    assert [e["nummer"] for e in hub._verpasst_laden()] == ["1"]
+
+    # Tageswechsel im laufenden Betrieb
+    hub.verpasst = [
+        {"nummer": "1", "name": "", "anzahl": 1, "zuletzt": jetzt.isoformat(), "erste": jetzt.isoformat()},
+        {"nummer": "2", "name": "", "anzahl": 1, "zuletzt": gestern.isoformat(), "erste": gestern.isoformat()},
+    ]
+    assert hub._verpasst_tagesende() is True
+    assert [e["nummer"] for e in hub.verpasst] == ["1"]
+    assert hub._verpasst_tagesende() is False
+    hub.telefon_verpasst("4", "")  # auch beim Eintragen wird aufgeräumt und gespeichert
+    assert [e["nummer"] for e in _gespeichert(hub)] == ["1", "4"]
+
+
+async def test_verpasst_datei_kaputt_beginnt_leer(hub):
+    hub.verpasst_pfad.write_text("{nicht json", encoding="utf-8")
+    assert hub._verpasst_laden() == []
+    hub.verpasst_pfad.write_text('{"a": 1}', encoding="utf-8")
+    assert hub._verpasst_laden() == []
+    hub.verpasst_pfad.unlink()
+    assert hub._verpasst_laden() == []

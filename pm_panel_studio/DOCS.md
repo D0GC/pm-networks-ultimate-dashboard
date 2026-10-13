@@ -105,13 +105,17 @@ unter dem Horizont (`sun.sun`).
 |-------|-----------|----------|
 | `passiv` | nur Glocke, keine Feed-Karte; weckt nie, kein Popup, kein Ton | 15 min |
 | `aktiv` | weckt das Panel (nachts nicht); Popup nur, wenn das Panel schon wach war; kein Ton | 60 min |
-| `zeitkritisch` | weckt, Popup, einmal kurzer Ton, gelbes Rahmenglühen; nachts nur Feed und Glocke | 120 min |
-| `kritisch` | durchbricht Ruhe und Nacht, Popup, Rahmenglühen; Ton bis zur Bestätigung (höchstens 3 × alle 20 s) | 240 min |
+| `zeitkritisch` | weckt, Popup mit gelbem Halo, einmal kurzer Ton; nachts nur Feed und Glocke | 120 min |
+| `kritisch` | durchbricht Ruhe und Nacht, Popup mit rotem Halo; Ton bis zur Bestätigung (höchstens 3 × alle 20 s) | 240 min |
 
 Alte Werte gelten weiter: `high` = kritisch, `normal` = aktiv, `low` = passiv; fehlt die Angabe, ist es aktiv. Der Ton
 folgt der Einstellung „Ton bei hoher Priorität“ (`ton_hoch`) und `input_boolean.alles_stumm` (Sicherheitsmeldungen
 ausgenommen). Der Klingelton der Haustür ist davon unabhängig (siehe „Gegensprechen an der Haustür“). Passive
 Meldungen erscheinen jetzt auch als Karte im Feed (zuvor nur unter der Glocke).
+
+Halo statt Rahmenglühen: Bei `kritisch` (rot) und `zeitkritisch` (gelb) laufen drei Wellen im Abstand von 0,8 s dreimal
+aus dem Rand des Popups nach außen; das frühere Blinken des Bildschirmrands entfällt. Bei abgeschalteten Animationen
+(Einstellung „Animationen“) und mit `prefers-reduced-motion` bleibt das Popup ruhig.
 
 ### Reihenfolge im Feed
 
@@ -218,7 +222,18 @@ Alarm- und Notrufanrufe dienen.
   Telefonbuch neu, höchstens alle 30 Sekunden, sonst alle 5 Minuten), Tastatur und Verlauf (Anrufliste der
   FRITZ!Box, verpasste Anrufe rot, Tipp ruft zurück).
 - Eingehender Anruf: Die Anrufkarte erscheint mit Name aus dem Telefonbuch, Klingelton und den Knöpfen Ablehnen,
-  Minimieren und Annehmen. Ein Anruf weckt das Panel und hält es wach, solange er läuft.
+  Minimieren und Annehmen. Solange es klingelt, laufen drei grüne Wellen vom Kartenrand nach außen (Halo, dazu ein
+  weiches Glühen); sie enden mit dem Annehmen, Ablehnen oder Auflegen und entfallen bei abgeschalteten Animationen.
+  Ein Anruf weckt das Panel und hält es wach, solange er läuft.
+- Verpasste Anrufe: Ein eingehender Anruf, der am Panel nicht angenommen wird und mit dem Auflegen des Anrufers endet,
+  gilt als verpasst. Nicht verpasst sind am Panel abgelehnte Anrufe und Anrufe, die an einem anderen Telefon
+  angenommen wurden (die FRITZ!Box sendet dann ein CANCEL mit `Reason: SIP;cause=200`, Grund „Woanders angenommen“).
+  Die App fasst verpasste Anrufe je Nummer zusammen (Name, Anzahl, erster und letzter Anruf) und speichert sie in
+  `/data/telefon_verpasst.json`; sie überleben einen Neustart, Einträge früherer Tage (Ortszeit von Home Assistant)
+  fallen weg. Der Feed zeigt je Nummer eine Karte „Verpasster Anruf“ (Relevanz 80, nach 2 Stunden 50; der Ring läuft über
+  2 Stunden seit dem letzten Anruf leer) mit den Knöpfen *Zurückrufen* und *Erledigt*. Der Rückruf entfernt den Eintrag
+  sofort beim Wählen, *Erledigt* sendet `telefon_verpasst_erledigt`. Abschaltbar im Editor („Verpasster Anruf“,
+  Schlüssel `verpasst`); die Karte erscheint nur bei aktivem Telefon.
 - Gespräch: Dauer, Stumm, Tastatur (Tastentöne), Minimieren, Auflegen. *Minimieren* legt den Anruf als grüne Zeile in
   die Live-Kapsel, auch auf der Startseite; ein Tipp darauf holt die Karte zurück.
 - Klingelt die Haustür während eines Anrufs, hat das Overlay „Haustür“ Vorrang und die Anrufkarte wird minimiert.
@@ -229,5 +244,5 @@ Alarm- und Notrufanrufe dienen.
 ### Ereignis für Automationen
 
 Jeder Wechsel eines Anrufs erzeugt in Home Assistant das Ereignis `pm_panel_studio_anruf` mit `richtung`
-(`ein`/`aus`), `nummer`, `name`, `zustand` (`klingelt`, `waehlt`, `verbunden`, `beendet`), `grund` und bei `beendet`
+(`ein`/`aus`), `nummer`, `name`, `zustand` (`klingelt`, `waehlt`, `verbunden`, `beendet`), `grund` (z. B. „Verpasst“, „Abgelehnt“, „Woanders angenommen“) und bei `beendet`
 nach einem Gespräch `dauer_s`. Damit lassen sich z. B. Musik leiser stellen oder verpasste Anrufe melden.

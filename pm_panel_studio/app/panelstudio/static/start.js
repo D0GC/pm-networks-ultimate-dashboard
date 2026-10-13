@@ -177,7 +177,7 @@
     unwetter: ["alert-outline", "#f0964c"], wetterwechsel: ["weather-partly-cloudy", "var(--info)"], ok: ["shield-check-outline", "var(--gut)"],
     naechstes: ["calendar-arrow-right", "#c99bf0"],
     meldung: ["bell-ring-outline", "var(--warn)"], spueler: ["dishwasher", "var(--info)"], robo: ["robot-vacuum", "var(--gut)"], musik: ["music-note-outline", "#c99bf0"], ruhig: ["leaf", "var(--gut)"], heimweg: ["home-import-outline", "var(--gut)"],
-    pakete: ["package-variant-closed", "#e3a35d"],
+    pakete: ["package-variant-closed", "#e3a35d"], verpasst: ["phone-missed", "var(--krit)"],
   };
   PS.kartenIcon = (k) => (KARTE[k] || KARTE.neutral)[0];
   let aktuell = 0, liste = [], wechselZeit = 0, wischt = false;
@@ -313,8 +313,10 @@
     else if (m.svg) innen = `${m.svg}<small class="einheit">${PS.esc(m.einheit)}</small>`;
     else if (m.zahl != null) innen = `<b class="wert-txt tabular" data-text="${PS.esc(m.zahl)}"></b><small class="einheit">${PS.esc(m.einheit)}</small>`;
     else innen = PS.ic(m.icon);
-    return { farbe: m.farbe, glut: !!m.glut, html: `<div class="kopf"><i class="punkt"></i><span>${PS.esc(m.kopf)}</span>${m.badge ? `<em class="sport-badge${m.badge.live ? " puls" : ""}" style="--badge:${PS.esc(m.badge.farbe)}">${PS.esc(m.badge.text)}</em>` : ""}</div><div class="ring${laeuft ? " laeuft glimmt" : ""}${m.ringKlasse ? " " + m.ringKlasse : ""}">${PS.ringSVG(m.anteil)}<div class="innen">${innen}</div></div><h2>${PS.esc(m.h2 || "")}</h2>${m.liste ? listeHTML(m.liste, m.listeKlasse) : `<p>${PS.esc(m.p || "")}</p>`}` };
+    return { farbe: m.farbe, glut: !!m.glut, html: `<div class="kopf"><i class="punkt"></i><span>${PS.esc(m.kopf)}</span>${m.badge ? `<em class="sport-badge${m.badge.live ? " puls" : ""}" style="--badge:${PS.esc(m.badge.farbe)}">${PS.esc(m.badge.text)}</em>` : ""}</div><div class="ring${laeuft ? " laeuft glimmt" : ""}${m.ringKlasse ? " " + m.ringKlasse : ""}">${PS.ringSVG(m.anteil)}<div class="innen">${innen}</div></div><h2>${PS.esc(m.h2 || "")}</h2>${m.liste ? listeHTML(m.liste, m.listeKlasse) : `<p>${PS.esc(m.p || "")}</p>`}${m.aktionen ? aktionenHTML(m.aktionen) : ""}` };
   }
+  // Knöpfe auf einer Karte (z. B. „Verpasster Anruf“): { akt, text, icon, klasse, daten }; Klicks fängt kartenSetzen ab
+  const aktionenHTML = (a) => `<div class="aktionen">${a.map((x) => `<button type="button" class="knopf ${x.klasse || ""}" data-akt="${PS.esc(x.akt)}"${x.daten ? ` data-nummer="${PS.esc(x.daten)}"` : ""}>${x.icon ? PS.ic(x.icon) : ""}${PS.esc(x.text)}</button>`).join("")}</div>`;
   // Zahl im Ring rollt wie ein Zählwerk auf den Wert (Konzept Stufe 1); bei jedem Zeigen aus dem Leeren
   function walzeStarten(el, neu) {
     const b = el && el.querySelector(".wert-txt[data-text]"); if (!b) return;
@@ -334,7 +336,11 @@
       const inhalt = karteInhalt(k);
       if (!el) {
         el = document.createElement("div"); el.className = "karte"; el.dataset.id = k.id;
-        el.addEventListener("click", () => { const kk = el._karte; if (kk && kk.art === "meldung") PS.popupZeigen(kk.id); else if (kk && kk.schluessel === "eil") PS.eilZeigen(kk); else if (kk && kk.art === "sport") PS.sportZeigen(kk); else if (kk && kk.art === "pakete") PS.paketeZeigen(kk); else weiter(); });
+        el.addEventListener("click", (ev) => {
+          const b = ev.target.closest && ev.target.closest(".aktionen [data-akt]");
+          if (b) { ev.stopPropagation(); kartenAktion(b.dataset.akt, el._karte); return; }
+          const kk = el._karte; if (kk && kk.art === "meldung") PS.popupZeigen(kk.id); else if (kk && kk.schluessel === "eil") PS.eilZeigen(kk); else if (kk && kk.art === "sport") PS.sportZeigen(kk); else if (kk && kk.art === "pakete") PS.paketeZeigen(kk); else weiter();
+        });
         box.appendChild(el); elemente.set(k.id, el);
         el.innerHTML = inhalt.html;
         walzeStarten(el, true);
@@ -355,11 +361,14 @@
         el.querySelector(".ring").className = neu.querySelector(".ring").className;
         el.querySelector("h2").replaceWith(neu.querySelector("h2"));
         el.querySelector("p").replaceWith(neu.querySelector("p"));
+        const altA = el.querySelector(".aktionen"), neuA = neu.querySelector(".aktionen");
+        if (altA && neuA) altA.replaceWith(neuA); else if (altA) altA.remove(); else if (neuA) el.appendChild(neuA);
         PS.ringSetzen(el.querySelector(".ring svg"), ringAnteil(k));
       }
       el._html = inhalt.html; el._karte = k;
       el.style.setProperty("--farbe", inhalt.farbe);
       el.classList.toggle("eil", k.schluessel === "eil");
+      el.classList.toggle("verpasst", k.schluessel === "verpasst");
       el.classList.toggle("glut", inhalt.glut);
     }
     const pos = liste.findIndex((k) => k.id === alt);
@@ -516,12 +525,51 @@
       modell: { kopf, farbe: "#c99bf0", icon: "school-outline", anteil: 1, zahl: String(tag.length), einheit: tag.length === 1 ? "Eintrag" : "Einträge",
         h2: jetzt.toLocaleDateString("de-DE", { weekday: "long", day: "numeric", month: "long" }), liste: zeilenListe(tag) } };
   }
+  // Verpasste Anrufe (Telefon aktiv): je Nummer eine Karte, Ring läuft über 2 Stunden seit dem letzten Anruf leer.
+  // Relevanz 80 in den ersten 2 Stunden, danach 50; der Server räumt die Einträge um Mitternacht ab.
+  const VERPASST_S = 2 * 3600;
+  const vorZeit = (min) => {
+    if (min < 1) return "gerade eben";
+    if (min < 60) return `vor ${min} ${min === 1 ? "Minute" : "Minuten"}`;
+    const h = Math.floor(min / 60);
+    return `vor ${h} ${h === 1 ? "Stunde" : "Stunden"}`;
+  };
+  function verpasstKarten() {
+    const t = PS.telefon || {};
+    if (!t.aktiv || (PS.einst.karten_aus || []).includes("verpasst")) return [];
+    const jetzt = Date.now();
+    return (t.verpasst || []).map((v) => {
+      const seit = Date.parse(v.zuletzt), alter = isFinite(seit) ? Math.max(0, (jetzt - seit) / 1000) : VERPASST_S;
+      const uhr = isFinite(seit) ? PS.uhrzeit(new Date(seit)) : "";
+      const av = PS.telefonAvatar ? PS.telefonAvatar(v.name, v.nummer, "mittel") : PS.ic("account");
+      const n = Number(v.anzahl) || 1;
+      return { id: `verpasst:${v.nummer}`, art: "praktisch", schluessel: "verpasst", titel: "Verpasster Anruf", wert: "", hinweis: "",
+        relevanz: alter < VERPASST_S ? 80 : 50,
+        modell: { kopf: "Verpasster Anruf", farbe: "var(--krit)", anteil: Math.max(0.02, 1 - alter / VERPASST_S), h2: v.name || v.nummer || "Unbekannt",
+          p: `zuletzt ${uhr} · ${vorZeit(Math.floor(alter / 60))}`,
+          innen: `<span class="v-av">${av}<i class="v-badge">${PS.ic("phone-missed")}</i></span><b class="tabular">${n}×</b><small class="einheit">heute</small>`,
+          aktionen: [...(v.nummer ? [{ akt: "zurueckrufen", text: "Zurückrufen", icon: "phone", klasse: "gut", daten: v.nummer }] : []), { akt: "erledigt", text: "Erledigt", daten: v.nummer }] } };
+    });
+  }
+  function kartenAktion(akt, k) {
+    if (!k || k.schluessel !== "verpasst") return;
+    const v = ((PS.telefon || {}).verpasst || []).find((x) => `verpasst:${x.nummer}` === k.id);
+    if (!v) return;
+    if (akt === "zurueckrufen" && PS.telefonWaehlen) PS.telefonWaehlen(v.nummer, v.name);
+    else if (akt === "erledigt" && PS.telefonVerpasstErledigt) PS.telefonVerpasstErledigt(v.nummer);
+  }
+  let verpasstSig = "";
+  PS.on("telefon", (t) => {
+    const sig = JSON.stringify([t && t.aktiv, t && t.verpasst]);
+    if (sig !== verpasstSig) { verpasstSig = sig; feedAufbauen(); }
+  });
   function feedAufbauen() {
     let k = (PS.karten || []).filter((x) => x.schluessel !== "wetter");
     // Kein „Wetterwechsel“, wenn der DWD dieselbe Lage schon als Warnung meldet (Gewitter, Regen, Schnee)
     const gewarnt = k.some((x) => x.art === "warnung" && ["gewitter", "regen", "schnee"].includes(x.familie));
     const ww = (PS.einst.karten_aus || []).includes("wetter") || gewarnt ? null : wetterwechsel(); if (ww) k.push(ww);
     if (!k.length) k.push(okKarte());
+    k.push(...verpasstKarten());
     if (!(PS.einst.karten_aus || []).includes("termin")) { k.push(...terminKarten()); const mk = morgenKarte(); if (mk) k.push(mk); }
     if (!(PS.einst.karten_aus || []).includes("stundenplan")) { const sk = stundenplanKarte(); if (sk) k.push(sk); }
     kartenSetzen(sortiert(k));

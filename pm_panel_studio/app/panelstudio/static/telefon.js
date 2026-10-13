@@ -21,6 +21,7 @@
     const i = initialen(name);
     return `<span class="tel-av ${klasse}" style="--av:${farbe(name || nummer)}">${i ? PS.esc(i) : PS.ic("account")}</span>`;
   };
+  PS.telefonAvatar = avatar;
   const z2 = (n) => String(n).padStart(2, "0");
   const mmss = (s) => { s = Math.max(0, Math.floor(s)); return s >= 3600 ? `${Math.floor(s / 3600)}:${z2(Math.floor(s % 3600 / 60))}:${z2(s % 60)}` : `${z2(Math.floor(s / 60))}:${z2(s % 60)}`; };
   // Zeitangaben vom Server: Unix-Sekunden, Millisekunden oder ISO-Text
@@ -58,10 +59,19 @@
     { richtung: "aus", nummer: "+49 30 7654321", name: "Dr. Meier Praxis", zeit: Date.now() / 1000 - 90000, dauer_s: 74 },
     { richtung: "verpasst", nummer: "+49 89 998877", name: "", zeit: Date.now() / 1000 - 200000, dauer_s: 0 },
   ];
+  // Demo: verpasster Anruf lokal entfernen (der Server tut das sonst und meldet den neuen Stand)
+  function verpasstDemo(nummer) {
+    if (!PS.telefon) return;
+    PS.telefon = { ...PS.telefon, verpasst: (PS.telefon.verpasst || []).filter((x) => x.nummer !== nummer) };
+    PS.emit("telefon", PS.telefon);
+  }
+  // Karte „Verpasster Anruf“ (start.js): „Erledigt“. Der Server entfernt den Eintrag und sendet den neuen Stand.
+  PS.telefonVerpasstErledigt = (nummer) => anf({ typ: "telefon_verpasst_erledigt", nummer }).catch((e) => PS.toast("Erledigt: " + e.message, true));
   function anf(msg) {
     if (!demo) return PS.anfrage(msg);
     if (msg.typ === "telefon_kontakte") return Promise.resolve(DEMO_KONTAKTE);
     if (msg.typ === "telefon_verlauf") return Promise.resolve(DEMO_VERLAUF);
+    if (msg.typ === "telefon_verpasst_erledigt") { verpasstDemo(msg.nummer); return Promise.resolve(true); }
     if (msg.typ === "telefon_annehmen") setTimeout(() => PS.telefonDemo("verbunden"), 300);
     if (msg.typ === "telefon_auflegen" || msg.typ === "telefon_ablehnen") setTimeout(() => PS.telefonDemo("beendet"), 200);
     return Promise.resolve(null);
@@ -141,7 +151,7 @@
     zeichnen();
     (async () => {
       try {
-        if (demo) { setTimeout(() => PS.telefonDemo("waehlt"), 150); setTimeout(() => PS.telefonDemo("verbunden"), 2500); lokal.laeuft = false; return; }
+        if (demo) { verpasstDemo(nummer); setTimeout(() => PS.telefonDemo("waehlt"), 150); setTimeout(() => PS.telefonDemo("verbunden"), 2500); lokal.laeuft = false; return; }
         await tonStarten();
         const r = await PS.anfrage({ typ: "telefon_waehlen", nummer });
         const l = lokal;
@@ -347,6 +357,7 @@
       const grund = l.beendet && l.grund ? `<div class="tel-grund">${PS.esc(l.grund)}</div>` : "";
       k.querySelector(".tel-box").className = "tel-box" + (ring ? " klingelt" : "") + (verb ? " verbunden" : "") + (l.beendet ? " beendet" : "") + (l.dtmf && verb ? " mit-pad" : "");
       k.querySelector(".tel-box").innerHTML =
+        `<div class="halo tel-halo" aria-hidden="true"><i></i></div>` +
         `<div class="tel-kopf"><span class="tel-art">${PS.ic(a.richtung === "ein" ? "phone-incoming" : "phone-outgoing")}${a.richtung === "ein" ? "Eingehend" : "Ausgehend"}</span></div>` +
         `<div class="tel-mitte"><div class="tel-avatar">${avatar(a.name, a.nummer, "gross")}<i class="tel-puls"></i></div>` +
         `<h2 class="tel-name">${PS.esc(name)}</h2>` +
@@ -500,7 +511,8 @@
   };
 
   // ------------------------------------------------------------ Test ohne Server
-  // PS.telefonDemo("klingelt" | "waehlt" | "verbunden" | "beendet" | null) speist einen Scheinstatus ein (nur Oberfläche).
+  // PS.telefonDemo("klingelt" | "waehlt" | "verbunden" | "beendet" | null, { verpasst: [{ nummer, name, anzahl, zuletzt, erste }] })
+  // speist einen Scheinstatus ein (nur Oberfläche).
   PS.telefonDemo = (zustand, opt = {}) => {
     demo = true;
     const jetzt = Date.now() / 1000;
@@ -508,7 +520,7 @@
       id: "demo", richtung: opt.richtung || (zustand === "waehlt" ? "aus" : "ein"), nummer: opt.nummer || "+49 171 1234567", name: opt.name === undefined ? "Maria Mustermann" : opt.name,
       zustand, seit: jetzt, verbunden_seit: zustand === "verbunden" || zustand === "beendet" ? jetzt - (opt.dauer ?? 83) : null, grund: opt.grund || "", stumm: false,
     } : null;
-    PS.telefon = { typ: "telefon", aktiv: true, registriert: true, fehler: "", anruf };
+    PS.telefon = { typ: "telefon", aktiv: true, registriert: true, fehler: "", anruf, verpasst: opt.verpasst || (PS.telefon && PS.telefon.verpasst) || [] };
     PS.emit("telefon", PS.telefon);
   };
 })();

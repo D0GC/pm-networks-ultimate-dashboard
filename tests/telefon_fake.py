@@ -137,8 +137,9 @@ class FakeFritz(asyncio.DatagramProtocol):
     # --- Anfragen der Gegenstelle
 
     def anfrage(
-        self, methode: str, uri: str, *, von: str, an: str, call_id: str, cseq: int, branch: str, body: str = ""
-    ) -> bytes:
+        self, methode: str, uri: str, *, von: str, an: str, call_id: str, cseq: int, branch: str, body: str = "",
+        koepfe: list[tuple[str, str]] | None = None,
+    ) -> bytes:  # fmt: skip
         m = SipNachricht(methode=methode, uri=uri)
         m.hinzufuegen("via", f"SIP/2.0/UDP 127.0.0.1:{self.port};branch={branch}")
         m.hinzufuegen("max-forwards", "70")
@@ -147,6 +148,8 @@ class FakeFritz(asyncio.DatagramProtocol):
         m.hinzufuegen("call-id", call_id)
         m.hinzufuegen("cseq", f"{cseq} {methode}")
         m.hinzufuegen("contact", f"<sip:anrufer@127.0.0.1:{self.port}>")
+        for name, wert in koepfe or []:
+            m.hinzufuegen(name, wert)
         if body:
             m.hinzufuegen("content-type", "application/sdp")
             m.body = body.encode()

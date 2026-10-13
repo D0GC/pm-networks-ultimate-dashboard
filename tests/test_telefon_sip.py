@@ -194,6 +194,34 @@ async def test_cancel_waehrend_klingeln_liefert_487(agent, fake) -> None:
     assert ("aenderung", "beendet") in agent.ereignisse
 
 
+@pytest.mark.parametrize(
+    ("reason", "grund"),
+    [
+        (None, "Verpasst"),
+        ('SIP;cause=200;text="Call completed elsewhere"', "Woanders angenommen"),
+        ('Q.850;cause=16;text="Normal call clearing"', "Verpasst"),
+    ],
+)
+async def test_cancel_reason_unterscheidet_woanders_angenommen(agent, fake, reason, grund) -> None:
+    fake.sende_roh(_invite(fake))
+    await fake.warte(lambda m: m.status == 180)
+    call = agent.anruf
+    fake.sende_roh(
+        fake.anfrage(
+            "CANCEL",
+            f"sip:620@127.0.0.1:{fake.client[1]}",
+            von='"Max Muster" <sip:0301234567@fritz.box>;tag=ft1',
+            an="<sip:620@fritz.box>",
+            call_id="ein-1@fritz",
+            cseq=1,
+            branch="z9hG4bKein1",
+            koepfe=[("reason", reason)] if reason else None,
+        )
+    )
+    await bis(lambda: ("aenderung", "beendet") in agent.ereignisse)
+    assert call.grund == grund
+
+
 async def test_ablehnen_und_zweiter_anruf_besetzt(agent, fake) -> None:
     fake.sende_roh(_invite(fake))
     await fake.warte(lambda m: m.status == 180)
