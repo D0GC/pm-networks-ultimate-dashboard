@@ -72,7 +72,9 @@ class FakeFritz(asyncio.DatagramProtocol):
 
     # --- Antworten bauen
 
-    def antwort(self, anfrage: SipNachricht, status: int, *, body: str = "", tag: str = "fritz1", extra: dict | None = None) -> SipNachricht:
+    def antwort(
+        self, anfrage: SipNachricht, status: int, *, body: str = "", tag: str = "fritz1", extra: dict | None = None
+    ) -> SipNachricht:
         r = SipNachricht(status=status, grund=sip.GRUENDE.get(status, "X"))
         for v in anfrage.alle("via"):
             r.hinzufuegen("via", v)
@@ -134,7 +136,9 @@ class FakeFritz(asyncio.DatagramProtocol):
 
     # --- Anfragen der Gegenstelle
 
-    def anfrage(self, methode: str, uri: str, *, von: str, an: str, call_id: str, cseq: int, branch: str, body: str = "") -> bytes:
+    def anfrage(
+        self, methode: str, uri: str, *, von: str, an: str, call_id: str, cseq: int, branch: str, body: str = ""
+    ) -> bytes:
         m = SipNachricht(methode=methode, uri=uri)
         m.hinzufuegen("via", f"SIP/2.0/UDP 127.0.0.1:{self.port};branch={branch}")
         m.hinzufuegen("max-forwards", "70")
@@ -183,7 +187,7 @@ def freier_udp_port() -> int:
 
 async def bis(bedingung: Callable[[], bool], timeout: float = 5.0) -> None:
     async def _lauf() -> None:
-        while not bedingung():
+        while not bedingung():  # noqa: ASYNC110
             await asyncio.sleep(0.02)
 
     with contextlib.suppress(TimeoutError):

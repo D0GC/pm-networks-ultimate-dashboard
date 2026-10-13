@@ -544,9 +544,16 @@ class SipAgent:
             await asyncio.gather(self._schleife, return_exceptions=True)
             self._schleife = None
         anruf = self.anruf
-        if anruf and anruf.zustand != "beendet":
+        if anruf and anruf.zustand == "waehlt":  # nicht auf die Antwort warten: CANCEL kurz versuchen, dann lokal beenden
+            anruf.abbruch = True
+            with contextlib.suppress(Exception):
+                await asyncio.wait_for(self._cancel_senden(anruf), timeout=1)
+            self._ende(anruf, "Abgebrochen")
+        elif anruf and anruf.zustand != "beendet":
             with contextlib.suppress(Exception):
                 await self.auflegen(anruf)
+        for ereignis in list(self._ack_ereignisse.values()):  # Wiederholungen der Schlussantworten beenden
+            ereignis.set()
         if self._tasks:
             _fertig, offen = await asyncio.wait(list(self._tasks), timeout=3)
             for t in offen:

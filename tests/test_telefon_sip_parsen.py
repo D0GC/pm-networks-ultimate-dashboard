@@ -12,7 +12,7 @@ from panelstudio.telefon.sip import SipFehler, SipNachricht
 INVITE = (
     "INVITE sip:620@192.168.178.20:5062 SIP/2.0\r\n"
     "Via: SIP/2.0/UDP 192.168.178.1:5060;branch=z9hG4bKabc;rport\r\n"
-    "From: \"Max Muster\" <sip:030123@fritz.box>;tag=f1\r\n"
+    'From: "Max Muster" <sip:030123@fritz.box>;tag=f1\r\n'
     "t: <sip:620@fritz.box>\r\n"
     "i: call-1@fritz.box\r\n"
     "CSeq: 7 INVITE\r\n"
@@ -54,7 +54,9 @@ def test_kodieren_schreibweise_und_body() -> None:
     assert roh.endswith("\r\n\r\nhäh".encode()) and f"Content-Length: {len('häh'.encode())}".encode() in roh
 
 
-@pytest.mark.parametrize("roh", [b"", b"\r\n\r\n", b"Quatsch\r\n\r\n", b"SIP/2.0 abc X\r\n\r\n", b"INVITE x SIP/2.0\r\nOhneDoppelpunkt\r\n\r\n"])
+@pytest.mark.parametrize(
+    "roh", [b"", b"\r\n\r\n", b"Quatsch\r\n\r\n", b"SIP/2.0 abc X\r\n\r\n", b"INVITE x SIP/2.0\r\nOhneDoppelpunkt\r\n\r\n"]
+)
 def test_ungueltige_nachrichten(roh: bytes) -> None:
     with pytest.raises(SipFehler):
         SipNachricht.parsen(roh)
@@ -84,7 +86,13 @@ def test_digest_rfc2617_beispiel() -> None:
     )
     assert challenge["qop"] == "auth,auth-int" and challenge["realm"] == "testrealm@host.com"
     wert = sip.digest_antwort(
-        benutzer="Mufasa", passwort="Circle Of Life", methode="GET", uri="/dir/index.html", challenge=challenge, nc=1, cnonce="0a4f113b"
+        benutzer="Mufasa",
+        passwort="Circle Of Life",
+        methode="GET",
+        uri="/dir/index.html",
+        challenge=challenge,
+        nc=1,
+        cnonce="0a4f113b",
     )
     p = sip.challenge_parsen(wert)
     assert p["response"] == "6629fae49393a05397450978507c4ef1"

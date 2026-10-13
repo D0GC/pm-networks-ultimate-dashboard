@@ -104,7 +104,11 @@ async def test_register_ohne_antwort_meldet_fehler() -> None:
 
 
 async def test_options_wird_beantwortet(agent, fake) -> None:
-    fake.sende_roh(fake.anfrage("OPTIONS", "sip:620@127.0.0.1", von="<sip:fritz@x>;tag=1", an="<sip:620@x>", call_id="o1", cseq=1, branch="z9hG4bKo1"))
+    fake.sende_roh(
+        fake.anfrage(
+            "OPTIONS", "sip:620@127.0.0.1", von="<sip:fritz@x>;tag=1", an="<sip:620@x>", call_id="o1", cseq=1, branch="z9hG4bKo1"
+        )
+    )
     antwort = await fake.warte(lambda m: not m.ist_anfrage and m.call_id == "o1")
     assert antwort.status == 200
 
@@ -127,14 +131,32 @@ async def test_eingehender_anruf_annehmen_und_bye(agent, fake) -> None:
     assert anruf.zustand == "verbunden"
 
     # ACK der Gegenstelle stoppt die Wiederholung des 200
-    ack = fake.anfrage("ACK", r200.kopf("contact").strip("<>"), von='"Max Muster" <sip:0301234567@fritz.box>;tag=ft1', an=r200.kopf("to"), call_id="ein-1@fritz", cseq=1, branch="z9hG4bKack1")
+    ack = fake.anfrage(
+        "ACK",
+        r200.kopf("contact").strip("<>"),
+        von='"Max Muster" <sip:0301234567@fritz.box>;tag=ft1',
+        an=r200.kopf("to"),
+        call_id="ein-1@fritz",
+        cseq=1,
+        branch="z9hG4bKack1",
+    )
     fake.sende_roh(ack)
     await asyncio.sleep(0.3)
     zaehler = len([m for m in fake.alle if m.status == 200 and m.cseq()[1] == "INVITE"])
     await asyncio.sleep(0.4)
     assert len([m for m in fake.alle if m.status == 200 and m.cseq()[1] == "INVITE"]) == zaehler
 
-    fake.sende_roh(fake.anfrage("BYE", r200.kopf("contact").strip("<>"), von='"Max Muster" <sip:0301234567@fritz.box>;tag=ft1', an=r200.kopf("to"), call_id="ein-1@fritz", cseq=2, branch="z9hG4bKbye1"))
+    fake.sende_roh(
+        fake.anfrage(
+            "BYE",
+            r200.kopf("contact").strip("<>"),
+            von='"Max Muster" <sip:0301234567@fritz.box>;tag=ft1',
+            an=r200.kopf("to"),
+            call_id="ein-1@fritz",
+            cseq=2,
+            branch="z9hG4bKbye1",
+        )
+    )
     bye_ok = await fake.warte(lambda m: not m.ist_anfrage and m.cseq()[1] == "BYE")
     assert bye_ok.status == 200
     await bis(lambda: agent.anruf is None)
@@ -155,7 +177,17 @@ async def test_invite_wiederholung_wird_nicht_doppelt_angelegt(agent, fake) -> N
 async def test_cancel_waehrend_klingeln_liefert_487(agent, fake) -> None:
     fake.sende_roh(_invite(fake))
     await fake.warte(lambda m: m.status == 180)
-    fake.sende_roh(fake.anfrage("CANCEL", f"sip:620@127.0.0.1:{fake.client[1]}", von='"Max Muster" <sip:0301234567@fritz.box>;tag=ft1', an="<sip:620@fritz.box>", call_id="ein-1@fritz", cseq=1, branch="z9hG4bKein1"))
+    fake.sende_roh(
+        fake.anfrage(
+            "CANCEL",
+            f"sip:620@127.0.0.1:{fake.client[1]}",
+            von='"Max Muster" <sip:0301234567@fritz.box>;tag=ft1',
+            an="<sip:620@fritz.box>",
+            call_id="ein-1@fritz",
+            cseq=1,
+            branch="z9hG4bKein1",
+        )
+    )
     await bis(lambda: any(m.status == 487 and m.cseq()[1] == "INVITE" for m in fake.alle))
     await bis(lambda: any(m.status == 200 and m.cseq()[1] == "CANCEL" and m.call_id == "ein-1@fritz" for m in fake.alle))
     assert agent.anruf is None
@@ -179,7 +211,18 @@ async def test_ablehnen_und_zweiter_anruf_besetzt(agent, fake) -> None:
 async def test_invite_ohne_unterstuetzten_codec_wird_488(agent, fake) -> None:
     sdp = "v=0\r\nc=IN IP4 127.0.0.1\r\nt=0 0\r\nm=audio 4000 RTP/AVP 9\r\na=rtpmap:9 G722/8000\r\n"
     fake.client = fake.client
-    fake.sende_roh(fake.anfrage("INVITE", "sip:620@127.0.0.1", von="<sip:1@x>;tag=1", an="<sip:620@x>", call_id="g722", cseq=1, branch="z9hG4bKg722", body=sdp))
+    fake.sende_roh(
+        fake.anfrage(
+            "INVITE",
+            "sip:620@127.0.0.1",
+            von="<sip:1@x>;tag=1",
+            an="<sip:620@x>",
+            call_id="g722",
+            cseq=1,
+            branch="z9hG4bKg722",
+            body=sdp,
+        )
+    )
     assert (await fake.warte(lambda m: m.status == 488)).call_id == "g722"
     assert agent.anruf is None
 

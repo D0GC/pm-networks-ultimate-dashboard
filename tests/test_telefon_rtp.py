@@ -77,7 +77,7 @@ async def test_dtmf_rfc4733() -> None:
         assert [bool(t[5][1] & 0x80) for t in erste] == [False] * 5 + [True] * 3
         assert [t[5][0] for t in teile if t[5][0] != 5] == [11] * 8  # '#' = 11
         # Zeitstempel des zweiten Tons liegt hinter dem ersten
-        assert [t for t in teile if t[5][0] == 11][0][2] == (erste[0][2] + 800) & 0xFFFFFFFF
+        assert next(t for t in teile if t[5][0] == 11)[2] == (erste[0][2] + 800) & 0xFFFFFFFF
     finally:
         s.schliessen()
         audio.schliessen()
