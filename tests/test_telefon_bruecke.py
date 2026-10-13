@@ -344,3 +344,42 @@ async def test_rahmen_vor_verbunden_werden_verworfen(aufbau) -> None:
     await asyncio.sleep(0.2)
     assert not audio.pakete
     await t.auflegen(ergebnis["anruf"])
+
+
+async def test_telefon_meldet_nur_unbeantwortete_anrufe_als_verpasst(aufbau) -> None:
+    t, fake, audio, _panel, _m = aufbau
+    verpasst: list[tuple[str, str]] = []
+    t._verpasst = lambda nummer, name: verpasst.append((nummer, name))
+
+    def invite(cid: str, br: str) -> bytes:
+        return fake.anfrage(
+            "INVITE", "sip:620@127.0.0.1", von='"Max" <sip:555@fritz.box>;tag=t', an="<sip:620@fritz.box>", call_id=cid, cseq=1, branch=br,
+            body=SDP_FAKE.format(port=audio.port),
+        )  # fmt: skip
+
+    def cancel(cid: str, br: str, reason: str | None = None) -> bytes:
+        return fake.anfrage(
+            "CANCEL", "sip:620@127.0.0.1", von='"Max" <sip:555@fritz.box>;tag=t', an="<sip:620@fritz.box>", call_id=cid, cseq=1, branch=br,
+            koepfe=[("reason", reason)] if reason else None,
+        )  # fmt: skip
+
+    # am Panel abgelehnt: nicht verpasst
+    fake.sende_roh(invite("a@f", "z9hG4bKa"))
+    await bis(lambda: t.status()["anruf"] is not None)
+    await t.ablehnen(t.status()["anruf"]["id"])
+    await bis(lambda: t.status()["anruf"] is None)
+
+    # an einem anderen Telefon angenommen (Reason cause=200): nicht verpasst
+    fake.sende_roh(invite("b@f", "z9hG4bKb"))
+    await bis(lambda: t.status()["anruf"] is not None)
+    fake.sende_roh(cancel("b@f", "z9hG4bKb", 'SIP;cause=200;text="Call completed elsewhere"'))
+    await bis(lambda: t.status()["anruf"]["zustand"] == "beendet")
+    assert t.status()["anruf"]["grund"] == "Woanders angenommen"
+    await bis(lambda: t.status()["anruf"] is None)
+    assert verpasst == []
+
+    # Anrufer legt vor dem Annehmen auf: verpasst, mit Name
+    fake.sende_roh(invite("c@f", "z9hG4bKc"))
+    await bis(lambda: t.status()["anruf"] is not None)
+    fake.sende_roh(cancel("c@f", "z9hG4bKc"))
+    await bis(lambda: verpasst == [("555", "Max")])

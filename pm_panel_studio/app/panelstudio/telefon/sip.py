@@ -32,6 +32,7 @@ _LOGGER = logging.getLogger(__name__)
 
 USER_AGENT = "PM-Panel-Studio"
 DTMF_PT = 101
+GRUND_WOANDERS = "Woanders angenommen"  # CANCEL mit Reason cause=200
 ERLAUBT = "INVITE, ACK, CANCEL, BYE, OPTIONS, NOTIFY, INFO, UPDATE"
 CRLF = "\r\n"
 KOMPAKT = {
@@ -1010,7 +1011,11 @@ class SipAgent:
         self._antworten(msg, addr, 200)
         if anruf.zustand == "klingelt":
             self._final_senden(anruf, 487)
-            self._ende(anruf, "Verpasst")
+            # Reason: SIP;cause=200 (FRITZ!Box: „Call completed elsewhere“) = an einem anderen Telefon angenommen
+            if re.search(r"cause\s*=\s*200\b", msg.kopf("reason") or "", re.IGNORECASE):
+                self._ende(anruf, GRUND_WOANDERS)
+            else:
+                self._ende(anruf, "Verpasst")
 
     def _bye_empfangen(self, msg: SipNachricht, addr: tuple[str, int]) -> None:
         anruf = self.anruf

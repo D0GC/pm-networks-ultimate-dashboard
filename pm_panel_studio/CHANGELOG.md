@@ -1,5 +1,17 @@
 # Änderungen
 
+## 2026.10.28 – 2026-10-14
+
+- Verpasste Anrufe: Ein eingehender Anruf, den niemand am Panel annimmt, erscheint als Feed-Karte „Verpasster Anruf“
+  (je Nummer eine Karte mit „n×“, Ring über 2 Stunden, Knöpfe „Zurückrufen“ und „Erledigt“). Nicht gezählt werden am
+  Panel abgelehnte und an einem anderen Telefon angenommene Anrufe (CANCEL mit `Reason: SIP;cause=200` der FRITZ!Box).
+  Die Liste liegt in `/data/telefon_verpasst.json` und gilt nur für den laufenden Tag. Neue Panel-Anfrage
+  `telefon_verpasst_erledigt`; der Editor kann die Karte abschalten (`verpasst`). Feed-Karten können jetzt Knöpfe tragen.
+- Halo beim Klingeln: Drei grüne Wellen laufen vom Rand der Anrufkarte nach außen, solange es klingelt.
+- Halo statt Randblinken bei kritischen Meldungen: Das Blinken des Bildschirmrands entfällt. Stattdessen sendet das
+  Popup bei `kritisch` (rot) und `zeitkritisch` (gelb) drei Wellen aus seinem Rand. Beides entfällt bei abgeschalteten
+  Animationen und mit `prefers-reduced-motion`.
+
 ## 2026.10.27 – 2026-10-14
 
 - Lauter auf den Lautsprechern des Panels: Die Tonkette schneidet Tiefen unter 300 Hz ab (die kleinen Lautsprecher

@@ -146,6 +146,9 @@ class Hub:
         self.telefon_stand: dict[str, Any] = {"aktiv": False}
         self._telefon_panel: web.WebSocketResponse | None = None
         self._telefon_letzter: tuple[str | None, str | None] = (None, None)
+        # Verpasste Anrufe des Tages, je Nummer zusammengefasst (überlebt Neustarts: telefon_verpasst.json)
+        self.verpasst_pfad = speicher.pfad.parent / "telefon_verpasst.json"
+        self.verpasst: list[dict[str, Any]] = self._verpasst_laden()
 
     # ------------------------------------------------------------ Lebenszyklus
 
@@ -533,6 +536,8 @@ class Hub:
             self.spawn(self._szenen_laden())
         if zaehler % 15 == 0 and self.verbunden:
             self._karten_neu()  # Restzeiten ohne Zustandsänderung (Timer) nachführen
+        if zaehler % 15 == 0 and self._verpasst_tagesende():
+            self._verpasst_geaendert()
 
     # ------------------------------------------------------------ Panels
 
@@ -552,7 +557,7 @@ class Hub:
             "popups": self.popups.liste(),
             "szenen": {"stat": self.szenen_stat, "farben": self.szenen_farben},
             "ereignis": self.ereignis or {"aktiv": False},
-            "telefon": self.telefon_stand,
+            "telefon": self._telefon_voll(),
             "ha": {
                 "standort": self.ha_config.get("location_name"),
                 "zeitzone": self.ha_config.get("time_zone"),
@@ -736,7 +741,7 @@ class Hub:
             fritz_benutzer=self.opts.fritz_benutzer,
             fritz_passwort=self.opts.fritz_passwort,
         )
-        self.telefon = Telefon(cfg, self._telefon_melden, session=self.client.session)
+        self.telefon = Telefon(cfg, self._telefon_melden, session=self.client.session, verpasst=self.telefon_verpasst)
         self.telefon_stand = self.telefon.status()
         self.spawn(self.telefon.start())
 
@@ -749,7 +754,7 @@ class Hub:
             self._modus_pruefen()
         if not anruf or anruf.get("zustand") == "beendet":
             self._telefon_panel = None
-        self.spawn(self.senden_alle({"typ": "telefon", **stand}))
+        self.spawn(self.senden_alle({"typ": "telefon", **self._telefon_voll()}))
         # Home Assistant erfährt jeden Wechsel (Automationen: Musik leiser, Ansage …)
         schluessel = (anruf.get("id"), anruf.get("zustand"))
         if anruf and schluessel != self._telefon_letzter and self.verbunden:
@@ -767,7 +772,96 @@ class Hub:
         except HAError as err:
             _LOGGER.debug("Anruf-Ereignis nicht gesendet: %s", err)
 
+    # --- Verpasste Anrufe
+
+    def _telefon_voll(self) -> dict[str, Any]:
+        """Telefonstatus samt verpasster Anrufe, wie er an die Panels geht."""
+        return {**self.telefon_stand, "verpasst": self.verpasst}
+
+    def _heute(self) -> str:
+        return self._lokal(datetime.now(UTC)).date().isoformat()
+
+    def _verpasst_laden(self) -> list[dict[str, Any]]:
+        """Liest die Datei; eine kaputte oder fehlende Datei ergibt eine leere Liste. Alte Tage fallen weg."""
+        try:
+            roh = json.loads(self.verpasst_pfad.read_text(encoding="utf-8"))
+        except FileNotFoundError:
+            return []
+        except (OSError, ValueError) as err:
+            _LOGGER.warning("%s nicht lesbar, verpasste Anrufe beginnen leer: %s", self.verpasst_pfad, err)
+            return []
+        liste: list[dict[str, Any]] = []
+        for e in roh if isinstance(roh, list) else []:
+            try:
+                nummer = str(e["nummer"])
+                datetime.fromisoformat(e["zuletzt"])
+                datetime.fromisoformat(e["erste"])
+                liste.append(
+                    {
+                        "nummer": nummer,
+                        "name": str(e.get("name") or ""),
+                        "anzahl": max(1, int(e.get("anzahl") or 1)),
+                        "zuletzt": str(e["zuletzt"]),
+                        "erste": str(e["erste"]),
+                    }
+                )
+            except (KeyError, TypeError, ValueError, AttributeError):
+                continue
+        heute = self._heute()
+        return [e for e in liste if self._eintrag_tag(e) == heute]
+
+    def _eintrag_tag(self, e: dict[str, Any]) -> str:
+        try:
+            return self._lokal(datetime.fromisoformat(e["zuletzt"])).date().isoformat()
+        except (KeyError, TypeError, ValueError):
+            return ""
+
+    def _verpasst_speichern(self) -> None:
+        try:
+            tmp = self.verpasst_pfad.with_suffix(".tmp")
+            tmp.write_text(json.dumps(self.verpasst, ensure_ascii=False, indent=2), encoding="utf-8")
+            tmp.replace(self.verpasst_pfad)
+        except OSError as err:
+            _LOGGER.error("Verpasste Anrufe nicht gespeichert (%s): %s", self.verpasst_pfad, err)
+
+    def _verpasst_tagesende(self) -> bool:
+        """Entfernt Einträge früherer Tage (Ortszeit); True, wenn sich etwas geändert hat."""
+        heute = self._heute()
+        neu = [e for e in self.verpasst if self._eintrag_tag(e) == heute]
+        if len(neu) == len(self.verpasst):
+            return False
+        self.verpasst = neu
+        return True
+
+    def _verpasst_geaendert(self) -> None:
+        self._verpasst_speichern()
+        self.spawn(self.senden_alle({"typ": "telefon", **self._telefon_voll()}))
+
+    def telefon_verpasst(self, nummer: str, name: str = "") -> None:
+        """Ein eingehender Anruf blieb unbeantwortet: je Nummer zählen, Name und letzte Zeit nachführen."""
+        jetzt = datetime.now(UTC).isoformat(timespec="seconds")
+        self._verpasst_tagesende()
+        eintrag = next((e for e in self.verpasst if e["nummer"] == nummer), None)
+        if eintrag is None:
+            eintrag = {"nummer": nummer, "name": name, "anzahl": 0, "zuletzt": jetzt, "erste": jetzt}
+            self.verpasst.append(eintrag)
+        eintrag["anzahl"] += 1
+        eintrag["zuletzt"] = jetzt
+        if name:
+            eintrag["name"] = name
+        self._verpasst_geaendert()
+
+    def verpasst_erledigt(self, nummer: str) -> bool:
+        neu = [e for e in self.verpasst if e["nummer"] != nummer]
+        if len(neu) == len(self.verpasst):
+            return False
+        self.verpasst = neu
+        self._verpasst_geaendert()
+        return True
+
     async def telefon_anfrage(self, typ: str, msg: dict[str, Any], ws: web.WebSocketResponse | None) -> Any:
+        if typ == "telefon_verpasst_erledigt":
+            return self.verpasst_erledigt(str(msg.get("nummer") or ""))
         tel = self.telefon
         if typ in ("telefon_kontakte", "telefon_verlauf"):
             if tel is None:
@@ -788,7 +882,11 @@ class Hub:
             self._telefon_panel = ws  # Besitzer des Tons, ab jetzt gelten dessen Binärrahmen
             try:
                 if typ == "telefon_waehlen":
-                    return await tel.waehlen(str(msg.get("nummer") or ""), panel_senden)
+                    nummer = str(msg.get("nummer") or "")
+                    ergebnis = await tel.waehlen(nummer, panel_senden)
+                    # Rückruf gestartet: der verpasste Anruf dieser Nummer ist erledigt (schon beim Wählen)
+                    self.verpasst_erledigt(nummer)
+                    return ergebnis
                 return await tel.annehmen(anruf, panel_senden)
             except BaseException:
                 self._telefon_panel = vorher

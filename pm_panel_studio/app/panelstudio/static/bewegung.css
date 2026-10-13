@@ -81,9 +81,21 @@
 @keyframes bestaetigt{30%{transform:scale(1.04)}100%{transform:none}}
 
 /* ------------------------------------------------------------ Stufe 2 · Meldungen mit Gewicht */
-.rahmen-glut{position:fixed;inset:0;z-index:45;pointer-events:none;box-shadow:inset 0 0 0 0 rgba(239,106,122,0)}
-.rahmen-glut.an{animation:rahmenpuls 1.6s ease-in-out 3}
-@keyframes rahmenpuls{50%{box-shadow:inset 0 0 0 .35rem rgba(239,106,122,.7),inset 0 0 6rem rgba(239,106,122,.25)}}
+/* Halo: drei Wellen lösen sich im Abstand von 0,8 s vom Rand einer Karte (Elternelement, Rundung wird geerbt) und laufen
+   nach außen aus. Farbe --halo-farbe, Wachstum --halo-sx/--halo-sy, Wiederholungen --halo-n (Standard endlos),
+   Startverzögerung --halo-start. Das Elternelement braucht position (relativ/fest) und das Halo z-index:-1. */
+.halo{position:absolute;inset:0;border-radius:inherit;pointer-events:none;z-index:-1;--halo-farbe:var(--gut)}
+.halo::before,.halo::after,.halo i{content:"";position:absolute;inset:0;border-radius:inherit;opacity:0;
+  border:2px solid color-mix(in srgb,var(--halo-farbe) 70%,transparent);box-shadow:0 0 2rem .2rem color-mix(in srgb,var(--halo-farbe) 24%,transparent);
+  animation:halo 2.4s cubic-bezier(.2,.6,.3,1) var(--halo-start,0s) var(--halo-n,infinite)}
+.halo::after{animation-delay:calc(var(--halo-start,0s) + .8s)}
+.halo i{animation-delay:calc(var(--halo-start,0s) + 1.6s)}
+@keyframes halo{0%{transform:scale(1);opacity:.85}100%{transform:scale(var(--halo-sx,1.32),var(--halo-sy,1.22));opacity:0}}
+.halo.krit{--halo-farbe:var(--krit)}
+.halo.warn{--halo-farbe:var(--warn)}
+/* Halo aus dem Meldungsdialog (kritisch rot, zeitkritisch gelb); Größe und Wachstum setzt dialog.js */
+.dialog-halo{position:absolute;border-radius:var(--r-aussen);--halo-n:3}
+.dialog-grund:not(.offen) .dialog-halo{display:none}
 .dialog-grund.offen .dialog.meldung-hoch{animation:fallen .8s var(--e-feder) both}
 @keyframes fallen{from{transform:translateY(-120%);opacity:0}to{transform:none;opacity:1}}
 .dialog-grund.offen .dialog.meldung-normal{animation:gleiten var(--t-mittel) var(--e-auftakt) both}
@@ -114,7 +126,7 @@ body.ruhe:not(.nacht) .bg .aurora i{animation-play-state:running}
 body.ruhe .bg::before{animation-play-state:paused}
 
 /* ------------------------------------------------------------ Abschaltbar */
-body.ohne-animation .bg .aurora i,body.ohne-animation .rahmen-glut{animation:none!important}
+body.ohne-animation .bg .aurora i{animation:none!important}
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
 }

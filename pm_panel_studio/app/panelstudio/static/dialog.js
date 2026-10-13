@@ -76,6 +76,7 @@
     document.querySelectorAll("#dialog img").forEach(PS.kameraStoppen);
     PS.kameraLiveStoppen($("#dialog"));
     document.querySelectorAll("#dialog video.aufnahme").forEach((v) => { v.pause(); v.removeAttribute("src"); v.load(); });
+    document.querySelectorAll("#dialog-grund .dialog-halo").forEach((h) => h.remove());
   }
   PS.dialogSchliessen = schliessen;
   // Kameraaufnahme (Reolink-Medienquelle) im Dialog abspielen; die App reicht das Video samt Spulen durch
@@ -103,10 +104,21 @@
   PS.stufeName = (stufe) => M_PRIO[stufe] || M_PRIO.aktiv;
   PS.meldungIcon = (icon) => M_ICON[icon] || "information-outline";
   PS.meldungFarbe = (m) => M_FARBE[typeof m === "string" ? (M_PRIO[m] ? m : ALT_STUFE[m] || "aktiv") : PS.meldungStufe(m)];
-  // Rahmenglühen (zeitkritisch gelb, kritisch rot); Farbe über --glut-farbe, siehe gesten.css
-  PS.rahmenGluehen = (stufe) => {
-    const g = $(".rahmen-glut"); if (!g || document.body.classList.contains("ohne-animation")) return;
-    g.classList.toggle("zeitkritisch", stufe === "zeitkritisch"); g.classList.remove("an"); void g.offsetWidth; g.classList.add("an");
+  // Halo um den Dialog (kritisch rot, zeitkritisch gelb): drei Wellen laufen dreimal aus dem Dialograhmen nach außen.
+  // Das Halo ist ein Geschwisterelement hinter dem Dialog (der Dialog scrollt und schneidet Kinder ab); Lage und Größe
+  // stammen aus dem Layout, das Wachstum beträgt rund 3,2 rem je Seite. Es entfällt ohne Animationen und endet nach dem Auslaufen.
+  PS.dialogHalo = (stufe) => {
+    const grund = $("#dialog-grund"), dlg = $("#dialog");
+    grund.querySelectorAll(".dialog-halo").forEach((h) => h.remove());
+    if (!grund || !dlg || document.body.classList.contains("ohne-animation") || (stufe !== "kritisch" && stufe !== "zeitkritisch")) return;
+    const h = document.createElement("div"), rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 10, wachs = 3.2 * rem;
+    const b = Math.max(dlg.offsetWidth, 1), t = Math.max(dlg.offsetHeight, 1);
+    h.className = "halo dialog-halo " + (stufe === "kritisch" ? "krit" : "warn");
+    h.setAttribute("aria-hidden", "true");
+    h.style.cssText = `left:${dlg.offsetLeft}px;top:${dlg.offsetTop}px;width:${b}px;height:${t}px;--halo-sx:${(1 + 2 * wachs / b).toFixed(3)};--halo-sy:${(1 + 2 * wachs / t).toFixed(3)};--halo-start:${stufe === "kritisch" ? ".7s" : ".25s"}`;
+    h.innerHTML = "<i></i>";
+    h.querySelector("i").addEventListener("animationend", () => h.remove());
+    dlg.before(h);
   };
   PS.popupZeigen = (id) => {
     const m = (PS.popups || []).find((x) => x.id === id); if (!m) return;
@@ -138,12 +150,12 @@
       r.appendChild(knopf(b.text, null, () => PS.dienst(b.domain, b.service, b.data || {}).then(() => { PS.toast(`${b.text} ausgeführt`); schliessen(); })));
     });
     dlg.appendChild(r);
-    // Meldungen mit Gewicht (Konzept Stufe 2): kritisch fällt mit Feder herein, kritisch und zeitkritisch lassen den
-    // Rand dreimal glühen; aktiv und passiv gleiten ohne Feder ein
+    // Meldungen mit Gewicht (Konzept Stufe 2): kritisch fällt mit Feder herein, kritisch und zeitkritisch senden
+    // ein Halo (rot bzw. gelb) aus dem Dialog; aktiv und passiv gleiten ohne Feder ein
     dlg.classList.remove("meldung-hoch", "meldung-normal"); void dlg.offsetWidth;
     dlg.classList.add(stufe === "kritisch" ? "meldung-hoch" : "meldung-normal");
-    if (stufe === "kritisch" || stufe === "zeitkritisch") PS.rahmenGluehen(stufe);
     $("#dialog-grund").classList.add("offen");
+    PS.dialogHalo(stufe);
     dlg.dataset.popup = m.id;
   };
   // Eilmeldung aus der Hinweiszeile `eil|Titel|Wert|Hinweis`: Titel, Wert und der volle Hinweistext (Zeilenumbrüche bleiben)

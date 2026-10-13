@@ -69,6 +69,7 @@ class _Verbindung:
         self.bruecke = None
         self.aufraeumen: asyncio.TimerHandle | None = None
         self.ressourcen_frei = False
+        self.verpasst_gemeldet = False
 
 
 def _iso() -> str:
@@ -81,9 +82,11 @@ class Telefon:
         cfg: TelefonConfig,
         melden: Callable[[dict], None],
         session: aiohttp.ClientSession | None = None,
+        verpasst: Callable[[str, str], None] | None = None,
     ) -> None:
         self.cfg = cfg
         self._melden = melden
+        self._verpasst = verpasst  # (nummer, name): eingehender Anruf blieb unbeantwortet
         self._session = session
         self._eigene_session = False
         self._sip: SipAgent | None = None
@@ -226,10 +229,26 @@ class Telefon:
             if v.bruecke is not None:
                 v.bruecke.starten()
         elif anruf.zustand == "beendet":
+            self._verpasst_pruefen(v)
             if v.aufraeumen is None:
                 v.aufraeumen = asyncio.get_running_loop().call_later(BEENDET_ANZEIGE_S, self._leeren, v)
             self._hintergrund(self._freigeben(v))
         self._senden()
+
+    def _verpasst_pruefen(self, v: _Verbindung) -> None:
+        """Eingehend, nie verbunden und vom Anrufer abgebrochen = verpasst.
+
+        Nicht verpasst: am Panel abgelehnt (Grund „Abgelehnt“) und an einem anderen Telefon angenommen
+        (CANCEL mit Reason cause=200, Grund „Woanders angenommen“)."""
+        if v.verpasst_gemeldet or self._verpasst is None:
+            return
+        if v.sip.richtung != "ein" or v.verbunden_seit is not None or v.sip.grund != "Verpasst":
+            return
+        v.verpasst_gemeldet = True
+        try:
+            self._verpasst(v.sip.nummer, v.name)
+        except Exception:
+            _LOGGER.exception("Telefon: Meldung eines verpassten Anrufs fehlgeschlagen")
 
     def _ziel_setzen(self, v: _Verbindung) -> None:
         sdp = v.sip.remote_sdp
