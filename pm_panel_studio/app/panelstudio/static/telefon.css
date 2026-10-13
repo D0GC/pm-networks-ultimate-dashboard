@@ -72,12 +72,12 @@ body.tel-an:not(.tel-mini) .tel-box{transform:none}
 .tel-art{display:inline-flex;align-items:center;gap:.5rem;font-size:.95rem;font-weight:600;letter-spacing:.16em;text-transform:uppercase;color:var(--akzent)}
 .tel-art .mdi{font-size:1.3rem}
 .tel-mitte{display:flex;flex-direction:column;align-items:center;gap:.5rem;text-align:center;max-width:100%}
-.tel-avatar{position:relative;display:grid;place-items:center;margin:.6rem 0 .8rem}
+.tel-avatar{position:relative;display:grid;place-items:center;margin:.8rem 0 1.6rem}
 .tel-avatar .tel-av{position:relative;z-index:1;transition:width .35s,height .35s,font-size .35s}
 .tel-puls{position:absolute;inset:0;border-radius:50%;pointer-events:none}
 .tel-box.klingelt .tel-puls{animation:tel-klingel 1.6s ease-out infinite}
 .tel-box.verbunden .tel-puls{box-shadow:0 0 0 .35rem rgba(95,211,160,.35)}
-@keyframes tel-klingel{0%{box-shadow:0 0 0 0 rgba(95,211,160,.6)}100%{box-shadow:0 0 0 2.8rem rgba(95,211,160,0)}}
+@keyframes tel-klingel{0%{box-shadow:0 0 0 0 rgba(95,211,160,.6)}100%{box-shadow:0 0 0 1.8rem rgba(95,211,160,0)}}
 .tel-name{margin:0;font-size:2.2rem;font-weight:600;line-height:1.15;max-width:30rem;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
 .tel-nummer{font-size:1.2rem;color:var(--lavender)}
 .tel-zustand{font-size:1.3rem;font-weight:600;color:var(--lavender);min-height:1.7rem;letter-spacing:.02em}
@@ -95,7 +95,7 @@ body.tel-an:not(.tel-mini) .tel-box{transform:none}
 .tel-k.gruen .tel-k-ic{background:var(--gut);border-color:transparent;color:#06251a}
 .tel-k.puls .tel-k-ic{animation:tel-klingel 1.6s ease-out infinite}
 .tel-k.rot .tel-k-ic .mdi{transform:rotate(0)}
-.tel-box.mit-pad .tel-av.gross{width:5.4rem;height:5.4rem;font-size:2rem}
+.tel-box.mit-pad .tel-av.gross{width:5.4rem;height:5.4rem;font-size:1.8rem}
 .tel-box.mit-pad .tel-avatar{margin:0}
 .tel-box.mit-pad .tel-name{font-size:1.6rem}
 .tel-dtmf{width:100%;display:flex;flex-direction:column;gap:.8rem;align-items:center}
@@ -119,3 +119,5 @@ body.tel-an:not(.tel-mini) .tel-box{transform:none}
 
 body.ohne-animation .tel-box.klingelt .tel-puls,body.ohne-animation .tel-k.puls .tel-k-ic,body.ohne-animation #live .live-anruf.klingelt .live-tel-ic{animation:none}
 body.ohne-animation .tel-box,body.ohne-animation .tel-karte{transition:none}
+/* Auf dem Startbildschirm über dem Dock sitzen */
+#live.nur-anruf.ecke-ur,#live.nur-anruf.ecke-ul{bottom:9.5rem}

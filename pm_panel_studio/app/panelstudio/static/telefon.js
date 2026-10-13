@@ -14,7 +14,7 @@
     const w = String(name || "").trim().split(/\s+/).filter(Boolean);
     if (!w.length) return "";
     const z = (s) => (s.match(/[A-Za-zÄÖÜäöüß0-9]/) || [""])[0].toUpperCase();
-    return w.length === 1 ? z(w[0]) + ((w[0].match(/[A-Za-zÄÖÜäöüß0-9]/g) || [])[1] || "").toLowerCase() : z(w[0]) + z(w[w.length - 1]);
+    return w.length === 1 ? z(w[0]) : z(w[0]) + z(w[w.length - 1]);
   };
   const farbe = (s) => { let h = 0; for (const c of String(s || "?")) h = (h * 31 + c.charCodeAt(0)) >>> 0; return FARBEN[h % FARBEN.length]; };
   const avatar = (name, nummer, klasse = "") => {
@@ -438,7 +438,7 @@
   function tastatur(box) {
     let nr = "", lang = null, langGeschehen = false;
     box.innerHTML = `<div class="tel-tastatur"><div class="tel-anzeige"><span class="tel-nr-anz tabular" aria-live="polite"></span><button class="tel-loeschen" aria-label="Löschen">${PS.ic("backspace-outline")}</button></div>` +
-      `<div class="tel-pad gross">${TASTEN.map(([z, s]) => `<button class="tel-t" data-z="${z}"><b>${z}</b><small>${s}</small></button>`).join("")}</div>` +
+      `<div class="tel-pad">${TASTEN.map(([z, s]) => `<button class="tel-t" data-z="${z}"><b>${z}</b><small>${s}</small></button>`).join("")}</div>` +
       `<button class="tel-anruf" aria-label="Anrufen">${PS.ic("phone")}</button></div>`;
     const anz = box.querySelector(".tel-nr-anz");
     const zeigen = () => { anz.textContent = nr; box.querySelector(".tel-loeschen").style.visibility = nr ? "visible" : "hidden"; };
