@@ -53,6 +53,7 @@
     kapsel.addEventListener("click", (ev) => {
       if (gezogen) { gezogen = false; ev.stopPropagation(); return; }
       const z = ev.target.closest(".live-zeile");
+      if (z && z.classList.contains("live-anruf") && PS.telefonZeigen) { PS.telefonZeigen(); return; }  // minimierter Anruf: Karte wiederherstellen
       if (!gross) { grossSetzen(true); return; }
       if (ev.target.closest(".live-zu")) { grossSetzen(false); return; }
       const e = z && zeilen.get(z.dataset.id);
@@ -123,12 +124,14 @@
   function zeichnen(neu) {
     const sichtbar = document.body.classList.contains("offen");
     const liste = timer();
-    const zeigen = sichtbar && liste.length > 0;
+    const anruf = PS.telefonKapsel ? PS.telefonKapsel() : null;  // minimierter Telefonanruf: auch auf dem Startbildschirm sichtbar
+    const zeigen = (sichtbar && liste.length > 0) || !!anruf;
     if (!box) { if (!zeigen) return; aufbauen(); }
     sitz();
     box.classList.toggle("sichtbar", zeigen);
     box.setAttribute("aria-hidden", zeigen ? "false" : "true");
-    if (!zeigen) { if (gross) grossSetzen(false); return; }
+    box.classList.toggle("nur-anruf", !!anruf && !sichtbar);
+    if (!zeigen) { if (gross) grossSetzen(false); anrufZeichnen(null); return; }
     const teil = liste.slice(0, MAX), rest = liste.length - teil.length;
     const neueIds = teil.map((t) => t.k.id).join("|") + "|" + rest;
     if (neueIds !== ids.join("|") || neu) {
@@ -149,7 +152,7 @@
       ids = neueIds.split("|");
     }
     // Zugeklappt nur der erste Timer, daneben die Zahl der übrigen; erweitert bis zu MAX Zeilen
-    const mehrEl = kapsel.querySelector(".live-mehr"), uebrig = gross ? rest : liste.length - 1;
+    const mehrEl = kapsel.querySelector(".live-mehr"), uebrig = gross ? rest : liste.length - (anruf ? 0 : 1);
     if (mehrEl) { mehrEl.textContent = `+${uebrig}`; mehrEl.hidden = uebrig <= 0; }
     for (const t of teil) {
       const z = zeilen.get(t.k.id); z.k = t.k;
@@ -160,9 +163,24 @@
       else PS.walze(ze, zeit(t.k, t.rest));
       PS.ringSetzen(z.el.querySelector(".ring svg"), anteil(t.k, t.rest));
     }
+    anrufZeichnen(anruf);
+  }
+  // Zeile für den minimierten Anruf (grün, immer ganz oben in der Kapsel)
+  let anrufEl = null;
+  function anrufZeichnen(a) {
+    if (!a) { if (anrufEl) { anrufEl.remove(); anrufEl = null; } return; }
+    if (!anrufEl) {
+      anrufEl = document.createElement("div"); anrufEl.className = "live-zeile live-anruf";
+      anrufEl.innerHTML = `<span class="live-tel-ic">${PS.ic("phone-in-talk")}</span><div class="live-text"><b class="live-name"></b><small class="live-zusatz">Tippen für Anruf</small></div><span class="live-zeit tabular"></span><span class="live-auf" aria-hidden="true">${PS.ic("chevron-right")}</span>`;
+    }
+    if (kapsel.firstChild !== anrufEl) kapsel.insertBefore(anrufEl, kapsel.firstChild);
+    anrufEl.classList.toggle("klingelt", !!a.klingelt);
+    const n = anrufEl.querySelector(".live-name"); if (n.textContent !== a.name) n.textContent = a.name;
+    const t = anrufEl.querySelector(".live-zeit"); if (t.textContent !== a.zeit) t.textContent = a.zeit;
   }
   const neuZeichnen = () => zeichnen(false);
   PS.on("karten", () => zeichnen(true));
+  PS.on("telefon-ui", () => zeichnen(false));
   PS.on("seite", () => setTimeout(neuZeichnen, 30));
   new MutationObserver(() => { zeichnen(false); }).observe(document.body, { attributes: true, attributeFilter: ["class"] });
   window.addEventListener("resize", () => { if (box) sitz(); });

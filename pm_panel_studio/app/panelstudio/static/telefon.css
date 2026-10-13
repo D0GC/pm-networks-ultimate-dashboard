@@ -1,0 +1,121 @@
+/* PM Panel Studio – Telefon: Modulseiten und Anrufkarte (Twilight Edition) */
+
+/* ------------------------------------------------------------ Avatare */
+.tel-av{display:inline-grid;place-items:center;border-radius:50%;flex:none;background:linear-gradient(145deg,var(--av,#784295),#262252);color:var(--cloud);font-weight:700;letter-spacing:.02em;box-shadow:inset 0 1px 0 rgba(255,255,255,.18)}
+.tel-av .mdi{opacity:.85}
+.tel-av.klein{width:3.6rem;height:3.6rem;font-size:1.3rem}.tel-av.klein .mdi{font-size:2rem}
+.tel-av.fav{width:8rem;height:8rem;font-size:2.7rem}.tel-av.fav .mdi{font-size:4.4rem}
+.tel-av.gross{width:10rem;height:10rem;font-size:3.6rem}.tel-av.gross .mdi{font-size:5.6rem}
+
+/* ------------------------------------------------------------ Modul */
+.tel-hinweis{display:flex;align-items:center;gap:.8rem;margin:0 0 1.2rem;padding:.8rem 1.2rem;border-radius:var(--r);background:rgba(240,180,76,.14);border:1px solid rgba(240,180,76,.4);color:var(--warn);font-size:1.1rem;font-weight:600}
+.tel-hinweis .mdi{font-size:1.6rem}
+.tel-hinweis[hidden]{display:none}
+
+.tel-favoriten{display:grid;grid-template-columns:repeat(auto-fill,minmax(13rem,1fr));gap:1.2rem}
+.tel-fav{all:unset;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:.5rem;padding:1.4rem .8rem 1.1rem;border-radius:var(--r-gross);background:var(--flaeche);border:1px solid var(--linie);transition:background .3s,transform .15s;text-align:center}
+.tel-fav:active{transform:scale(.96);background:var(--flaeche-hell)}
+.tel-fav b{font-size:1.2rem;font-weight:600;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tel-fav small{font-size:.95rem;color:var(--lavender)}
+
+.tel-suchzeile{display:flex;align-items:center;gap:.8rem;padding:.2rem 1.2rem;border-radius:99px;background:var(--flaeche-tief);border:1px solid var(--linie);margin-bottom:1rem;position:sticky;top:0;z-index:2;-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
+.tel-suchzeile .mdi{font-size:1.6rem;color:var(--lavender)}
+.tel-suche{all:unset;flex:1;padding:.8rem 0;font-size:1.2rem;color:var(--cloud);-webkit-user-select:text;user-select:text}
+.tel-suche::placeholder{color:var(--leise)}
+.tel-liste-box{display:flex;gap:.6rem;align-items:flex-start}
+.tel-liste{flex:1;min-width:0;display:flex;flex-direction:column;gap:.4rem}
+.tel-abc{font-size:1rem;font-weight:700;letter-spacing:.18em;color:var(--akzent);padding:.9rem .6rem .2rem;scroll-margin-top:5rem}
+.tel-schiene{position:sticky;top:5rem;display:flex;flex-direction:column;gap:.1rem;font-size:.9rem;font-weight:600;max-height:70vh;overflow:hidden}
+.tel-schiene button{all:unset;cursor:pointer;padding:.2rem .7rem;color:var(--lavender);text-align:center;border-radius:.5rem}
+.tel-schiene button:active{background:var(--violet)}
+.tel-kontakt{border-radius:var(--r);background:var(--flaeche);border:1px solid var(--linie);overflow:hidden}
+.tel-kontakt.offen{background:var(--flaeche-hell)}
+.tel-zeile{all:unset;cursor:pointer;box-sizing:border-box;width:100%;display:flex;align-items:center;gap:1rem;padding:.7rem 1.2rem .7rem .8rem;border-radius:var(--r);background:var(--flaeche);border:1px solid var(--linie);transition:background .3s}
+.tel-kontakt .tel-zeile{background:none;border:0}
+.tel-zeile:active{background:var(--flaeche-hell)}
+.tel-zeile>.mdi{font-size:1.6rem;color:var(--lavender)}
+.tel-zt{flex:1;min-width:0;display:flex;flex-direction:column;gap:.15rem}
+.tel-zt b{font-size:1.2rem;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tel-zt small{font-size:.95rem;color:var(--lavender);display:flex;align-items:center;gap:.4rem}
+.tel-zt small .mdi{font-size:1.2rem}
+.tel-nummern{display:flex;flex-direction:column;gap:.5rem;padding:0 .8rem .9rem 5.6rem}
+.tel-nummern[hidden]{display:none}
+.tel-nr{justify-content:flex-start;gap:.8rem;padding:.7rem 1.1rem}
+.tel-nr span:first-of-type{color:var(--lavender);min-width:6rem;text-align:left}
+.tel-verlauf{display:flex;flex-direction:column;gap:.5rem}
+.tel-zeit{display:flex;flex-direction:column;align-items:flex-end;font-size:1rem;color:var(--lavender);white-space:nowrap}
+.tel-zeit small{font-size:.9rem;color:var(--leise)}
+.tel-zeile.verlauf.verpasst .tel-zt b,.tel-zeile.verlauf.verpasst .tel-zt small{color:var(--krit)}
+
+/* Tastatur */
+.tel-tastatur{max-width:27rem;margin:0 auto;display:flex;flex-direction:column;align-items:center;gap:1.2rem}
+.tel-anzeige{width:100%;display:flex;align-items:center;gap:.5rem;min-height:4.4rem;border-bottom:1px solid var(--linie-stark)}
+.tel-nr-anz{flex:1;font-size:2.6rem;font-weight:600;text-align:center;letter-spacing:.04em;overflow:hidden;white-space:nowrap;direction:rtl;unicode-bidi:plaintext}
+.tel-loeschen{all:unset;cursor:pointer;width:3.4rem;height:3.4rem;display:grid;place-items:center;border-radius:50%;color:var(--lavender);font-size:2rem}
+.tel-loeschen:active{background:var(--violet)}
+.tel-pad{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;width:100%}
+.tel-t{all:unset;cursor:pointer;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;justify-content:center;aspect-ratio:1.25;border-radius:1.6rem;background:var(--flaeche);border:1px solid var(--linie);transition:background .2s,transform .12s}
+.tel-t:active{background:var(--purple);transform:scale(.94)}
+.tel-t b{font-size:2.2rem;font-weight:600;line-height:1}
+.tel-t small{font-size:.75rem;letter-spacing:.2em;color:var(--lavender);min-height:1rem;margin-top:.2rem;font-weight:600}
+.tel-anruf{all:unset;cursor:pointer;width:100%;box-sizing:border-box;height:4.8rem;border-radius:99px;display:grid;place-items:center;background:var(--gut);color:#06251a;font-size:2.4rem;transition:transform .15s,filter .2s;box-shadow:0 .6rem 1.6rem -.6rem rgba(95,211,160,.6)}
+.tel-anruf:active{transform:scale(.97);filter:brightness(.9)}
+
+/* ------------------------------------------------------------ Anrufkarte (über Sheet, Dialog und Türklingel) */
+.tel-karte{position:fixed;inset:0;z-index:55;display:grid;place-items:center;background:rgba(5,4,15,.8);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);opacity:0;pointer-events:none;transition:opacity .35s ease}
+body.tel-an:not(.tel-mini) .tel-karte{opacity:1;pointer-events:auto}
+.tel-box{width:min(34rem,92vw);max-height:94vh;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;gap:1.4rem;padding:1.8rem 2rem 2rem;border-radius:2.4rem;background:linear-gradient(170deg,var(--navy) 0%,var(--midnight) 100%);border:1px solid var(--linie-stark);box-shadow:0 2.4rem 5rem -1.2rem rgba(0,0,0,.7);transform:scale(.94);transition:transform .45s var(--ease-aus),border-color .4s}
+body.tel-an:not(.tel-mini) .tel-box{transform:none}
+.tel-box.verbunden{border-color:rgba(95,211,160,.5)}
+.tel-box.beendet{border-color:rgba(239,106,122,.45)}
+.tel-kopf{align-self:stretch;display:flex;justify-content:center}
+.tel-art{display:inline-flex;align-items:center;gap:.5rem;font-size:.95rem;font-weight:600;letter-spacing:.16em;text-transform:uppercase;color:var(--akzent)}
+.tel-art .mdi{font-size:1.3rem}
+.tel-mitte{display:flex;flex-direction:column;align-items:center;gap:.5rem;text-align:center;max-width:100%}
+.tel-avatar{position:relative;display:grid;place-items:center;margin:.6rem 0 .8rem}
+.tel-avatar .tel-av{position:relative;z-index:1;transition:width .35s,height .35s,font-size .35s}
+.tel-puls{position:absolute;inset:0;border-radius:50%;pointer-events:none}
+.tel-box.klingelt .tel-puls{animation:tel-klingel 1.6s ease-out infinite}
+.tel-box.verbunden .tel-puls{box-shadow:0 0 0 .35rem rgba(95,211,160,.35)}
+@keyframes tel-klingel{0%{box-shadow:0 0 0 0 rgba(95,211,160,.6)}100%{box-shadow:0 0 0 2.8rem rgba(95,211,160,0)}}
+.tel-name{margin:0;font-size:2.2rem;font-weight:600;line-height:1.15;max-width:30rem;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.tel-nummer{font-size:1.2rem;color:var(--lavender)}
+.tel-zustand{font-size:1.3rem;font-weight:600;color:var(--lavender);min-height:1.7rem;letter-spacing:.02em}
+.tel-box.verbunden .tel-zustand{font-size:2rem;color:var(--gut);font-variant-numeric:tabular-nums}
+.tel-box.beendet .tel-zustand{color:var(--krit)}
+.tel-grund{font-size:1rem;color:var(--leise)}
+.tel-akt{display:flex;justify-content:center;gap:1.4rem;flex-wrap:wrap;margin-top:.4rem}
+.tel-k{all:unset;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:.5rem;min-width:6.6rem;transition:transform .15s,opacity .2s}
+.tel-k:active{transform:scale(.93)}
+.tel-k[disabled]{opacity:.45;pointer-events:none}
+.tel-k-ic{width:5.4rem;height:5.4rem;border-radius:50%;display:grid;place-items:center;font-size:2.4rem;background:var(--flaeche-hell);border:1px solid var(--linie-stark);transition:background .25s,color .25s}
+.tel-k-t{font-size:1rem;font-weight:600;color:var(--lavender)}
+.tel-k.an .tel-k-ic{background:var(--cloud);color:var(--ink)}
+.tel-k.rot .tel-k-ic{background:var(--krit);border-color:transparent;color:#2a0710}
+.tel-k.gruen .tel-k-ic{background:var(--gut);border-color:transparent;color:#06251a}
+.tel-k.puls .tel-k-ic{animation:tel-klingel 1.6s ease-out infinite}
+.tel-k.rot .tel-k-ic .mdi{transform:rotate(0)}
+.tel-box.mit-pad .tel-av.gross{width:5.4rem;height:5.4rem;font-size:2rem}
+.tel-box.mit-pad .tel-avatar{margin:0}
+.tel-box.mit-pad .tel-name{font-size:1.6rem}
+.tel-dtmf{width:100%;display:flex;flex-direction:column;gap:.8rem;align-items:center}
+.tel-ziffern{min-height:2.4rem;font-size:1.8rem;font-weight:600;letter-spacing:.12em;color:var(--cloud)}
+.tel-dtmf .tel-pad{max-width:22rem;gap:.7rem}
+.tel-dtmf .tel-t{aspect-ratio:1.6;border-radius:1.2rem}
+.tel-dtmf .tel-t b{font-size:1.7rem}
+
+/* ------------------------------------------------------------ Kapselzeile (live.js) */
+.live-zeile.live-anruf{background:rgba(95,211,160,.16);border:1px solid rgba(95,211,160,.5);cursor:pointer}
+#live .live-anruf .live-tel-ic{width:2.6rem;height:2.6rem;flex:none;border-radius:50%;display:grid;place-items:center;background:var(--gut);color:#06251a;font-size:1.5rem}
+#live.weit .live-anruf .live-tel-ic{width:5.4rem;height:5.4rem;font-size:2.6rem}
+#live .live-anruf.klingelt .live-tel-ic{animation:tel-klingel 1.6s ease-out infinite}
+#live .live-anruf .live-zeit{color:var(--gut)}
+#live.nur-anruf .live-zeile:not(.live-anruf),#live.nur-anruf .live-mehr{display:none}
+#live.nur-anruf.weit .live-kapsel{border-radius:1.6rem;gap:.35rem;padding:.45rem}
+#live.nur-anruf.weit .live-zeile{min-width:11rem;padding:.2rem .8rem .2rem .2rem;gap:.7rem}
+#live.nur-anruf .live-anruf .live-tel-ic{width:2.6rem;height:2.6rem;font-size:1.5rem}
+#live.nur-anruf .live-anruf .live-name{font-size:1.1rem}
+#live.nur-anruf .live-anruf .live-zeit{font-size:1.2rem}
+
+body.ohne-animation .tel-box.klingelt .tel-puls,body.ohne-animation .tel-k.puls .tel-k-ic,body.ohne-animation #live .live-anruf.klingelt .live-tel-ic{animation:none}
+body.ohne-animation .tel-box,body.ohne-animation .tel-karte{transition:none}
