@@ -8,6 +8,36 @@
 
   let pc = null, mic = null, gespraech = null, sitzung = false;
   let eigene = [], fremde = [];
+  let ctx = null, verstaerker = null;
+
+  // Die Intercom liefert den Ton sehr leise; ein Audio-Element kann nicht über 100 % gehen. Daher läuft der Ton über
+  // Web Audio: Kompressor (fängt Spitzen ab, damit die Verstärkung nicht übersteuert) und Verstärker nach Einstellung.
+  // Das Audio-Element bleibt stumm angehängt, sonst liefert Chromium für entfernte WebRTC-Spuren keine Samples.
+  function verstaerkung() {
+    return Math.max(1, Math.min(8, (PS.einst.intercom_lautstaerke ?? 400) / 100));
+  }
+  function tonAbspielen(strom) {
+    const ton = $("#intercom-ton");
+    ton.srcObject = strom;
+    try {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!ctx) ctx = new AC();
+      if (ctx.state === "suspended") ctx.resume().catch(() => {});
+      const quelle = ctx.createMediaStreamSource(strom);
+      const kompressor = ctx.createDynamicsCompressor();
+      kompressor.threshold.value = -30; kompressor.knee.value = 20; kompressor.ratio.value = 6;
+      kompressor.attack.value = 0.005; kompressor.release.value = 0.2;
+      verstaerker = ctx.createGain();
+      verstaerker.gain.value = verstaerkung();
+      quelle.connect(kompressor).connect(verstaerker).connect(ctx.destination);
+      ton.muted = true;
+    } catch (e) {
+      console.warn("intercom: ohne Verstärkung", e);
+      ton.muted = false;
+      ton.volume = 1;
+    }
+    ton.play().catch(() => {});
+  }
 
   function zustand(text, aktiv) {
     const k = $("#ereignis-sprechen");
@@ -27,6 +57,7 @@
     if (mic) mic.getTracks().forEach((t) => t.stop());
     const ton = $("#intercom-ton");
     if (ton) ton.srcObject = null;
+    if (verstaerker) { try { verstaerker.disconnect(); } catch { /* bereits getrennt */ } verstaerker = null; }
     pc = null; mic = null; gespraech = null; sitzung = false; eigene = []; fremde = [];
     zustand(text || "", false);
   }
@@ -43,17 +74,16 @@
     }
     zustand("Verbinde mit der Haustür …", true);
     try {
+      // Im Klick anlegen bzw. fortsetzen, sonst bleibt der AudioContext wegen der Autoplay-Regeln stumm
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (AC) { if (!ctx) ctx = new AC(); if (ctx.state === "suspended") ctx.resume().catch(() => {}); }
       mic = await navigator.mediaDevices.getUserMedia({
         audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
         video: false,
       });
       pc = new RTCPeerConnection({ iceServers: [{ urls: "stun:stun.l.google.com:19302" }] });
       mic.getTracks().forEach((t) => pc.addTransceiver(t, { direction: "sendrecv", streams: [mic] }));
-      pc.ontrack = (ev) => {
-        const ton = $("#intercom-ton");
-        ton.srcObject = ev.streams[0] || new MediaStream([ev.track]);
-        ton.play().catch(() => {});
-      };
+      pc.ontrack = (ev) => tonAbspielen(ev.streams[0] || new MediaStream([ev.track]));
       pc.onicecandidate = (ev) => {
         if (!ev.candidate) return;
         const c = ev.candidate.toJSON();
@@ -108,6 +138,8 @@
   }
 
   PS.intercomBeenden = () => { if (pc) beenden(); };
+  // Änderung im Editor wirkt auch während eines laufenden Gesprächs
+  PS.on("einstellungen", () => { if (verstaerker) verstaerker.gain.value = verstaerkung(); });
   PS.on("intercom", nachricht);
 
   document.addEventListener("DOMContentLoaded", () => {
