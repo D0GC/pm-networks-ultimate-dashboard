@@ -374,11 +374,11 @@ class Telefon:
 
     # ------------------------------------------------------------------ FRITZ!Box
 
-    async def kontakte(self) -> list[dict]:
+    async def kontakte(self, frisch: bool = False) -> list[dict]:
         if self._fritz is None:
             return []
         try:
-            return await self._fritz.kontakte()
+            return await self._fritz.kontakte(frisch=frisch)
         except asyncio.CancelledError:
             raise
         except Exception as exc:

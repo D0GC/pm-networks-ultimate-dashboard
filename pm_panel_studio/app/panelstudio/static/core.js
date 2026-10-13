@@ -633,7 +633,7 @@
   };
   // Hinweiston über die Lautsprecher des Panels (Web Audio, ohne Datei): dreistimmiger Gong.
   // Chromium spielt Ton erst nach einer Berührung ab; im Kiosk mit --autoplay-policy=no-user-gesture-required sofort.
-  // Alle Töne laufen über PS.audio (static/audio.js): Pegel je Art, Kompressor und Master-Verstärkung.
+  // Alle Töne laufen über PS.audio (static/audio.js): Pegel je Art, Klangfilter, Sättigung und Begrenzer.
   PS.ton = () => {
     const c = PS.audio.kontext(), aus = PS.audio.ausgang("ton"); if (!c || !aus) return;
     const laut = 0.5;  // Pegel und Verstärkung setzt PS.audio je Art
@@ -679,13 +679,16 @@
       const pegel = c.createGain();
       pegel.gain.value = 1; pegel.connect(PS.audio.ausgang("klingel")); klingelPegel = pegel;
       const jetzt = c.currentTime + 0.05;
-      [[659.3, 0, 1.4], [523.3, 0.55, 1.5]].forEach(([hz, ab, aus]) => {
-        // Grundton plus ein leiser Oberton (Faktor 2) und kürzerem Ausklang
-        [[hz, 1, aus], [hz * 2, 0.25, aus * 0.5]].forEach(([f, anteil, dauer]) => {
+      // Eine Oktave höher als ein klassischer Gong (e''/c''): Die kleinen Lautsprecher des Panels geben diesen Bereich
+      // deutlich lauter wieder. Der Ton steht kurz voll, bevor er ausklingt.
+      [[1318.5, 0, 1.6], [1046.5, 0.55, 1.7]].forEach(([hz, ab, aus]) => {
+        // Grundton plus Obertöne (Faktor 2 und 3) mit kürzerem Ausklang
+        [[hz, 1, aus], [hz * 2, 0.35, aus * 0.6], [hz * 3, 0.15, aus * 0.4]].forEach(([f, anteil, dauer]) => {
           const o = c.createOscillator(), g = c.createGain();
           o.type = "sine"; o.frequency.value = f;
           g.gain.setValueAtTime(0, jetzt + ab);
           g.gain.linearRampToValueAtTime(laut * anteil, jetzt + ab + 0.015);
+          g.gain.setValueAtTime(laut * anteil, jetzt + ab + 0.25);
           g.gain.exponentialRampToValueAtTime(0.0001, jetzt + ab + dauer);
           o.connect(g).connect(pegel); o.start(jetzt + ab); o.stop(jetzt + ab + dauer + 0.05);
         });

@@ -1,5 +1,15 @@
 # Änderungen
 
+## 2026.10.27 – 2026-10-14
+
+- Lauter auf den Lautsprechern des Panels: Die Tonkette schneidet Tiefen unter 300 Hz ab (die kleinen Lautsprecher
+  geben sie kaum wieder, sie kosten aber Aussteuerung) und hebt den Bereich um 2,8 kHz um 6 dB an. Haustür-Gong eine
+  Oktave höher mit kräftigeren Obertönen und kurz stehendem Ton, Telefon-Klingelton bei 1,4–1,9 kHz, ebenfalls mit
+  stehendem Ton. Hinweis in DOCS (Kiosk), wie sich die Systemlautstärke des Surface über 100 % anheben lässt.
+- Telefonbuch aktuell: Das Panel lud die Kontakte bisher nur einmal nach dem Start. Jetzt holt die App das
+  FRITZ!Box-Telefonbuch bei jedem Öffnen der Kontakte neu (höchstens alle 30 Sekunden), sonst alle 5 Minuten
+  (bisher 15).
+
 ## 2026.10.26 – 2026-10-14
 
 - Alle Töne deutlich lauter: Die Verstärkung saß bisher vor einem Kompressor mit -30 dB Schwelle, der sie fast

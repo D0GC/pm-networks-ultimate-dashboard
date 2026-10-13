@@ -772,7 +772,7 @@ class Hub:
         if typ in ("telefon_kontakte", "telefon_verlauf"):
             if tel is None:
                 return []
-            return await (tel.kontakte() if typ == "telefon_kontakte" else tel.verlauf())
+            return await (tel.kontakte(frisch=bool(msg.get("frisch"))) if typ == "telefon_kontakte" else tel.verlauf())
         if tel is None:
             raise ValueError("Telefon ist nicht eingerichtet")
         anruf = str(msg.get("anruf") or "")

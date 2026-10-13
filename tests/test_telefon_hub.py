@@ -45,7 +45,7 @@ class TelefonAttrappe:
         self.aufrufe.append(("stumm", anruf, an))
         return True
 
-    async def kontakte(self):
+    async def kontakte(self, frisch=False):
         return [{"name": "Anna", "nummern": [{"nummer": "0921123", "typ": "home"}]}]
 
     async def verlauf(self):
