@@ -120,4 +120,4 @@ body.tel-an:not(.tel-mini) .tel-box{transform:none}
 body.ohne-animation .tel-box.klingelt .tel-puls,body.ohne-animation .tel-k.puls .tel-k-ic,body.ohne-animation #live .live-anruf.klingelt .live-tel-ic{animation:none}
 body.ohne-animation .tel-box,body.ohne-animation .tel-karte{transition:none}
 /* Auf dem Startbildschirm über dem Dock sitzen */
-#live.nur-anruf.ecke-ur,#live.nur-anruf.ecke-ul{bottom:9.5rem}
+#live.nur-anruf.ecke-ur,#live.nur-anruf.ecke-ul{bottom:7.7rem}

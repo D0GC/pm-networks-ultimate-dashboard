@@ -143,7 +143,9 @@ def test_stundenplan_und_dock_anzahl():
 def test_status_modi():
     e = Einstellungen()
     assert "input_boolean.alles_stumm" in e.status_modi and len(e.status_modi) == 5
-    e.aktualisieren({"status_modi": ["input_boolean.a", "switch.b", "binary_sensor.c", "light.d", "kein text", "input_boolean.a"]})
+    e.aktualisieren(
+        {"status_modi": ["input_boolean.a", "switch.b", "binary_sensor.c", "light.d", "kein text", "input_boolean.a"]}
+    )
     assert e.status_modi == ["input_boolean.a", "switch.b", "binary_sensor.c"]
     e.aktualisieren({"status_modi": []})
     assert e.status_modi == []

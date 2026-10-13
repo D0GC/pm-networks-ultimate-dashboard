@@ -117,6 +117,10 @@ vor der Abholung 80 (sonst 30), Lüften und Offen 55, Wetterwechsel 45, übrige 
 Pakete (höchster Wert der aktiven Sendungen): in Zustellung 75, Problem 70, heute erwartet oder abholbereit 60, sonst 40,
 nur noch heute Zugestelltes 30.
 
+Termine: Die Karte „Morgen“ erscheint von 20 bis 1 Uhr (nach Mitternacht als „Heute“ mit dem gerade begonnenen Tag, Relevanz 50).
+Kalender aus der Einstellung „Stundenplan“ (Standard `calendar.universitat`) erzeugen weder „Als Nächstes“ noch „Morgen“; sie
+zeigen täglich von 5:30 bis 9 Uhr die Karte „Stundenplan“ mit den Einträgen des Tages (Relevanz 55, abschaltbar im Editor).
+
 ### Pakete
 
 Die Karte „Pakete“ liest `pakete_entitaet` (Standard `sensor.pakete`) und erscheint, wenn der Zustand (aktive
