@@ -24,7 +24,8 @@ DIENST = "urn:dslforum-org:service:X_AVM-DE_OnTel:1"
 STEUER_URL = "/upnp/control/x_contact"
 TIMEOUT_S = 10
 MAX_BYTES = 5 * 1024 * 1024
-KONTAKTE_TTL_S = 15 * 60
+KONTAKTE_TTL_S = 5 * 60
+FRISCH_MIN_S = 30  # öffnet das Panel die Kontakte, wird höchstens so oft neu geladen
 VERLAUF_TTL_S = 2 * 60
 MAX_ANRUFE = 500
 FEHLER_PAUSE_S = 30
@@ -158,6 +159,7 @@ class FritzBox:
         self._anrufe: list[dict] = []
         self._index: dict[str, str] = {}
         self._kontakte_faellig = 0.0
+        self._frisch_zuletzt = -FRISCH_MIN_S
         self._verlauf_faellig = 0.0
         self._verlauf_anzahl = 0
         self.fehler: str | None = None
@@ -286,8 +288,14 @@ class FritzBox:
 
     # --- Abfragen ---------------------------------------------------------------------------------
 
-    async def kontakte(self) -> list[dict]:
-        await self.aktualisieren()
+    async def kontakte(self, frisch: bool = False) -> list[dict]:
+        """`frisch`: Das Panel zeigt die Kontakte gerade an, also neu laden (höchstens alle FRISCH_MIN_S)."""
+        jetzt = time.monotonic()
+        if frisch and jetzt - self._frisch_zuletzt >= FRISCH_MIN_S:
+            self._frisch_zuletzt = jetzt
+            await self.aktualisieren(erzwingen=True)
+        else:
+            await self.aktualisieren()
         return [{"name": k["name"], "nummern": [dict(n) for n in k["nummern"]]} for k in self._kontakte]
 
     async def verlauf(self, anzahl: int = 50) -> list[dict]:

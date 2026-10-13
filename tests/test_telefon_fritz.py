@@ -210,6 +210,16 @@ async def test_cache_und_erzwingen(box, ff):
     assert len(ff.aktionen) == n + 3
 
 
+async def test_frisch_laedt_neu_aber_hoechstens_alle_30_s(box, ff):
+    await box.kontakte()
+    n = len(ff.aktionen)
+    await box.kontakte(frisch=True)  # Panel öffnet die Kontakte: neu von der Box
+    assert "GetPhonebook" in ff.aktionen[n:]
+    n = len(ff.aktionen)
+    await box.kontakte(frisch=True)  # gleich danach noch einmal: aus dem Zwischenspeicher
+    assert ff.aktionen[n:] == []
+
+
 async def test_ttl_laeuft_ab(box, ff):
     await box.verlauf()
     box._verlauf_faellig = 0.0

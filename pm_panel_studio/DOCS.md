@@ -80,6 +80,11 @@ vorherige Berührung, ebenso den Klingelton am Haustür-Overlay (siehe „Gegens
 Parameter spielt das Panel Ton erst nach der ersten Berührung seit dem Start; nach einem Neuladen klingelt es also erst
 wieder, wenn das Panel einmal berührt wurde.
 
+Lautstärke: Die App steuert den Ton bis zum vollen Ausschlag aus, lauter geht es nur über das System. Die
+Lautsprecher des Surface sind leise; unter Linux mit PipeWire oder PulseAudio lässt sich die Systemlautstärke über
+100 % anheben. Dazu im Autostart vor Chromium `pactl set-sink-volume @DEFAULT_SINK@ 150%` ausführen (Werte über 150 %
+verzerren meist hörbar) und prüfen, dass der Ausgang nicht stumm ist (`pactl set-sink-mute @DEFAULT_SINK@ 0`).
+
 Beim ersten Start einmal die Adresse mit `?token=…` aus dem Editor öffnen. Bildschirmschoner und Energiesparen des
 Desktops abschalten; die App dunkelt selbst ab. Für den Autostart eine `.desktop`-Datei unter `~/.config/autostart/`
 mit obiger Befehlszeile anlegen.
@@ -209,7 +214,8 @@ Alarm- und Notrufanrufe dienen.
 
 ### Bedienung
 
-- Seite „Telefon“ mit Favoriten, Kontakten (FRITZ!Box-Telefonbuch, Suche), Tastatur und Verlauf (Anrufliste der
+- Seite „Telefon“ mit Favoriten, Kontakten (FRITZ!Box-Telefonbuch, Suche; beim Öffnen der Kontakte holt die App das
+  Telefonbuch neu, höchstens alle 30 Sekunden, sonst alle 5 Minuten), Tastatur und Verlauf (Anrufliste der
   FRITZ!Box, verpasste Anrufe rot, Tipp ruft zurück).
 - Eingehender Anruf: Die Anrufkarte erscheint mit Name aus dem Telefonbuch, Klingelton und den Knöpfen Ablehnen,
   Minimieren und Annehmen. Ein Anruf weckt das Panel und hält es wach, solange er läuft.

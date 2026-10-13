@@ -1,5 +1,6 @@
 /* PM Panel Studio – zentrale Tonausgabe (Web Audio). Alle Töne des Panels laufen über eine Kette:
- * Quelle → [Sprache: Ausgleich] → Pegel je Art (Verstärkung) → Sättigung → Begrenzer → Lautsprecher.
+ * Quelle → [Sprache: Ausgleich] → Pegel je Art (Verstärkung) → Hochpass 300 Hz → Präsenz +6 dB bei 2,8 kHz →
+ * Sättigung → Begrenzer → Lautsprecher.
  * Die Lautsprecher des Panels sind sehr leise; ein Audio-Element kann nicht über 100 % gehen. Die Verstärkung sitzt
  * deshalb VOR Sättigung und Begrenzer: Die weiche Sättigung (tanh) macht laute Töne dichter und damit hörbar lauter,
  * der Begrenzer kurz unter 0 dBFS verhindert Übersteuern. (Früher saß ein Kompressor mit -30 dB Schwelle hinter der
@@ -10,7 +11,7 @@
   "use strict";
   const PS = window.PS;
   const ARTEN = ["ton", "klingel", "intercom", "telefon"];
-  let ctx = null, saettigung = null, begrenzer = null;
+  let ctx = null, eingang = null, saettigung = null, begrenzer = null;
   const pegel = {};
   const SPRACHE = ["intercom", "telefon"];
 
@@ -47,14 +48,20 @@
         const AC = window.AudioContext || window.webkitAudioContext;
         if (!AC) return null;
         ctx = new AC();
+        // Klang an die kleinen Lautsprecher anpassen: Tiefen unter ~300 Hz geben sie kaum wieder, kosten aber Aussteuerung;
+        // der Bereich um 2,8 kHz klingt dort am lautesten (und dort ist das Gehör am empfindlichsten).
+        eingang = ctx.createBiquadFilter(); eingang.type = "highpass"; eingang.frequency.value = 300; eingang.Q.value = 0.7;
+        const praesenz = ctx.createBiquadFilter();
+        praesenz.type = "peaking"; praesenz.frequency.value = 2800; praesenz.Q.value = 0.9; praesenz.gain.value = 6;
         saettigung = ctx.createWaveShaper(); saettigung.curve = kennlinie(); saettigung.oversample = "4x";
+        eingang.connect(praesenz).connect(saettigung);
         begrenzer = ctx.createDynamicsCompressor();
         begrenzer.threshold.value = -1.5; begrenzer.knee.value = 0; begrenzer.ratio.value = 20;
         begrenzer.attack.value = 0.002; begrenzer.release.value = 0.1;
         saettigung.connect(begrenzer).connect(ctx.destination);
       } catch (e) {
         console.warn("audio: Web Audio nicht verfügbar", e);
-        ctx = null; saettigung = null; begrenzer = null;
+        ctx = null; eingang = null; saettigung = null; begrenzer = null;
         return null;
       }
     }
@@ -69,7 +76,7 @@
     if (!pegel[art]) {
       const g = ctx.createGain();
       g.gain.value = faktor(art);
-      g.connect(saettigung);
+      g.connect(eingang);
       pegel[art] = g;
       if (SPRACHE.includes(art)) {
         // Ausgleich für Sprache: hebt leise Stellen an, bevor verstärkt wird

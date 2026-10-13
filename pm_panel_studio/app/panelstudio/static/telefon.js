@@ -261,12 +261,14 @@
       // Über PS.audio setzen Pegel (klingel_lautstaerke) und Verstärkung die Lautstärke; ohne die Kette nur der Pegel
       const laut = aus ? 0.8 : 0.5 * Math.max(0.2, Math.min(1, (PS.einst.klingel_lautstaerke ?? 100) / 100));
       const t0 = c.currentTime + 0.05;
-      [[880, 0], [1174.7, 0.2], [880, 0.6], [1174.7, 0.8]].forEach(([hz, ab]) => {
-        [[hz, 1], [hz * 2, 0.18]].forEach(([f, anteil]) => {
+      // Im Bereich 1,4–1,9 kHz, den die kleinen Lautsprecher am lautesten wiedergeben; jeder Ton steht kurz voll
+      [[1396.9, 0], [1864.7, 0.2], [1396.9, 0.6], [1864.7, 0.8]].forEach(([hz, ab]) => {
+        [[hz, 1], [hz * 2, 0.25]].forEach(([f, anteil]) => {
           const o = c.createOscillator(), g = c.createGain();
           o.type = "sine"; o.frequency.value = f;
           g.gain.setValueAtTime(0, t0 + ab);
           g.gain.linearRampToValueAtTime(laut * anteil, t0 + ab + 0.02);
+          g.gain.setValueAtTime(laut * anteil, t0 + ab + 0.14);
           g.gain.exponentialRampToValueAtTime(0.0001, t0 + ab + 0.32);
           o.connect(g).connect(pegel); o.start(t0 + ab); o.stop(t0 + ab + 0.36);
         });
@@ -392,7 +394,7 @@
 
   // ------------------------------------------------------------ Modul
   let tab = "favoriten", kontakte = null, kontakteFehler = "";
-  const ladeKontakte = () => anf({ typ: "telefon_kontakte" }).then((r) => { kontakte = Array.isArray(r) ? r : []; kontakteFehler = ""; }).catch((e) => { kontakte = []; kontakteFehler = e.message; });
+  const ladeKontakte = () => anf({ typ: "telefon_kontakte", frisch: true }).then((r) => { kontakte = Array.isArray(r) ? r : []; kontakteFehler = ""; }).catch((e) => { kontakte = []; kontakteFehler = e.message; });
 
   function favoriten(box) {
     const f = (PS.einst.telefon_favoriten || []).filter((x) => x && x.nummer);
@@ -434,7 +436,8 @@
     };
     feld.addEventListener("input", aus);
     aus();
-    if (kontakte == null) ladeKontakte().then(() => { if (box.isConnected) aus(); });
+    // Bei jedem Öffnen nachladen (die App holt das Telefonbuch dann frisch von der FRITZ!Box); bis dahin der letzte Stand
+    ladeKontakte().then(() => { if (box.isConnected) aus(); });
   }
 
   function tastatur(box) {
