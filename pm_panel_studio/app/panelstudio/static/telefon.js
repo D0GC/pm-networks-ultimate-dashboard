@@ -258,7 +258,8 @@
     (c.state === "running" ? Promise.resolve() : c.resume()).then(() => {
       if (!kl.an || c.state !== "running") return;
       const pegel = c.createGain(); pegel.gain.value = 1; pegel.connect(aus || c.destination);
-      const laut = (aus ? 0.3 : 0.5) * Math.max(0.2, Math.min(1, (PS.einst.klingel_lautstaerke ?? 100) / 100));
+      // Über PS.audio setzen Pegel (klingel_lautstaerke) und Verstärkung die Lautstärke; ohne die Kette nur der Pegel
+      const laut = aus ? 0.8 : 0.5 * Math.max(0.2, Math.min(1, (PS.einst.klingel_lautstaerke ?? 100) / 100));
       const t0 = c.currentTime + 0.05;
       [[880, 0], [1174.7, 0.2], [880, 0.6], [1174.7, 0.8]].forEach(([hz, ab]) => {
         [[hz, 1], [hz * 2, 0.18]].forEach(([f, anteil]) => {
