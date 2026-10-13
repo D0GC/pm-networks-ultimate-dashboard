@@ -314,3 +314,32 @@ async def test_csp_erlaubt_bilder_nur_von_espn(ingress):
     r = await ingress.get("/")
     img = next(t for t in r.headers["Content-Security-Policy"].split(";") if t.strip().startswith("img-src"))
     assert img.split() == ["img-src", "'self'", "data:", "blob:", "https://a.espncdn.com"]
+
+
+async def test_takt_ueberlebt_fehler_und_wechselt_in_ruhe(hub, monkeypatch):
+    """Regression: ein Fehler im Takt (z. B. in der Kartenberechnung) beendete die Schleife, das Panel blieb ewig wach."""
+
+    def kaputt(*_a, **_k):
+        raise IndexError("Testfehler")
+
+    monkeypatch.setattr("panelstudio.karten.berechne", kaputt)
+    hub.einstellungen.ruhe_nach_s = 10
+    hub.letzte_bewegung = hub.letzte_beruehrung = -1000.0
+    hub.modus = "wach"
+    hub.verbunden = True
+    real_sleep = asyncio.sleep
+    zaehler = 0
+
+    async def schnell(_s):
+        nonlocal zaehler
+        zaehler += 1
+        await real_sleep(0)
+
+    monkeypatch.setattr("panelstudio.hub.asyncio.sleep", schnell)
+    task = asyncio.create_task(hub._takt_loop())
+    for _ in range(40):  # 15. Takt ruft die (kaputte) Kartenberechnung auf
+        await real_sleep(0)
+    assert not task.done()
+    assert zaehler > 16
+    assert hub.modus == "ruhe"
+    task.cancel()

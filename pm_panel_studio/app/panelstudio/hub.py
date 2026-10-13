@@ -496,19 +496,31 @@ class Hub:
         while True:
             await asyncio.sleep(1)
             zaehler += 1
-            self._modus_pruefen()
-            if self.ereignis and self.gespraeche:
-                # Während eines Gesprächs bleibt das Overlay offen
-                self._ereignis_bis = max(self._ereignis_bis, time.monotonic() + 30)
-            if self.ereignis and time.monotonic() > self._ereignis_bis:
-                self.ereignis_beenden()
-            if self.popups.aufraeumen():
-                self._popups_senden()
-            if self.verbunden and time.monotonic() - getattr(self, "_szenen_stand", time.monotonic()) > 1800:
-                self._szenen_stand = time.monotonic()
-                self.spawn(self._szenen_laden())
-            if zaehler % 15 == 0 and self.verbunden:
-                self._karten_neu()  # Restzeiten ohne Zustandsänderung (Timer) nachführen
+            # Ein Fehler in einem Takt darf die Schleife nie beenden: sonst gäbe es keinen Wechsel mehr in den Ruhezustand
+            try:
+                self._takt(zaehler)
+            except Exception:
+                _LOGGER.exception("Fehler im Takt")
+            # Die Ruhe-Prüfung läuft unabhängig vom Rest, auch wenn ein Schritt davor scheiterte
+            try:
+                self._modus_pruefen()
+            except Exception:
+                _LOGGER.exception("Ruhe-Prüfung fehlgeschlagen")
+
+    def _takt(self, zaehler: int) -> None:
+        self._modus_pruefen()
+        if self.ereignis and self.gespraeche:
+            # Während eines Gesprächs bleibt das Overlay offen
+            self._ereignis_bis = max(self._ereignis_bis, time.monotonic() + 30)
+        if self.ereignis and time.monotonic() > self._ereignis_bis:
+            self.ereignis_beenden()
+        if self.popups.aufraeumen():
+            self._popups_senden()
+        if self.verbunden and time.monotonic() - getattr(self, "_szenen_stand", time.monotonic()) > 1800:
+            self._szenen_stand = time.monotonic()
+            self.spawn(self._szenen_laden())
+        if zaehler % 15 == 0 and self.verbunden:
+            self._karten_neu()  # Restzeiten ohne Zustandsänderung (Timer) nachführen
 
     # ------------------------------------------------------------ Panels
 

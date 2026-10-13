@@ -812,6 +812,9 @@ class Heimweg:
         if not f["proben"] or f["proben"][-1][1] != d:
             f["proben"].append((jetzt, d))
         f["proben"] = [p for p in f["proben"] if jetzt - p[0] <= HEIMWEG_FENSTER]
+        if not f["proben"]:
+            # Die Entfernung blieb länger als das Fenster gleich: ohne Messpunkt würde proben[0] unten ins Leere greifen
+            f["proben"].append((jetzt, d))
         if richtung not in ("towards", "stationary"):
             return None  # Umweg: Karte ruht, die Fahrt bleibt gemerkt (an der Ampel „stationary“ bleibt sie sichtbar)
         f["start_m"] = max(f["start_m"], d)

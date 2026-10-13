@@ -336,6 +336,17 @@ def test_heimweg_ohne_fahrt_keine_karte():
     assert [k["relevanz"] for k in karten if k["schluessel"] == "heimweg"] == [65]
 
 
+def test_heimweg_gleiche_entfernung_laenger_als_fenster():
+    """Regression: blieb die Entfernung länger als das Messfenster gleich, war proben leer (IndexError)."""
+    hw = kt.Heimweg()
+    lokal = datetime(2026, 10, 1, 18, 0)
+    p = ["person.gina_perina"]
+    assert hw.karten(_heimweg_states(20000), JETZT, lokal, p)
+    spaeter = JETZT + kt.HEIMWEG_FENSTER + timedelta(minutes=1)
+    (k,) = hw.karten(_heimweg_states(20000, "stationary"), spaeter, lokal, p)
+    assert k["schluessel"] == "heimweg"
+
+
 # ------------------------------------------------------------ Pakete (sensor.pakete)
 BERLIN = ZoneInfo("Europe/Berlin")
 LOKAL_PAKETE = JETZT.astimezone(BERLIN)  # Do 01.10.2026, 16:00
