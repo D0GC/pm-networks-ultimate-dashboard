@@ -115,17 +115,27 @@ button{font:inherit;color:inherit}
 .raeume-kurz div span:last-child{color:var(--lavender);font-variant-numeric:tabular-nums;white-space:nowrap}
 
 /* Modulleiste */
-.dock{grid-column:1/-1;justify-self:center;width:max-content;max-width:100%;display:flex;justify-content:center;gap:.6rem;
+.dock{grid-column:1/-1;justify-self:center;position:relative;width:max-content;max-width:100%;display:flex;justify-content:center;gap:.3rem;
   --abstand:.5rem;--r-innen:max(.6rem,calc(var(--r-aussen) - var(--abstand)));
   padding:.5rem;margin:-.5rem 0;border-radius:var(--r-aussen);
   background:var(--glas);-webkit-backdrop-filter:blur(18px) saturate(1.5);backdrop-filter:blur(18px) saturate(1.5);
   box-shadow:var(--glas-rand),inset 0 0 0 1px rgba(255,255,255,.06),0 .9rem 2.2rem -.9rem rgba(0,0,0,.55);
   transition:opacity .7s ease,transform .7s var(--ease)}
-.dock button{all:unset;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:.35rem;padding:.75rem 1.25rem;border-radius:var(--r-innen);font-size:1rem;color:var(--lavender);transition:background .3s,color .3s,transform .2s}
+.dock button{all:unset;cursor:pointer;position:relative;box-sizing:border-box;display:flex;align-items:center;justify-content:center;gap:.5rem;min-width:64px;min-height:64px;padding:.5rem .9rem;border-radius:var(--r-innen);font-size:1.05rem;color:var(--lavender);transition:background .3s,color .3s,transform .2s}
 .dock button .mdi{font-size:2.3rem}
 .dock button:active{transform:scale(.92)}
+.dock button:focus-visible{outline:2px solid var(--cloud);outline-offset:-2px}
 .dock button.aktiv{background:rgba(255,255,255,.12);color:var(--cloud)}
-.dock .zaehler{position:absolute;margin:-.4rem 0 0 2.2rem;min-width:1.6rem;height:1.6rem;border-radius:99px;background:var(--krit);color:#fff;font-size:.95rem;font-weight:700;display:grid;place-items:center;padding:0 .3rem}
+/* Namen nur beim aktiven Eintrag (Symbole sonst allein) */
+.dock .dock-name{display:none;white-space:nowrap}
+.dock > button.aktiv .dock-name{display:inline}
+.dock .zaehler{position:absolute;top:.2rem;right:.2rem;min-width:1.5rem;height:1.5rem;border-radius:99px;background:var(--krit);color:#fff;font-size:.9rem;font-weight:700;display:grid;place-items:center;padding:0 .3rem}
+/* „Mehr“: Raster mit den übrigen Modulen über der Leiste */
+.dock-mehr{position:absolute;right:0;bottom:calc(100% + .7rem);z-index:5;display:grid;grid-template-columns:repeat(3,minmax(6.4rem,1fr));gap:.4rem;padding:.6rem;border-radius:var(--r-aussen);
+  background:var(--glas-fest);box-shadow:var(--glas-rand),inset 0 0 0 1px rgba(255,255,255,.08),0 1.2rem 2.6rem -.8rem rgba(0,0,0,.7)}
+.dock-mehr[hidden]{display:none}
+.dock-mehr button{flex-direction:column;gap:.3rem;padding:.8rem .6rem}
+.dock-mehr .dock-name{display:block;font-size:.95rem}
 
 /* Ruhe */
 body.ruhe .rechts{opacity:0;transform:translateX(14%);pointer-events:none}

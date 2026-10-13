@@ -124,3 +124,17 @@ def test_standard_freigaben_bleiben_bei_gespeicherten():
         assert e.freigaben[eid] == "input_boolean.burostrom_schaltfreigabe"
     assert e.freigaben["switch.wohnzimmer_wohnzimmer"] == "input_boolean.wohnzimmerstrom_schaltfreigabe"
     assert e.freigaben["switch.x"] == "input_boolean.y"
+
+
+def test_stundenplan_und_dock_anzahl():
+    e = Einstellungen()
+    assert e.stundenplan_kalender == ["calendar.universitat"] and e.dock_anzahl == 6
+    assert e.aktualisieren({"stundenplan_kalender": ["calendar.uni", "sensor.x", "kein text", "calendar.uni"]}) == []
+    assert e.stundenplan_kalender == ["calendar.uni"]
+    e.aktualisieren({"stundenplan_kalender": []})
+    assert e.stundenplan_kalender == []
+    e.aktualisieren({"dock_anzahl": 1})
+    assert e.dock_anzahl == 3
+    e.aktualisieren({"dock_anzahl": 99})
+    assert e.dock_anzahl == 12
+    assert e.aktualisieren({"dock_anzahl": "viele"}) == ["dock_anzahl"]

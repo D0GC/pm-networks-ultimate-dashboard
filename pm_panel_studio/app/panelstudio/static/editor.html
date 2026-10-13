@@ -60,7 +60,8 @@
     <datalist id="entitaeten"></datalist>
 
     <h2>Module</h2>
-    <p>Sichtbare Module in der Leiste unten, Reihenfolge mit den Pfeilen.</p>
+    <p>Sichtbare Module in der Leiste unten, Reihenfolge mit den Pfeilen. Die ersten stehen direkt in der Leiste, alle weiteren hinter „Mehr“.</p>
+    <div class="felder"><label>Module direkt in der Leiste <span><input id="dock_anzahl" type="number" min="3" max="12"> (3 bis 12)</span></label></div>
     <ul class="sortier" id="module"></ul>
 
     <h2>Räume</h2>
@@ -91,6 +92,11 @@
     <div class="spalten">
       <label>Systemzustand: nicht prüfen (je Zeile eine Entität des Geräts)<textarea id="wartung_ignorieren" rows="4" spellcheck="false"></textarea></label>
       <label>Außenluftfeuchte (der erste verfügbare Sensor gilt)<textarea id="aussen_feuchte" rows="4" spellcheck="false"></textarea></label>
+    </div>
+
+    <h2>Stundenplan</h2>
+    <div class="spalten">
+      <label>Kalender mit dem Stundenplan (je Zeile ein Kalender). Sie erzeugen keine „Als Nächstes“-Karten und stehen nicht in der Abendvorschau; morgens zwischen 5:30 und 9:00 Uhr zeigt eine eigene Karte die Einträge des Tages.<textarea id="stundenplan_kalender" rows="3" spellcheck="false" list="entitaeten"></textarea></label>
     </div>
 
     <h2>Karten im Karussell</h2>

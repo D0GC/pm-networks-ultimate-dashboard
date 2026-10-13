@@ -168,6 +168,9 @@ STANDARD_FREIGABEN = {
 # Außenluftfeuchte: der erste verfügbare Sensor gilt (lokale Wetterstation, DWD als Rückfall)
 STANDARD_AUSSEN_FEUCHTE = ["sensor.wetter_outdoor_module_luftfeuchtigkeit", "sensor.zuhause_relative_luftfeuchtigkeit"]
 
+# Ginas Stundenplan (Kalender „Universität“)
+STANDARD_STUNDENPLAN = ["calendar.universitat"]
+
 
 @dataclass
 class Einstellungen:
@@ -186,6 +189,9 @@ class Einstellungen:
     bereiche_ausblenden: list[str] = field(default_factory=list)
     start_raeume: list[str] = field(default_factory=lambda: ["wohnzimmer", "badezimmer", "schlafzimmer"])
     karten_aus: list[str] = field(default_factory=list)  # Kartenschlüssel, die der Flur nicht zeigt
+    # Stundenpläne (Kalender): keine „Als Nächstes“-Karten, nicht in der Abendvorschau, dafür morgens eine Tageskarte
+    stundenplan_kalender: list[str] = field(default_factory=lambda: list(STANDARD_STUNDENPLAN))
+    dock_anzahl: int = 6  # so viele Module stehen direkt im Dock, die übrigen hinter „Mehr“
     szenen_angeheftet: list[str] = field(default_factory=list)  # stehen in der Raumansicht immer vorn
     szenen_aus: list[str] = field(default_factory=list)  # erscheinen nicht unter den Lieblingsszenen
     animationen: bool = True
@@ -220,6 +226,7 @@ class Einstellungen:
         "intercom_lautstaerke": (100, 800),
         "ton_verstaerkung": (100, 800),
         "telefon_lautstaerke": (100, 800),
+        "dock_anzahl": (3, 12),
     }
 
     @classmethod
@@ -262,6 +269,8 @@ class Einstellungen:
                 pass  # frühere Jarvis-Liste, ersetzt durch die automatische Geräteprüfung
             elif key in ("wartung_ignorieren", "material_fest", "aussen_feuchte"):
                 setattr(self, key, _entities(val)[:60])
+            elif key == "stundenplan_kalender":
+                self.stundenplan_kalender = [e for e in _entities(val) if e.startswith("calendar.")][:20]
             elif key == "material_modus":
                 if val not in ("auto", "manuell"):
                     abgewiesen.append(key)
