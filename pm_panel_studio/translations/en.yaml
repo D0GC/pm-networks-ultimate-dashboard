@@ -44,8 +44,31 @@ configuration:
   klima_studio_schluessel:
     name: PM Klima Studio key
     description: At least 16 characters, the same value as panel_schluessel in PM Klima Studio. The panel then shows Klima Studio as its own page.
+  telefon_server:
+    name: "Phone: FRITZ!Box"
+    description: "FRITZ!Box address (e.g. 192.168.178.1). Empty = phone off."
+  telefon_benutzer:
+    name: "Phone: user name"
+    description: "User name of the IP phone created in the FRITZ!Box."
+  telefon_passwort:
+    name: "Phone: password"
+    description: "Password of that IP phone."
+  telefon_externe_adresse:
+    name: "Phone: Home Assistant address"
+    description: "Only if auto-detection fails: LAN address of the Home Assistant host."
+  fritz_benutzer:
+    name: "FRITZ!Box: user (phonebook)"
+    description: "FRITZ!Box user with the voice/call list permission. Empty = no contacts or call list."
+  fritz_passwort:
+    name: "FRITZ!Box: password (phonebook)"
+    description: "Password of that user."
   log_level:
     name: Log level
     description: debug, info, warning or error.
 network:
+  5062/udp: Phone (SIP)
+  40000/udp: Phone (audio)
+  40001/udp: Phone (audio)
+  40002/udp: Phone (audio)
+  40003/udp: Phone (audio)
   8098/tcp: Wall panel on the local network

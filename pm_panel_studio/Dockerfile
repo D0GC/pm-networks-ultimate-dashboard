@@ -9,9 +9,12 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1
 
-COPY requirements.txt /tmp/requirements.txt
+COPY requirements.txt requirements-telefon.txt /tmp/
+# Telefon: aiortc/av/cryptography als fertige Wheels; google-crc32c gibt es für musl nur als Quelltext (reine Python-Fassung)
 RUN pip install --only-binary=:all: -r /tmp/requirements.txt \
-    && rm -f /tmp/requirements.txt
+    && CRC32C_PURE_PYTHON=1 pip install --no-binary=google-crc32c google-crc32c \
+    && pip install --only-binary=:all: -r /tmp/requirements-telefon.txt \
+    && rm -f /tmp/requirements*.txt
 
 COPY app /opt/pm_panel_studio
 COPY rootfs /

@@ -145,6 +145,7 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
     finally:
         hub.clients.discard(ws)
         await hub.gespraeche_beenden(ws)
+        await hub.telefon_panel_getrennt(ws)
         _LOGGER.info("Panel getrennt, jetzt %d", len(hub.clients))
     return ws
 

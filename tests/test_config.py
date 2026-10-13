@@ -110,7 +110,7 @@ def test_raum_schalter_und_wartung():
 
 def test_neues_modul_wird_einmalig_eingereiht():
     alt = Einstellungen.from_dict({"module": ["raeume", "klima", "wartung", "suche"]})
-    assert alt.module == ["raeume", "klima", "wartung", "studio", "musik", "haushalt", "shisha", "suche"]
+    assert alt.module == ["raeume", "klima", "wartung", "studio", "musik", "haushalt", "shisha", "telefon", "suche"]
     # Nach dem Speichern kennt der Stand Shisha; abgewählt bleibt es abgewählt
     neu = Einstellungen.from_dict({**alt.to_dict(), "module": ["raeume", "suche"]})
     assert neu.module == ["raeume", "suche"]

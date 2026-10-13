@@ -181,3 +181,45 @@ sehr leise; ein Audio-Element käme nicht über 100 %. Änderungen im Editor wir
   Standard 400, verstärken den Ton der Haustür bzw. des Telefons und enthalten die Verstärkung bereits.
 - Ohne `--autoplay-policy=no-user-gesture-required` (siehe Kiosk) spielt Chromium nach einem Neuladen erst nach der
   ersten Berührung des Panels Ton ab.
+
+## Telefon
+
+Das Panel kann als eigenes Telefon an der FRITZ!Box arbeiten: Kontakte, Wähltastatur, Anrufliste, Anrufe annehmen und
+führen. Die App meldet sich als IP-Telefon an der FRITZ!Box an (SIP im LAN, G.711) und reicht den Gesprächston per
+WebRTC an das Panel weiter, wie beim Gegensprechen an der Haustür. ha-sip bleibt davon unberührt und kann weiter für
+Alarm- und Notrufanrufe dienen.
+
+### Einrichtung
+
+1. FRITZ!Box → Telefonie → Telefoniegeräte → Neues Gerät einrichten → Telefon (mit und ohne Anrufbeantworter) →
+   LAN/WLAN (IP-Telefon), Name z. B. „Panel Flur“. Benutzername und Kennwort notieren, ausgehende Rufnummer und die
+   Rufnummern wählen, auf die das Panel reagieren soll.
+2. App-Optionen: `telefon_server` (Adresse der FRITZ!Box, z. B. `192.168.178.1`), `telefon_benutzer`,
+   `telefon_passwort`. Leerer Server schaltet das Telefon ab.
+3. Für Kontakte und Anrufliste (optional): FRITZ!Box → System → FRITZ!Box-Benutzer → Benutzer mit dem Recht
+   „Sprachnachrichten, Faxnachrichten, FRITZ!App Fon und Anrufliste“; in `fritz_benutzer` und `fritz_passwort`
+   eintragen. TR-064 muss aktiv sein (Heimnetz → Netzwerk → Netzwerkeinstellungen → „Zugriff für Anwendungen zulassen“).
+4. Die App nutzt die UDP-Ports 5062 (SIP) und 40000–40003 (Ton) des Home-Assistant-Hosts; sie sind in der App
+   freigegeben. Ihre Adresse im LAN ermittelt die App aus der Antwort der FRITZ!Box. Gelingt das nicht (Anrufe
+   klingeln nicht oder bleiben stumm), `telefon_externe_adresse` auf die LAN-Adresse des Home-Assistant-Hosts setzen.
+5. Favoriten pflegt der Editor unter „Telefon-Favoriten“ (je Zeile „Name = Nummer“). Das Modul „Telefon“ erscheint im
+   Dock, sobald das Telefon eingerichtet ist; seine Position bestimmt die Modulreihenfolge im Editor.
+
+### Bedienung
+
+- Seite „Telefon“ mit Favoriten, Kontakten (FRITZ!Box-Telefonbuch, Suche), Tastatur und Verlauf (Anrufliste der
+  FRITZ!Box, verpasste Anrufe rot, Tipp ruft zurück).
+- Eingehender Anruf: Die Anrufkarte erscheint mit Name aus dem Telefonbuch, Klingelton und den Knöpfen Ablehnen,
+  Minimieren und Annehmen. Ein Anruf weckt das Panel und hält es wach, solange er läuft.
+- Gespräch: Dauer, Stumm, Tastatur (Tastentöne), Minimieren, Auflegen. *Minimieren* legt den Anruf als grüne Zeile in
+  die Live-Kapsel, auch auf der Startseite; ein Tipp darauf holt die Karte zurück.
+- Klingelt die Haustür während eines Anrufs, hat das Overlay „Haustür“ Vorrang und die Anrufkarte wird minimiert.
+  *Sprechen* an der Haustür schaltet das Mikrofon des Telefons so lange stumm.
+- Trennt sich das Panel, das den Anruf führt (Neuladen, Netz weg), wird der Anruf beendet.
+- Lautstärke: „Lautstärke Telefon“ (`telefon_lautstaerke`) im Editor.
+
+### Ereignis für Automationen
+
+Jeder Wechsel eines Anrufs erzeugt in Home Assistant das Ereignis `pm_panel_studio_anruf` mit `richtung`
+(`ein`/`aus`), `nummer`, `name`, `zustand` (`klingelt`, `waehlt`, `verbunden`, `beendet`), `grund` und bei `beendet`
+nach einem Gespräch `dauer_s`. Damit lassen sich z. B. Musik leiser stellen oder verpasste Anrufe melden.
