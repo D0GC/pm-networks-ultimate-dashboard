@@ -401,6 +401,8 @@ def akt_rams(states: States, jetzt: datetime, lokal: datetime | None = None) -> 
             "wahrscheinlichkeit": _num(a.get("team_win_probability")),
         },
     }
+
+
 MAX_MUSIK = 2
 MUSIK_STILL_S = 90  # so lange darf ein laufender Titel nach dem Start auf 0:00 stehen
 

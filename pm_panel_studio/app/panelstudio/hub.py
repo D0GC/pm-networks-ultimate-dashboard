@@ -675,9 +675,7 @@ class Hub:
                 self.spawn(self.gespraech_beenden(kennung, melden=False))
 
         try:
-            eintrag["sub"] = await self.client.subscribe(
-                {"type": f"{INTERCOM_DOMAIN}/audio/start", "offer": angebot}, rueckruf
-            )
+            eintrag["sub"] = await self.client.subscribe({"type": f"{INTERCOM_DOMAIN}/audio/start", "offer": angebot}, rueckruf)
         except HAError:
             self.gespraeche.pop(kennung, None)
             raise

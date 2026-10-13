@@ -109,12 +109,28 @@ def test_sicherheitsmeldung_merkmal():
 
 def test_stufen_und_rueckwaertskompatibilitaet():
     sp = PopupSpeicher()
-    for tag, extra in [("a", {"prioritaet": "high"}), ("b", {"prioritaet": "normal"}), ("c", {}), ("d", {"prioritaet": "low"}),
-                       ("e", {"prioritaet": "zeitkritisch"}), ("f", {"stufe": "passiv"}), ("g", {"stufe": "kritisch", "prioritaet": "low"}),
-                       ("h", {"stufe": "unsinn"})]:
+    for tag, extra in [
+        ("a", {"prioritaet": "high"}),
+        ("b", {"prioritaet": "normal"}),
+        ("c", {}),
+        ("d", {"prioritaet": "low"}),
+        ("e", {"prioritaet": "zeitkritisch"}),
+        ("f", {"stufe": "passiv"}),
+        ("g", {"stufe": "kritisch", "prioritaet": "low"}),
+        ("h", {"stufe": "unsinn"}),
+    ]:
         sp.verarbeiten("script", "panel_meldung", {"tag": tag, "text": tag, **extra}, jetzt=0)
     stufe = {m["tag"]: m["stufe"] for m in sp.meldungen.values()}
-    assert stufe == {"a": "kritisch", "b": "aktiv", "c": "aktiv", "d": "passiv", "e": "zeitkritisch", "f": "passiv", "g": "kritisch", "h": "aktiv"}
+    assert stufe == {
+        "a": "kritisch",
+        "b": "aktiv",
+        "c": "aktiv",
+        "d": "passiv",
+        "e": "zeitkritisch",
+        "f": "passiv",
+        "g": "kritisch",
+        "h": "aktiv",
+    }
     assert sp.meldungen["msg:a"]["prio"] == "high" and sp.meldungen["msg:e"]["prio"] == "normal"
     assert sp.meldungen["msg:e"]["bis"] == 120 * 60 and sp.meldungen["msg:a"]["bis"] == 240 * 60
     assert [m["tag"] for m in sp.liste()][:3] == ["a", "g", "e"]

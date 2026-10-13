@@ -33,6 +33,7 @@ AREAS = [
     ("buro", "Büro", "mdi:desk"),
 ]
 
+
 def karte_png(n: int) -> bytes:
     """Kleine Wohnungskarte (RGB) mit einem Punkt, der je Aufruf weiterwandert – zum Prüfen der Live-Karte."""
     import struct
@@ -45,7 +46,11 @@ def karte_png(n: int) -> bytes:
     for y in range(h):
         zeile = bytearray([0])
         for x in range(b):
-            if (x < 6 or x >= b - 6 or y < 6 or y >= h - 6) or (abs(y - 190) < 3 and x % 120 > 20) or (abs(x - 180) < 3 and y > 190 and y % 120 > 20):
+            if (
+                (x < 6 or x >= b - 6 or y < 6 or y >= h - 6)
+                or (abs(y - 190) < 3 and x % 120 > 20)
+                or (abs(x - 180) < 3 and y > 190 and y % 120 > 20)
+            ):
                 c = (236, 235, 242)
             elif y < 190:
                 c = (120, 66, 149) if x < 180 else (68, 49, 113)
@@ -107,8 +112,22 @@ def default_states(jetzt: datetime) -> list[dict[str, Any]]:
         ),
         s("person.dominik", "home", None, friendly_name="Dominik"),
         s("person.gina_perina", "not_home", None, friendly_name="Gina Perina"),
-        s("sensor.zuhause_entfernung_von_gina_perina", "12400", None, friendly_name="Entfernung von Gina Perina", device_class="distance", unit_of_measurement="m"),
-        s("sensor.zuhause_bewegung_von_gina_perina", "towards", None, friendly_name="Bewegung von Gina Perina", device_class="enum", options=["arrived", "away_from", "stationary", "towards"]),
+        s(
+            "sensor.zuhause_entfernung_von_gina_perina",
+            "12400",
+            None,
+            friendly_name="Entfernung von Gina Perina",
+            device_class="distance",
+            unit_of_measurement="m",
+        ),
+        s(
+            "sensor.zuhause_bewegung_von_gina_perina",
+            "towards",
+            None,
+            friendly_name="Bewegung von Gina Perina",
+            device_class="enum",
+            options=["arrived", "away_from", "stationary", "towards"],
+        ),
         s("alarm_control_panel.alarmo", "armed_home", None, friendly_name="Alarmsystem", code_format="number"),
         s(
             "binary_sensor.bewegungsmelder_flur_1_bewegung",
@@ -353,25 +372,64 @@ def default_states(jetzt: datetime) -> list[dict[str, Any]]:
         s("switch.balkon_kohlegrill", "on", None, friendly_name="Balkon Kohlegrill"),
         s("sensor.karl_die_waschmaschine_aktueller_status", "running", None, friendly_name="Karl Status"),
         s("sensor.waschmaschine_phase", "Waschen", None, friendly_name="Waschmaschine Phase"),
-        s("sensor.waschmaschine_programmende", _iso(jetzt + timedelta(minutes=60)), None,
-          friendly_name="Waschmaschine Programmende", device_class="timestamp"),
+        s(
+            "sensor.waschmaschine_programmende",
+            _iso(jetzt + timedelta(minutes=60)),
+            None,
+            friendly_name="Waschmaschine Programmende",
+            device_class="timestamp",
+        ),
         s("sensor.karl_die_waschmaschine_gesamtdauer", "81", None, friendly_name="Karl Gesamtdauer", unit_of_measurement="min"),
         s("sensor.karl_die_waschmaschine_zyklen", "16", None, friendly_name="Karl Zyklen"),
-        s("sensor.karl_die_waschmaschine_energie_in_diesem_monat", "9444.0", None, friendly_name="Karl Energie Monat",
-          unit_of_measurement="Wh", device_class="energy"),
+        s(
+            "sensor.karl_die_waschmaschine_energie_in_diesem_monat",
+            "9444.0",
+            None,
+            friendly_name="Karl Energie Monat",
+            unit_of_measurement="Wh",
+            device_class="energy",
+        ),
         s("input_button.wasche_entnommen", _iso(jetzt - timedelta(days=1)), None, friendly_name="Wäsche entnommen"),
         # Geschirrspüler (Home Connect): fertig, noch nicht ausgeräumt
         s("sensor.dishwasher_bsh_common_status_operationstate", "Finished", None, friendly_name="Geschirrspüler OperationState"),
         s("sensor.geschirrspuler_phase", "—", None, friendly_name="Geschirrspüler Phase"),
-        s("sensor.dishwasher_bsh_common_option_programprogress", "100", None, friendly_name="Geschirrspüler ProgramProgress", unit_of_measurement="%"),
-        s("sensor.dishwasher_bsh_common_option_remainingprogramtime", "0", None, friendly_name="Geschirrspüler RemainingProgramTime", unit_of_measurement="s"),
+        s(
+            "sensor.dishwasher_bsh_common_option_programprogress",
+            "100",
+            None,
+            friendly_name="Geschirrspüler ProgramProgress",
+            unit_of_measurement="%",
+        ),
+        s(
+            "sensor.dishwasher_bsh_common_option_remainingprogramtime",
+            "0",
+            None,
+            friendly_name="Geschirrspüler RemainingProgramTime",
+            unit_of_measurement="s",
+        ),
         s("sensor.dishwasher_bsh_common_status_program_all_count_started", "234", None, friendly_name="Geschirrspüler Programme"),
-        s("event.dishwasher_bsh_common_event_programfinished", _iso(jetzt - timedelta(minutes=25)), None, friendly_name="Geschirrspüler ProgramFinished"),
+        s(
+            "event.dishwasher_bsh_common_event_programfinished",
+            _iso(jetzt - timedelta(minutes=25)),
+            None,
+            friendly_name="Geschirrspüler ProgramFinished",
+        ),
         s("input_button.geschirr_ausgeraumt", _iso(jetzt - timedelta(days=2)), None, friendly_name="Geschirr ausgeräumt"),
         # Luftreiniger
         s("fan.wohnzimmer_luftreiniger_wohnzimmer", "off", "wohnzimmer", friendly_name="Luftreiniger Wohnzimmer"),
-        s("sensor.wohnzimmer_luftreiniger_wohnzimmer_feinstaub_pm2_5", "14", "wohnzimmer", friendly_name="Luftreiniger Wohnzimmer Feinstaub PM2.5", unit_of_measurement="µg/m³"),
-        s("sensor.wohnzimmer_luftreiniger_wohnzimmer_allergen_index", "4", "wohnzimmer", friendly_name="Luftreiniger Wohnzimmer Allergen-Index"),
+        s(
+            "sensor.wohnzimmer_luftreiniger_wohnzimmer_feinstaub_pm2_5",
+            "14",
+            "wohnzimmer",
+            friendly_name="Luftreiniger Wohnzimmer Feinstaub PM2.5",
+            unit_of_measurement="µg/m³",
+        ),
+        s(
+            "sensor.wohnzimmer_luftreiniger_wohnzimmer_allergen_index",
+            "4",
+            "wohnzimmer",
+            friendly_name="Luftreiniger Wohnzimmer Allergen-Index",
+        ),
         s("switch.pm_wohnzimmer_luftreiniger_automatik", "off", "wohnzimmer", friendly_name="Wohnzimmer Luftreiniger-Automatik"),
         s("sensor.waschmaschine_fortschritt", "35", None, friendly_name="Waschmaschine Fortschritt", unit_of_measurement="%"),
         s(
@@ -382,24 +440,71 @@ def default_states(jetzt: datetime) -> list[dict[str, Any]]:
             unit_of_measurement="min",
         ),
         s("sensor.roborock_s8_status", "cleaning", "flur", friendly_name="Roborock Status"),
-        s("sensor.roborock_s8_batterie", "78", "flur", friendly_name="Roborock S8 Batterie", unit_of_measurement="%", device_class="battery"),
+        s(
+            "sensor.roborock_s8_batterie",
+            "78",
+            "flur",
+            friendly_name="Roborock S8 Batterie",
+            unit_of_measurement="%",
+            device_class="battery",
+        ),
         s("sensor.roborock_s8_aktueller_raum", "Wohnzimmer", "flur", friendly_name="Roborock S8 Aktueller Raum"),
-        s("sensor.roborock_s8_reinigungsfortschritt", "42", "flur", friendly_name="Roborock S8 Reinigungsfortschritt", unit_of_measurement="%"),
-        s("sensor.roborock_s8_reinigungsbereich", "13.4", "flur", friendly_name="Roborock S8 Reinigungsbereich", unit_of_measurement="m²"),
-        s("sensor.roborock_s8_reinigungszeit", "17.5", "flur", friendly_name="Roborock S8 Reinigungszeit", unit_of_measurement="min", device_class="duration"),
-        s("sensor.roborock_s8_letztes_reinigungsende", _iso(jetzt - timedelta(hours=26)), "flur", friendly_name="Roborock S8 Letztes Reinigungsende", device_class="timestamp"),
+        s(
+            "sensor.roborock_s8_reinigungsfortschritt",
+            "42",
+            "flur",
+            friendly_name="Roborock S8 Reinigungsfortschritt",
+            unit_of_measurement="%",
+        ),
+        s(
+            "sensor.roborock_s8_reinigungsbereich",
+            "13.4",
+            "flur",
+            friendly_name="Roborock S8 Reinigungsbereich",
+            unit_of_measurement="m²",
+        ),
+        s(
+            "sensor.roborock_s8_reinigungszeit",
+            "17.5",
+            "flur",
+            friendly_name="Roborock S8 Reinigungszeit",
+            unit_of_measurement="min",
+            device_class="duration",
+        ),
+        s(
+            "sensor.roborock_s8_letztes_reinigungsende",
+            _iso(jetzt - timedelta(hours=26)),
+            "flur",
+            friendly_name="Roborock S8 Letztes Reinigungsende",
+            device_class="timestamp",
+        ),
         s("sensor.roborock_s8_gesamtzahl_reinigungen", "1382", "flur", friendly_name="Roborock S8 Gesamtzahl Reinigungen"),
         s("sensor.roborock_s8_staubsauger_fehler", "none", "flur", friendly_name="Roborock S8 Staubsauger-Fehler"),
-        s("image.roborock_s8_wohnung", _iso(jetzt), "flur", friendly_name="Roborock S8 Wohnung",
-          entity_picture="/api/image_proxy/image.roborock_s8_wohnung?token=x"),
+        s(
+            "image.roborock_s8_wohnung",
+            _iso(jetzt),
+            "flur",
+            friendly_name="Roborock S8 Wohnung",
+            entity_picture="/api/image_proxy/image.roborock_s8_wohnung?token=x",
+        ),
         s("button.roborock_s8_full_clean", "unknown", "flur", friendly_name="Roborock S8 Full Clean"),
         s("button.roborock_s8_vac_followed_by_mop", "unknown", "flur", friendly_name="Roborock S8 Vac followed by Mop"),
         s("button.roborock_s8_deep", "unknown", "flur", friendly_name="Roborock S8 Deep"),
         s("button.roborock_s8_end_of_day", "unknown", "flur", friendly_name="Roborock S8 End of Day"),
-        s("select.flur_roborock_s8_reinigungsmodus", "vac_and_mop", "flur", friendly_name="Roborock S8 Reinigungsmodus",
-          options=["vacuum", "vac_and_mop", "mop", "custom"]),
-        s("select.roborock_s8_wisch_intensitat", "intense", "flur", friendly_name="Roborock S8 Wisch-Intensität",
-          options=["off", "mild", "moderate", "intense", "custom"]),
+        s(
+            "select.flur_roborock_s8_reinigungsmodus",
+            "vac_and_mop",
+            "flur",
+            friendly_name="Roborock S8 Reinigungsmodus",
+            options=["vacuum", "vac_and_mop", "mop", "custom"],
+        ),
+        s(
+            "select.roborock_s8_wisch_intensitat",
+            "intense",
+            "flur",
+            friendly_name="Roborock S8 Wisch-Intensität",
+            options=["off", "mild", "moderate", "intense", "custom"],
+        ),
         # Außenluftfeuchte (lokal und DWD) sowie Verbrauchsmaterial
         s(
             "sensor.wetter_outdoor_module_luftfeuchtigkeit",
@@ -548,7 +653,14 @@ def default_states(jetzt: datetime) -> list[dict[str, Any]]:
         s("switch.buro_buro", "on", "buro", friendly_name="Büro", icon="mdi:home-lightning-bolt-outline"),
         s("switch.schreibtisch", "on", "buro", friendly_name="Schreibtisch", icon="mdi:desk"),
         s("switch.serverschrank", "on", "buro", friendly_name="Serverschrank", icon="mdi:server"),
-        s("sensor.niederschlag_lokal", "0.2", None, friendly_name="Niederschlag lokal", unit_of_measurement="mm", device_class="precipitation"),
+        s(
+            "sensor.niederschlag_lokal",
+            "0.2",
+            None,
+            friendly_name="Niederschlag lokal",
+            unit_of_measurement="mm",
+            device_class="precipitation",
+        ),
         s("input_boolean.burostrom_schaltfreigabe", "off", "buro", friendly_name="Bürostrom Schaltfreigabe"),
         s("timer.burostrom_schaltfreigabe", "idle", "buro", friendly_name="Bürostrom Schaltfreigabe"),
         s("button.buro_wol_main_pc", "unknown", "buro", friendly_name="Main PC starten", icon="mdi:desktop-tower-monitor"),
@@ -736,9 +848,11 @@ class FakeHA:
 
     async def rest_cover(self, request):
         self._auth(request)
-        svg = ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">'
-               '<stop offset="0" stop-color="#784295"/><stop offset="1" stop-color="#262252"/></linearGradient></defs>'
-               '<rect width="10" height="10" fill="url(#g)"/><circle cx="5" cy="5" r="2.6" fill="#ffd58a"/></svg>')
+        svg = (
+            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">'
+            '<stop offset="0" stop-color="#784295"/><stop offset="1" stop-color="#262252"/></linearGradient></defs>'
+            '<rect width="10" height="10" fill="url(#g)"/><circle cx="5" cy="5" r="2.6" fill="#ffd58a"/></svg>'
+        )
         return web.Response(text=svg, content_type="image/svg+xml")
 
     async def rest_image(self, request):
@@ -798,7 +912,11 @@ class FakeHA:
         morgen = (jetzt + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
 
         def ev(titel, start, std=1, ort=None):
-            e = {"summary": titel, "start": {"dateTime": start.isoformat()}, "end": {"dateTime": (start + timedelta(hours=std)).isoformat()}}
+            e = {
+                "summary": titel,
+                "start": {"dateTime": start.isoformat()},
+                "end": {"dateTime": (start + timedelta(hours=std)).isoformat()},
+            }
             if ort:
                 e["location"] = ort
             return e
@@ -808,7 +926,11 @@ class FakeHA:
                 ev("Zahnarzt", jetzt + timedelta(minutes=95), ort="Praxis Dr. Berger"),
                 ev("Team-Call", jetzt + timedelta(minutes=170)),
                 ev("Spätschicht-Übergabe", jetzt + timedelta(hours=5)),
-                {"summary": "Geburtstag Oma", "start": {"date": morgen.date().isoformat()}, "end": {"date": (morgen + timedelta(days=1)).date().isoformat()}},
+                {
+                    "summary": "Geburtstag Oma",
+                    "start": {"date": morgen.date().isoformat()},
+                    "end": {"date": (morgen + timedelta(days=1)).date().isoformat()},
+                },
                 ev("Frühstück mit Anna", morgen.replace(hour=8, minute=30), 1, "Café Central"),
                 ev("Handwerker Heizung", morgen.replace(hour=10)),
                 ev("Mittagessen", morgen.replace(hour=12, minute=15)),
@@ -897,24 +1019,49 @@ class FakeHA:
             return {
                 "artists": [{"media_type": "artist", "uri": "library://artist/1", "name": "M83", "image": bild}],
                 "albums": [
-                    {"media_type": "album", "uri": "library://album/1", "name": "Hurry Up, We're Dreaming", "image": bild, "artists": kuenstler},
+                    {
+                        "media_type": "album",
+                        "uri": "library://album/1",
+                        "name": "Hurry Up, We're Dreaming",
+                        "image": bild,
+                        "artists": kuenstler,
+                    },
                     {"media_type": "album", "uri": "library://album/2", "name": "Junk", "image": bild, "artists": kuenstler},
                 ],
                 "tracks": [
-                    {"media_type": "track", "uri": "library://track/1", "name": "Midnight City", "image": bild, "artists": kuenstler,
-                     "album": {"name": "Hurry Up, We're Dreaming"}},
-                    {"media_type": "track", "uri": "library://track/2", "name": "Wait", "image": bild, "artists": kuenstler,
-                     "album": {"name": "Hurry Up, We're Dreaming"}},
+                    {
+                        "media_type": "track",
+                        "uri": "library://track/1",
+                        "name": "Midnight City",
+                        "image": bild,
+                        "artists": kuenstler,
+                        "album": {"name": "Hurry Up, We're Dreaming"},
+                    },
+                    {
+                        "media_type": "track",
+                        "uri": "library://track/2",
+                        "name": "Wait",
+                        "image": bild,
+                        "artists": kuenstler,
+                        "album": {"name": "Hurry Up, We're Dreaming"},
+                    },
                 ],
-                "playlists": [{"media_type": "playlist", "uri": "library://playlist/1", "name": "Synthwave Nacht", "image": bild}],
+                "playlists": [
+                    {"media_type": "playlist", "uri": "library://playlist/1", "name": "Synthwave Nacht", "image": bild}
+                ],
                 "radio": [{"media_type": "radio", "uri": "library://radio/1", "name": "Radio Paloma", "image": bild}],
             }
         if domain == "music_assistant" and service == "get_library":
             art = data.get("media_type", "album")
-            namen = {"album": ["Junk", "Hurry Up, We're Dreaming", "Digital Ocean"], "playlist": ["Synthwave Nacht", "Küche Morgens"],
-                     "radio": ["Radio Paloma", "Bremen Vier"]}.get(art, [])
+            namen = {
+                "album": ["Junk", "Hurry Up, We're Dreaming", "Digital Ocean"],
+                "playlist": ["Synthwave Nacht", "Küche Morgens"],
+                "radio": ["Radio Paloma", "Bremen Vier"],
+            }.get(art, [])
             return {
-                "items": [{"media_type": art, "uri": f"library://{art}/{i}", "name": n, "image": None} for i, n in enumerate(namen, 1)],
+                "items": [
+                    {"media_type": art, "uri": f"library://{art}/{i}", "name": n, "image": None} for i, n in enumerate(namen, 1)
+                ],
                 "limit": data.get("limit", 25),
                 "offset": 0,
                 "order_by": data.get("order_by", "name"),
@@ -998,8 +1145,10 @@ class FakeHA:
             ]
             return ok({"entities": ents, "entity_categories": {}})
         if typ == "config_entries/get":
-            eintraege = [{"entry_id": "mass0123456789", "domain": "music_assistant", "title": "Music Assistant", "state": "loaded"},
-                         {"entry_id": "andere", "domain": "hue", "title": "Hue", "state": "loaded"}]
+            eintraege = [
+                {"entry_id": "mass0123456789", "domain": "music_assistant", "title": "Music Assistant", "state": "loaded"},
+                {"entry_id": "andere", "domain": "hue", "title": "Hue", "state": "loaded"},
+            ]
             return ok([e for e in eintraege if e["domain"] == req.get("domain", e["domain"])])
         if typ == "persistent_notification/subscribe":
             event = {"type": "current", "notifications": self.meldungen}
@@ -1058,7 +1207,11 @@ class FakeHA:
                             "name": "Kohlegrill",
                             "included_in_stat": "sensor.buro_energie",
                         },
-                        {"stat_consumption": "sensor.flur_energie", "stat_rate": "sensor.flur_leistung", "name": "Flur Deckenlampe"},
+                        {
+                            "stat_consumption": "sensor.flur_energie",
+                            "stat_rate": "sensor.flur_leistung",
+                            "name": "Flur Deckenlampe",
+                        },
                         {"stat_consumption": "sensor.server_energie", "stat_rate": "sensor.server_leistung", "name": "Server"},
                     ],
                 }

@@ -318,26 +318,19 @@ async def test_telefon_unvollstaendige_zugangsdaten_melden_fehler() -> None:
 async def test_waehlen_ungueltige_nummer(nummer: str) -> None:
     t = Telefon(TelefonConfig(), lambda s: None)
     with pytest.raises(ValueError, match="Rufnummer"):
-        await t.waehlen(nummer, "v=0\r\n")
-
-
-@pytest.mark.parametrize("sdp", ["", "hallo", " v=0", "v=0" + "x" * 20000, None, 5])
-async def test_waehlen_ungueltiges_sdp(sdp) -> None:
-    t = Telefon(TelefonConfig(), lambda s: None)
-    with pytest.raises(ValueError, match="SDP"):
-        await t.waehlen("*#+0123456789", sdp)
+        await t.waehlen(nummer, None)
 
 
 async def test_waehlen_gueltig_aber_telefon_nicht_aktiv() -> None:
     t = Telefon(TelefonConfig(), lambda s: None)
     with pytest.raises(TelefonFehler):
-        await t.waehlen("+4930123", "v=0\r\n")
+        await t.waehlen("+4930123", None)
 
 
 async def test_unbekannte_anruf_id() -> None:
     t = Telefon(TelefonConfig(), lambda s: None)
     for aufruf in (
-        t.annehmen("x", "v=0\r\n"),
+        t.annehmen("x", None),
         t.ablehnen("x"),
         t.auflegen("x"),
         t.dtmf("x", "1"),
