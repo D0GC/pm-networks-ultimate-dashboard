@@ -171,8 +171,10 @@ keine Datei). Es unterscheidet sich vom dreistimmigen Hinweiston bei Meldungen.
 
 ### Lautstärke und Verstärkung aller Töne
 
-Alle Töne des Panels laufen zentral über `static/audio.js` (`PS.audio`): Pegel je Art, ein gemeinsamer Kompressor
-(fängt Spitzen ab, damit die Verstärkung nicht übersteuert), dann die Lautsprecher. Die Lautsprecher des Panels sind
+Alle Töne des Panels laufen zentral über `static/audio.js` (`PS.audio`): Pegel je Art mit Verstärkung, eine weiche
+Sättigung (macht laute Töne dichter und damit hörbar lauter), ein Begrenzer kurz unter 0 dBFS gegen Übersteuern,
+dann die Lautsprecher. Sprache (Gegensprechen, Telefon) wird vor der Verstärkung ausgeglichen. Lauter als der volle
+Ausschlag geht digital nicht; reicht das nicht, die Lautstärke des Systems am Surface prüfen (siehe Kiosk). Die Lautsprecher des Panels sind
 sehr leise; ein Audio-Element käme nicht über 100 %. Änderungen im Editor wirken sofort, auch bei laufendem Ton.
 
 - „Verstärkung aller Töne“ (`ton_verstaerkung`, 100–800 %, Standard 300) wird mit dem Pegel von Hinweiston

@@ -1,14 +1,25 @@
 /* PM Panel Studio – zentrale Tonausgabe (Web Audio). Alle Töne des Panels laufen über eine Kette:
- * Quelle → Pegel je Art → gemeinsamer Kompressor → Master → Lautsprecher.
- * Die Lautsprecher des Panels sind sehr leise; ein Audio-Element kann nicht über 100 % gehen. Der Kompressor fängt
- * Spitzen ab, damit die Verstärkung nicht übersteuert. Arten: "ton" (Hinweis-/Alarmton), "klingel" (Türklingel),
+ * Quelle → [Sprache: Ausgleich] → Pegel je Art (Verstärkung) → Sättigung → Begrenzer → Lautsprecher.
+ * Die Lautsprecher des Panels sind sehr leise; ein Audio-Element kann nicht über 100 % gehen. Die Verstärkung sitzt
+ * deshalb VOR Sättigung und Begrenzer: Die weiche Sättigung (tanh) macht laute Töne dichter und damit hörbar lauter,
+ * der Begrenzer kurz unter 0 dBFS verhindert Übersteuern. (Früher saß ein Kompressor mit -30 dB Schwelle hinter der
+ * Verstärkung und nahm sie fast vollständig wieder weg.) Sprache (Gegensprechen, Telefon) wird vorher ausgeglichen,
+ * damit leise Stellen mitkommen. Arten: "ton" (Hinweis-/Alarmton), "klingel" (Türklingel),
  * "intercom" (Gegensprechen), "telefon" (Telefonie). Pegel je Art und Verstärkung kommen aus den Einstellungen. */
 (function () {
   "use strict";
   const PS = window.PS;
   const ARTEN = ["ton", "klingel", "intercom", "telefon"];
-  let ctx = null, kompressor = null, master = null;
+  let ctx = null, saettigung = null, begrenzer = null;
   const pegel = {};
+  const SPRACHE = ["intercom", "telefon"];
+
+  // tanh-Kennlinie, normiert auf ±1: kleine Pegel werden rund dreifach angehoben, große laufen weich gegen ±1
+  function kennlinie() {
+    const n = 2048, k = new Float32Array(n);
+    for (let i = 0; i < n; i++) { const x = (i / (n - 1)) * 2 - 1; k[i] = Math.tanh(x * 3) / Math.tanh(3); }
+    return k;
+  }
 
   const zahl = (k, standard) => { const v = Number(PS.einst && PS.einst[k]); return Number.isFinite(v) ? v : standard; };
   // Verstärkungsfaktor je Art. ton und klingel: ihr Pegel (5–100 %) mal die Master-Verstärkung ton_verstaerkung;
@@ -36,15 +47,14 @@
         const AC = window.AudioContext || window.webkitAudioContext;
         if (!AC) return null;
         ctx = new AC();
-        kompressor = ctx.createDynamicsCompressor();
-        kompressor.threshold.value = -30; kompressor.knee.value = 20; kompressor.ratio.value = 6;
-        kompressor.attack.value = 0.005; kompressor.release.value = 0.2;
-        master = ctx.createGain();
-        master.gain.value = 1;
-        kompressor.connect(master).connect(ctx.destination);
+        saettigung = ctx.createWaveShaper(); saettigung.curve = kennlinie(); saettigung.oversample = "4x";
+        begrenzer = ctx.createDynamicsCompressor();
+        begrenzer.threshold.value = -1.5; begrenzer.knee.value = 0; begrenzer.ratio.value = 20;
+        begrenzer.attack.value = 0.002; begrenzer.release.value = 0.1;
+        saettigung.connect(begrenzer).connect(ctx.destination);
       } catch (e) {
         console.warn("audio: Web Audio nicht verfügbar", e);
-        ctx = null; kompressor = null; master = null;
+        ctx = null; saettigung = null; begrenzer = null;
         return null;
       }
     }
@@ -59,10 +69,17 @@
     if (!pegel[art]) {
       const g = ctx.createGain();
       g.gain.value = faktor(art);
-      g.connect(kompressor);
+      g.connect(saettigung);
       pegel[art] = g;
+      if (SPRACHE.includes(art)) {
+        // Ausgleich für Sprache: hebt leise Stellen an, bevor verstärkt wird
+        const a = ctx.createDynamicsCompressor();
+        a.threshold.value = -32; a.knee.value = 12; a.ratio.value = 4; a.attack.value = 0.003; a.release.value = 0.25;
+        a.connect(g);
+        pegel[art]._eingang = a;
+      }
     }
-    return pegel[art];
+    return pegel[art]._eingang || pegel[art];
   }
 
   // Wartet, bis der Kontext läuft (höchstens maxMs); löst mit dem Kontext auf, sonst mit null

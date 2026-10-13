@@ -1,5 +1,13 @@
 # Änderungen
 
+## 2026.10.26 – 2026-10-14
+
+- Alle Töne deutlich lauter: Die Verstärkung saß bisher vor einem Kompressor mit -30 dB Schwelle, der sie fast
+  vollständig wieder wegnahm (Klingelton bei 300 % nur rund 2 dB lauter als ohne Verstärkung). Neue Kette: Pegel je Art
+  mit Verstärkung, weiche Sättigung, Begrenzer kurz unter 0 dBFS. Sprache (Gegensprechen, Telefon) wird vorher
+  ausgeglichen. Gemessen: Klingelton rund 7 dB, Telefon rund 9 dB lauter. Der Klingelton des Telefons läuft mit
+  höherem Grundpegel über dieselbe Kette.
+
 ## 2026.10.25 – 2026-10-14
 
 - Ruhezustand wieder erreichbar: Blieb die Entfernung einer Heimfahrt länger als zehn Minuten gleich, warf die
