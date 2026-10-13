@@ -44,8 +44,31 @@ configuration:
   klima_studio_schluessel:
     name: Schlüssel PM Klima Studio
     description: Mindestens 16 Zeichen, derselbe Wert wie panel_schluessel in PM Klima Studio. Dann zeigt das Panel Klima Studio als eigene Seite.
+  telefon_server:
+    name: "Telefon: FRITZ!Box"
+    description: "Adresse der FRITZ!Box (z. B. 192.168.178.1). Leer = Telefon aus."
+  telefon_benutzer:
+    name: "Telefon: Benutzername"
+    description: "Benutzername des IP-Telefons, das in der FRITZ!Box unter Telefonie → Telefoniegeräte angelegt wurde."
+  telefon_passwort:
+    name: "Telefon: Kennwort"
+    description: "Kennwort dieses IP-Telefons."
+  telefon_externe_adresse:
+    name: "Telefon: Adresse von Home Assistant"
+    description: "Nur nötig, wenn die automatische Erkennung scheitert: LAN-Adresse des Home-Assistant-Hosts."
+  fritz_benutzer:
+    name: "FRITZ!Box: Benutzer (Telefonbuch)"
+    description: "FRITZ!Box-Benutzer mit dem Recht „Sprachnachrichten, Faxnachrichten, FRITZ!App Fon und Anrufliste“. Leer = ohne Kontakte und Anrufliste."
+  fritz_passwort:
+    name: "FRITZ!Box: Kennwort (Telefonbuch)"
+    description: "Kennwort dieses Benutzers."
   log_level:
     name: Protokollstufe
     description: debug, info, warning oder error.
 network:
+  5062/udp: Telefon (SIP)
+  40000/udp: Telefon (Ton)
+  40001/udp: Telefon (Ton)
+  40002/udp: Telefon (Ton)
+  40003/udp: Telefon (Ton)
   8098/tcp: Wandpanel im lokalen Netz

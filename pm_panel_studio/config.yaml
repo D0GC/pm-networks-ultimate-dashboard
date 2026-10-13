@@ -1,5 +1,5 @@
 name: PM Panel Studio
-version: "2026.10.24"
+version: "2026.10.25"
 slug: pm_panel_studio
 description: >-
   Wandpanel-Oberfläche für den Flur: rotierende Hinweiskarten mit Ringtimern, Ruhe- und Wachzustand,
@@ -18,8 +18,18 @@ panel_title: Panel Studio
 panel_admin: true
 ports:
   8098/tcp: 8098
+  5062/udp: 5062
+  40000/udp: 40000
+  40001/udp: 40001
+  40002/udp: 40002
+  40003/udp: 40003
 ports_description:
   8098/tcp: Wandpanel (Zugang mit Zugangsschlüssel)
+  5062/udp: Telefon (SIP, Anmeldung an der FRITZ!Box)
+  40000/udp: Telefon (Gesprächston)
+  40001/udp: Telefon (Gesprächston)
+  40002/udp: Telefon (Gesprächston)
+  40003/udp: Telefon (Gesprächston)
 homeassistant: "2026.9.0"
 homeassistant_api: true
 hassio_api: false
@@ -47,6 +57,12 @@ options:
   klima_praefix: climate.pm_
   klima_studio_url: http://bdf1cc64-pm-klima-studio:8099
   klima_studio_schluessel: ""
+  telefon_server: ""
+  telefon_benutzer: ""
+  telefon_passwort: ""
+  telefon_externe_adresse: ""
+  fritz_benutzer: ""
+  fritz_passwort: ""
   log_level: info
 schema:
   hinweise_entitaet: str?
@@ -68,4 +84,10 @@ schema:
   klima_praefix: str?
   klima_studio_url: url?
   klima_studio_schluessel: password?
+  telefon_server: str?
+  telefon_benutzer: str?
+  telefon_passwort: password?
+  telefon_externe_adresse: str?
+  fritz_benutzer: str?
+  fritz_passwort: password?
   log_level: list(debug|info|warning|error)

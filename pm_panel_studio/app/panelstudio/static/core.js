@@ -9,6 +9,7 @@
   // ------------------------------------------------------------ Ereignisse
   const hoerer = {};
   PS.on = (name, fn) => (hoerer[name] = hoerer[name] || []).push(fn);
+  PS.off = (name, fn) => { const l = hoerer[name]; const i = l ? l.indexOf(fn) : -1; if (i >= 0) l.splice(i, 1); };
   PS.emit = (name, data) => (hoerer[name] || []).forEach((fn) => { try { fn(data); } catch (e) { console.error(e); } });
 
   // ------------------------------------------------------------ Verbindung
@@ -18,8 +19,10 @@
     const url = new URL("api/ws", location.href);
     url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
     ws = new WebSocket(url);
+    ws.binaryType = "arraybuffer";
     ws.onopen = () => { warteZeit = 1000; };
     ws.onmessage = (ev) => {
+      if (typeof ev.data !== "string") { PS.emit("telefon_ton", ev.data); return; }  // Binär: Telefon-Ton (8 kHz Int16)
       let m; try { m = JSON.parse(ev.data); } catch { return; }
       verarbeiten(m);
     };
@@ -40,6 +43,7 @@
         PS.z = m.zustaende || {}; PS.bereiche = m.bereiche || []; PS.reg = m.registry || {}; PS.geraete = m.geraete || PS.geraete || {};
         PS.einst = m.einstellungen || {}; PS.opt = m.optionen || {}; PS.karten = m.karten || []; PS.ha = m.ha || {};
         PS.ereignis = m.ereignis || { aktiv: false };
+        PS.telefon = m.telefon || { aktiv: false };
         PS.meldungen = m.meldungen || [];
         PS.popups = m.popups || [];
         PS.szenen = m.szenen || { stat: {}, farben: {} };
@@ -49,6 +53,7 @@
         PS.emit("init");
         PS.emit("karten", PS.karten);
         PS.emit("ereignis", PS.ereignis);
+        PS.emit("telefon", PS.telefon);
         PS.klingelPruefen(PS.ereignis, true);  // Zähler nur merken: nach Neuladen oder Reconnect kein Ton
         document.body.classList.add("bereit");
         break;
@@ -62,6 +67,7 @@
       case "modus": modusSetzen(m); break;
       case "ereignis": PS.ereignis = m; PS.emit("ereignis", m); PS.klingelPruefen(m); break;
       case "intercom": PS.emit("intercom", m); break;
+      case "telefon": PS.telefon = m; PS.emit("telefon", m); break;
       case "einstellungen":
         PS.einst = m.einstellungen || {};
         document.body.classList.toggle("ohne-animation", PS.einst.animationen === false);
@@ -96,6 +102,8 @@
     ws.send(JSON.stringify({ ...msg, id }));
     setTimeout(() => { if (offen.has(id)) { offen.delete(id); reject(new Error("Zeitüberschreitung")); } }, 30000);
   });
+  // Binärrahmen (Telefon-Ton) senden; bei vollem Sendepuffer (> 64 KB) verwerfen
+  PS.sendeBinaer = (buf) => { if (!ws || ws.readyState !== 1 || ws.bufferedAmount > 65536) return false; ws.send(buf); return true; };
   PS.dienst = (domain, service, data = {}, antwort = false) =>
     PS.anfrage({ typ: "dienst", domain, service, data, antwort }).catch((e) => { PS.toast(e.message, true); throw e; });
   let letzteMeldung = 0;
@@ -625,13 +633,10 @@
   };
   // Hinweiston über die Lautsprecher des Panels (Web Audio, ohne Datei): dreistimmiger Gong.
   // Chromium spielt Ton erst nach einer Berührung ab; im Kiosk mit --autoplay-policy=no-user-gesture-required sofort.
-  let audio = null;
-  const audioCtx = () => { try { audio = audio || new (window.AudioContext || window.webkitAudioContext)(); } catch { audio = null; } return audio; };
-  addEventListener("pointerdown", () => { const c = audioCtx(); if (c && c.state === "suspended") c.resume().catch(() => {}); }, { passive: true });
+  // Alle Töne laufen über PS.audio (static/audio.js): Pegel je Art, Kompressor und Master-Verstärkung.
   PS.ton = () => {
-    const c = audioCtx(); if (!c) return;
-    if (c.state === "suspended") c.resume().catch(() => {});
-    const laut = Math.max(0.05, Math.min(1, (PS.einst.ton_lautstaerke ?? 70) / 100)) * 0.5;
+    const c = PS.audio.kontext(), aus = PS.audio.ausgang("ton"); if (!c || !aus) return;
+    const laut = 0.5;  // Pegel und Verstärkung setzt PS.audio je Art
     const jetzt = c.currentTime + 0.05;
     [[880, 0], [1108.7, 0.18], [1318.5, 0.36]].forEach(([hz, ab]) => {
       const o = c.createOscillator(), g = c.createGain();
@@ -639,7 +644,7 @@
       g.gain.setValueAtTime(0, jetzt + ab);
       g.gain.linearRampToValueAtTime(laut, jetzt + ab + 0.02);
       g.gain.exponentialRampToValueAtTime(0.0001, jetzt + ab + 1.1);
-      o.connect(g).connect(c.destination); o.start(jetzt + ab); o.stop(jetzt + ab + 1.2);
+      o.connect(g).connect(aus); o.start(jetzt + ab); o.stop(jetzt + ab + 1.2);
     });
   };
   // Ton je Stufe: kritisch wiederholt sich (höchstens 3×, alle 20 s), bis die Meldung geöffnet, bestätigt oder geschlossen
@@ -665,15 +670,14 @@
   let klingelStand = 0, klingelLetzte = 0, klingelTimer = null, klingelPegel = null, klingelLauf = 0;
   const klingelOffen = () => document.body.classList.contains("ereignis-an") && !document.body.classList.contains("gespraech");
   const klingelSpielen = () => {
-    const c = audioCtx(); if (!c) return;
-    const lauf = klingelLauf, angefordert = Date.now();
+    const lauf = klingelLauf;
     // Erst spielen, wenn der Kontext läuft; ein suspendierter Kontext würde sonst den Anfang verschlucken. Löst resume()
     // erst bei einer späteren Berührung auf (Autoplay gesperrt), ist das Klingeln längst vorbei und bleibt stumm.
-    (c.state === "running" ? Promise.resolve() : c.resume()).then(() => {
-      if (lauf !== klingelLauf || c.state !== "running" || Date.now() - angefordert > 1500 || !klingelOffen()) return;
-      const laut = Math.max(0.05, Math.min(1, (PS.einst.klingel_lautstaerke ?? 100) / 100)) * 0.7;
+    PS.audio.bereit(1500).then((c) => {
+      if (!c || lauf !== klingelLauf || !klingelOffen()) return;
+      const laut = 0.7;  // Pegel (klingel_lautstaerke) und Verstärkung setzt PS.audio
       const pegel = c.createGain();
-      pegel.gain.value = 1; pegel.connect(c.destination); klingelPegel = pegel;
+      pegel.gain.value = 1; pegel.connect(PS.audio.ausgang("klingel")); klingelPegel = pegel;
       const jetzt = c.currentTime + 0.05;
       [[659.3, 0, 1.4], [523.3, 0.55, 1.5]].forEach(([hz, ab, aus]) => {
         // Grundton plus ein leiser Oberton (Faktor 2) und kürzerem Ausklang

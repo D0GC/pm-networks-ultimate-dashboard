@@ -41,9 +41,11 @@
       <label>Abdunklung in Ruhe <span><input id="ruhe_helligkeit" type="number" min="0" max="90"> %</span></label>
       <label>Abdunklung nachts <span><input id="nacht_helligkeit" type="number" min="0" max="95"> %</span></label>
       <label>Kamera-Overlay zeigen für <span><input id="ereignis_dauer_s" type="number" min="15" max="600"> s</span></label>
+      <label>Verstärkung aller Töne <span><input id="ton_verstaerkung" type="number" min="100" max="800" step="50"> %</span></label>
       <label>Lautstärke Hinweiston <span><input id="ton_lautstaerke" type="number" min="5" max="100"> %</span></label>
       <label>Lautstärke Klingelton <span><input id="klingel_lautstaerke" type="number" min="5" max="100"> %</span></label>
       <label>Lautstärke Gegensprechen <span><input id="intercom_lautstaerke" type="number" min="100" max="800" step="50"> %</span></label>
+      <label>Lautstärke Telefon <span><input id="telefon_lautstaerke" type="number" min="100" max="800" step="50"> %</span></label>
       <label class="haken"><input id="animationen" type="checkbox"> Animationen</label>
       <label class="haken"><input id="zugaenglich" type="checkbox"> Lesbarkeit: mehr Kontrast, größere Tippflächen, Zustände auch als Form</label>
       <label class="haken"><input id="ton_hoch" type="checkbox"> Ton bei zeitkritischen und kritischen Meldungen</label>
@@ -58,7 +60,8 @@
     <datalist id="entitaeten"></datalist>
 
     <h2>Module</h2>
-    <p>Sichtbare Module in der Leiste unten, Reihenfolge mit den Pfeilen.</p>
+    <p>Sichtbare Module in der Leiste unten, Reihenfolge mit den Pfeilen. Die ersten stehen direkt in der Leiste, alle weiteren hinter „Mehr“.</p>
+    <div class="felder"><label>Module direkt in der Leiste <span><input id="dock_anzahl" type="number" min="3" max="12"> (3 bis 12)</span></label></div>
     <ul class="sortier" id="module"></ul>
 
     <h2>Räume</h2>
@@ -89,6 +92,13 @@
     <div class="spalten">
       <label>Systemzustand: nicht prüfen (je Zeile eine Entität des Geräts)<textarea id="wartung_ignorieren" rows="4" spellcheck="false"></textarea></label>
       <label>Außenluftfeuchte (der erste verfügbare Sensor gilt)<textarea id="aussen_feuchte" rows="4" spellcheck="false"></textarea></label>
+      <label>Haus-Modi als Pillen im Flur (je Zeile eine Entität: input_boolean, switch oder binary_sensor; Pille nur solange „an“)<textarea id="status_modi" rows="5" spellcheck="false"></textarea></label>
+      <label>Telefon-Favoriten (je Zeile „Name = Nummer“, z. B. „Mama = 0921 123456“)<textarea id="telefon_favoriten" rows="5" spellcheck="false"></textarea></label>
+    </div>
+
+    <h2>Stundenplan</h2>
+    <div class="spalten">
+      <label>Kalender mit dem Stundenplan (je Zeile ein Kalender). Sie erzeugen keine „Als Nächstes“-Karten und stehen nicht in der Abendvorschau; morgens zwischen 5:30 und 9:00 Uhr zeigt eine eigene Karte die Einträge des Tages.<textarea id="stundenplan_kalender" rows="3" spellcheck="false" list="entitaeten"></textarea></label>
     </div>
 
     <h2>Karten im Karussell</h2>

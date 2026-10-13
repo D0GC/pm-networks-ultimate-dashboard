@@ -4,8 +4,8 @@
   const $ = (s) => document.querySelector(s);
   const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const MODULE = { raeume: "Räume", klima: "Klima", studio: "Klima Studio", licht: "Licht", sicherheit: "Sicherheit", medien: "Medien", musik: "Music Assistant", haushalt: "Haushaltsgeräte", listen: "Listen", energie: "Energie", shisha: "Shisha", wartung: "Wartung", suche: "Suche" };
-  const KARTEN = { meldung: "Panel-Meldungen", eil: "Eilmeldung", warnung: "Warnung", termin: "Termin", arbeit: "Fahrten", wetter: "Wetter", muell: "Müll", fertig: "Gerät fertig", offen: "Offen", lueften: "Lüften", pollen: "Pollen", eigen: "Eigener Hinweis", dusche: "Duschmodus", spa: "Spa", kohle: "Kohle", waesche: "Waschmaschine", spueler: "Spülmaschine", robo: "Roborock", musik: "Musik", heimweg: "Heimweg", pakete: "Pakete" };
-  const ZAHLEN = ["verweildauer_s", "ruhe_nach_s", "bedienung_zurueck_s", "ruhe_helligkeit", "nacht_helligkeit", "ereignis_dauer_s", "ton_lautstaerke", "klingel_lautstaerke", "intercom_lautstaerke"];
+  const KARTEN = { meldung: "Panel-Meldungen", eil: "Eilmeldung", warnung: "Warnung", termin: "Termin", stundenplan: "Stundenplan", arbeit: "Fahrten", wetter: "Wetter", muell: "Müll", fertig: "Gerät fertig", offen: "Offen", lueften: "Lüften", pollen: "Pollen", eigen: "Eigener Hinweis", dusche: "Duschmodus", spa: "Spa", kohle: "Kohle", waesche: "Waschmaschine", spueler: "Spülmaschine", robo: "Roborock", musik: "Musik", heimweg: "Heimweg", pakete: "Pakete" };
+  const ZAHLEN = ["verweildauer_s", "ruhe_nach_s", "bedienung_zurueck_s", "ruhe_helligkeit", "nacht_helligkeit", "ereignis_dauer_s", "ton_lautstaerke", "klingel_lautstaerke", "intercom_lautstaerke", "ton_verstaerkung", "telefon_lautstaerke", "dock_anzahl"];
   let daten = null, bereiche = [], ws = null, wsId = 1, moduleReihe = [];
 
   async function laden(nurStatus = false) {
@@ -38,7 +38,8 @@
     $("#szenen_angeheftet").value = (e.szenen_angeheftet || []).join("\n");
     $("#szenen_aus").value = (e.szenen_aus || []).join("\n");
     $("#material_modus").value = e.material_modus || "auto";
-    ["material_fest", "wartung_ignorieren", "aussen_feuchte"].forEach((k) => { $("#" + k).value = (e[k] || []).join("\n"); });
+    ["material_fest", "wartung_ignorieren", "aussen_feuchte", "stundenplan_kalender", "status_modi"].forEach((k) => { $("#" + k).value = (e[k] || []).join("\n"); });
+    $("#telefon_favoriten").value = (e.telefon_favoriten || []).map((f) => `${f.name} = ${f.nummer}`).join("\n");
     $("#gruss").checked = e.gruss !== false;
     moduleReihe = [...e.module, ...Object.keys(MODULE).filter((m) => !e.module.includes(m))].map((m) => ({ m, an: e.module.includes(m) }));
     modulListe();
@@ -84,7 +85,9 @@
     neu.szenen_angeheftet = $("#szenen_angeheftet").value.split(/\s+/).map((x) => x.trim()).filter(Boolean);
     neu.szenen_aus = $("#szenen_aus").value.split(/\s+/).map((x) => x.trim()).filter(Boolean);
     neu.material_modus = $("#material_modus").value;
-    ["material_fest", "wartung_ignorieren", "aussen_feuchte"].forEach((k) => { neu[k] = $("#" + k).value.split(/\s+/).map((x) => x.trim()).filter(Boolean); });
+    ["material_fest", "wartung_ignorieren", "aussen_feuchte", "stundenplan_kalender", "status_modi"].forEach((k) => { neu[k] = $("#" + k).value.split(/\s+/).map((x) => x.trim()).filter(Boolean); });
+    neu.telefon_favoriten = $("#telefon_favoriten").value.split("\n").map((z) => z.split("=")).filter((t) => t.length === 2)
+      .map(([name, nummer]) => ({ name: name.trim(), nummer: nummer.trim() })).filter((f) => f.name && f.nummer);
     neu.gruss = $("#gruss").checked;
     neu.module = moduleReihe.filter((x) => x.an).map((x) => x.m);
     neu.karten_aus = Object.keys(KARTEN).filter((k) => !gewaehlt("#karten_aus").includes(k));

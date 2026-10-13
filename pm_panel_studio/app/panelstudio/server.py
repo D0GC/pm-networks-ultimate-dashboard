@@ -130,6 +130,9 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
     await hub.init_senden(ws)
     try:
         async for msg in ws:
+            if msg.type == aiohttp.WSMsgType.BINARY:
+                hub.telefon_ton(ws, msg.data)  # Telefonton (320 Byte je 20 ms), billig und ohne eigenen Task
+                continue
             if msg.type != aiohttp.WSMsgType.TEXT:
                 continue
             try:
@@ -145,6 +148,7 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
     finally:
         hub.clients.discard(ws)
         await hub.gespraeche_beenden(ws)
+        await hub.telefon_panel_getrennt(ws)
         _LOGGER.info("Panel getrennt, jetzt %d", len(hub.clients))
     return ws
 

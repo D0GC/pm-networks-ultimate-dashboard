@@ -60,6 +60,14 @@
       const st = PS.z[e]; return st.s === "on" && ["door", "window", "opening", "garage_door"].includes(st.a.device_class);
     });
   }
+  // Bekannte Haus-Modi: Text und Symbol der Statuspille (andere Entitäten zeigen Namen und Symbol aus HA)
+  const STATUS_MODI = {
+    "input_boolean.finn_ist_da": ["Finn ist da", "account-child"],
+    "input_boolean.alles_stumm": ["Alles stumm", "volume-off"],
+    "input_boolean.gina_lernt": ["Gina lernt", "book-open-variant"],
+    "input_boolean.kohle_stumm": ["Kohle stumm", "bell-off"],
+    "input_boolean.wohnung_ist_leer": ["Wohnung leer", "home-export-outline"],
+  };
   function statusZeile() {
     const teile = [];
     const al = PS.opt.alarm_entitaet;
@@ -71,6 +79,11 @@
     if (offen.length) teile.push(`<span class="pille warn" data-modul="sicherheit">${PS.ic("door-open")}${offen.length} offen</span>`);
     const schloss = Object.keys(PS.z).filter((e) => e.startsWith("lock.") && PS.sichtbar(e) && PS.s(e) !== "locked" && !PS.nichtDa(e));
     if (schloss.length) teile.push(`<span class="pille warn" data-modul="sicherheit">${PS.ic("lock-open-variant")}${schloss.length === 1 ? PS.esc(PS.name(schloss[0])) : schloss.length + " Schlösser"} offen</span>`);
+    for (const e of PS.einst.status_modi || []) {
+      if (!PS.z[e] || PS.s(e) !== "on") continue;
+      const m = STATUS_MODI[e];
+      teile.push(`<span class="pille info" data-eid="${e}">${m ? PS.ic(m[1]) : PS.icon(e)}${PS.esc(m ? m[0] : PS.name(e))}</span>`);
+    }
     $("#status").innerHTML = teile.join("");
     $("#status").querySelectorAll("[data-eid]").forEach((el) => el.addEventListener("click", () => PS.mehrInfos(el.dataset.eid)));
     $("#status").querySelectorAll("[data-modul]").forEach((el) => el.addEventListener("click", () => PS.oeffnen(el.dataset.modul)));
@@ -300,7 +313,7 @@
     else if (m.svg) innen = `${m.svg}<small class="einheit">${PS.esc(m.einheit)}</small>`;
     else if (m.zahl != null) innen = `<b class="wert-txt tabular" data-text="${PS.esc(m.zahl)}"></b><small class="einheit">${PS.esc(m.einheit)}</small>`;
     else innen = PS.ic(m.icon);
-    return { farbe: m.farbe, glut: !!m.glut, html: `<div class="kopf"><i class="punkt"></i><span>${PS.esc(m.kopf)}</span>${m.badge ? `<em class="sport-badge${m.badge.live ? " puls" : ""}" style="--badge:${PS.esc(m.badge.farbe)}">${PS.esc(m.badge.text)}</em>` : ""}</div><div class="ring${laeuft ? " laeuft glimmt" : ""}">${PS.ringSVG(m.anteil)}<div class="innen">${innen}</div></div><h2>${PS.esc(m.h2 || "")}</h2>${m.liste ? listeHTML(m.liste, m.listeKlasse) : `<p>${PS.esc(m.p || "")}</p>`}` };
+    return { farbe: m.farbe, glut: !!m.glut, html: `<div class="kopf"><i class="punkt"></i><span>${PS.esc(m.kopf)}</span>${m.badge ? `<em class="sport-badge${m.badge.live ? " puls" : ""}" style="--badge:${PS.esc(m.badge.farbe)}">${PS.esc(m.badge.text)}</em>` : ""}</div><div class="ring${laeuft ? " laeuft glimmt" : ""}${m.ringKlasse ? " " + m.ringKlasse : ""}">${PS.ringSVG(m.anteil)}<div class="innen">${innen}</div></div><h2>${PS.esc(m.h2 || "")}</h2>${m.liste ? listeHTML(m.liste, m.listeKlasse) : `<p>${PS.esc(m.p || "")}</p>`}` };
   }
   // Zahl im Ring rollt wie ein Zählwerk auf den Wert (Konzept Stufe 1); bei jedem Zeigen aus dem Leeren
   function walzeStarten(el, neu) {
@@ -402,20 +415,22 @@
     } catch { stuendlich = []; }
     feedAufbauen();
   }
-  // Termine ab jetzt bis Ende von morgen (mind. 36 h), aus allen sichtbaren Kalendern; ganztägige tragen `ganztag`
+  // Termine ab heute 0 Uhr bis Ende von morgen (mind. 36 h), aus allen sichtbaren Kalendern; ganztägige tragen `ganztag`.
+  // Einträge der Stundenplan-Kalender (Einstellung `stundenplan_kalender`) tragen `plan` und den Kalendernamen als `kalender`.
   const tagText = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
   async function termineLaden() {
     const kals = Object.keys(PS.z).filter(PS.feedKalender);
     const jetzt = new Date(), morgenEnde = new Date(jetzt.getFullYear(), jetzt.getMonth(), jetzt.getDate() + 2);
-    const start = jetzt, ende = new Date(Math.max(morgenEnde.getTime(), Date.now() + 36 * 3600e3)), alle = [];
+    const plaene = new Set(PS.einst.stundenplan_kalender || []);
+    const start = new Date(jetzt.getFullYear(), jetzt.getMonth(), jetzt.getDate()), ende = new Date(Math.max(morgenEnde.getTime(), Date.now() + 36 * 3600e3)), alle = [];
     await Promise.all(kals.map(async (k) => {
       try {
         const r = await PS.anfrage({ typ: "rest", pfad: `calendars/${k}?start=${encodeURIComponent(start.toISOString())}&end=${encodeURIComponent(ende.toISOString())}` });
         (r || []).forEach((t) => {
           if (!t.start) return;
-          const ort = t.location || "";
-          if (t.start.dateTime) alle.push({ titel: t.summary, start: new Date(t.start.dateTime), ende: t.end && t.end.dateTime ? new Date(t.end.dateTime) : null, ort });
-          else if (t.start.date) alle.push({ titel: t.summary, ganztag: true, von: t.start.date, bis: (t.end && t.end.date) || t.start.date, start: new Date(`${t.start.date}T00:00:00`), ort });
+          const ort = t.location || "", plan = plaene.has(k) ? { plan: true, kalender: PS.a(k).friendly_name || "" } : {};
+          if (t.start.dateTime) alle.push({ titel: t.summary, start: new Date(t.start.dateTime), ende: t.end && t.end.dateTime ? new Date(t.end.dateTime) : null, ort, ...plan });
+          else if (t.start.date) alle.push({ titel: t.summary, ganztag: true, von: t.start.date, bis: (t.end && t.end.date) || t.start.date, start: new Date(`${t.start.date}T00:00:00`), ort, ...plan });
         });
       } catch { /* einzelne Kalender dürfen fehlen */ }
     }));
@@ -444,7 +459,8 @@
     return null;
   }
   // Praktische Karten: „Alles in Ordnung“, wenn sonst nichts läuft (wach und in Ruhe), und Termine
-  // (ab 3 h vor Beginn mit Countdown; ab 21 Uhr morgige Termine) immer zusätzlich zu den übrigen Karten.
+  // (ab 3 h vor Beginn mit Countdown; ab 20 Uhr morgige Termine, bis 1 Uhr die des gerade begonnenen Tages;
+  // morgens der Stundenplan) immer zusätzlich zu den übrigen Karten.
   function okKarte() {
     const offen = offeneZugaenge().length, al = PS.opt.alarm_entitaet;
     const teile = [offen ? `${offen} offen` : "Fenster und Türen zu"];
@@ -458,7 +474,7 @@
   const VORLAUF_S = 3 * 3600;
   function terminKarten() {
     const jetzt = Date.now();
-    return termine.filter((t) => !t.ganztag && t.start > jetzt && (t.start - jetzt) / 1000 <= VORLAUF_S).map((t) => {
+    return termine.filter((t) => !t.plan && !t.ganztag && t.start > jetzt && (t.start - jetzt) / 1000 <= VORLAUF_S).map((t) => {
       const rest = (t.start - jetzt) / 1000, r = restText(rest, "voll");
       return { id: `termin:${t.start.getTime()}:${t.titel}`, art: "praktisch", schluessel: "terminuhr", titel: "Als Nächstes", wert: "", hinweis: "",
         ende: t.start.toISOString(), dauer_s: VORLAUF_S, relevanz: Math.round(60 + 35 * (1 - Math.max(0, Math.min(1, rest / VORLAUF_S)))),  // 60 bei 3 h Vorlauf, 95 bei Beginn
@@ -466,19 +482,39 @@
           zahl: r.zahl, einheit: r.einheit, anteil: Math.max(0.02, rest / VORLAUF_S) } };
     });
   }
-  // Abendkarte ab 21 Uhr: Termine von morgen (nur wenn es welche gibt)
+  // Abendkarte ab 20 Uhr bis 1 Uhr: Termine von morgen (nur wenn es welche gibt). Nach Mitternacht ist „morgen“ aus Sicht
+  // des Abends schon heute: dann die Termine des gerade begonnenen Tages, Titel „Heute“. Stundenplan-Einträge fehlen hier.
   const MAX_LISTE = 5;
-  function morgenKarte() {
-    const jetzt = new Date(); if (jetzt.getHours() < 21) return null;
-    const m = new Date(jetzt.getFullYear(), jetzt.getMonth(), jetzt.getDate() + 1), mText = tagText(m);
-    const tag = termine.filter((t) => (t.ganztag ? t.von <= mText && mText < t.bis : tagText(t.start) === mText))
-      .sort((a, b) => (b.ganztag ? 1 : 0) - (a.ganztag ? 1 : 0) || a.start - b.start);
-    if (!tag.length) return null;
-    const zeilen = tag.slice(0, MAX_LISTE).map((t) => [t.ganztag ? "ganztägig" : PS.uhrzeit(t.start), t.titel || "Termin"]);
+  const zeilenListe = (tag) => {
+    const zeilen = tag.slice(0, MAX_LISTE).map((t) => [t.ganztag ? "ganztägig" : PS.uhrzeit(t.start), (t.titel || "Termin") + (t.plan && t.ort ? ` · ${t.ort}` : "")]);
     if (tag.length > MAX_LISTE) zeilen.push(["", `+${tag.length - MAX_LISTE} weitere`]);
-    return { id: "morgen", art: "praktisch", schluessel: "morgen", titel: "Morgen", wert: "", hinweis: "", relevanz: 50,
-      modell: { kopf: "Morgen", farbe: "#c99bf0", icon: "calendar", anteil: 1, zahl: String(tag.length), einheit: tag.length === 1 ? "Termin" : "Termine",
-        h2: m.toLocaleDateString("de-DE", { weekday: "long", day: "numeric", month: "long" }), liste: zeilen } };
+    return zeilen;
+  };
+  const amTag = (tText) => (t) => (t.ganztag ? t.von <= tText && tText < t.bis : tagText(t.start) === tText);
+  const ganztagZuerst = (a, b) => (b.ganztag ? 1 : 0) - (a.ganztag ? 1 : 0) || a.start - b.start;
+  function morgenKarte() {
+    const jetzt = new Date(), h = jetzt.getHours();
+    if (h >= 1 && h < 20) return null;
+    const nachMitternacht = h < 1;
+    const m = new Date(jetzt.getFullYear(), jetzt.getMonth(), jetzt.getDate() + (nachMitternacht ? 0 : 1));
+    const tag = termine.filter((t) => !t.plan).filter(amTag(tagText(m))).sort(ganztagZuerst);
+    if (!tag.length) return null;
+    const kopf = nachMitternacht ? "Heute" : "Morgen";
+    return { id: "morgen", art: "praktisch", schluessel: "morgen", titel: kopf, wert: "", hinweis: "", relevanz: 50,
+      modell: { kopf, farbe: "#c99bf0", icon: "calendar", anteil: 1, zahl: String(tag.length), einheit: tag.length === 1 ? "Termin" : "Termine",
+        h2: m.toLocaleDateString("de-DE", { weekday: "long", day: "numeric", month: "long" }), liste: zeilenListe(tag) } };
+  }
+  // Stundenplan (Gina): täglich von 5:30 bis 9:00 Uhr die heutigen Einträge der Stundenplan-Kalender, nur wenn es welche gibt
+  function stundenplanKarte() {
+    const jetzt = new Date(), min = jetzt.getHours() * 60 + jetzt.getMinutes();
+    if (min < 5 * 60 + 30 || min >= 9 * 60) return null;
+    const tag = termine.filter((t) => t.plan).filter(amTag(tagText(jetzt))).sort(ganztagZuerst);
+    if (!tag.length) return null;
+    const namen = [...new Set(tag.map((t) => t.kalender).filter(Boolean))];
+    const kopf = namen.length === 1 ? namen[0] : "Stundenplan";
+    return { id: "stundenplan", art: "praktisch", schluessel: "stundenplan", titel: kopf, wert: "", hinweis: "", relevanz: 55,
+      modell: { kopf, farbe: "#c99bf0", icon: "school-outline", anteil: 1, zahl: String(tag.length), einheit: tag.length === 1 ? "Eintrag" : "Einträge",
+        h2: jetzt.toLocaleDateString("de-DE", { weekday: "long", day: "numeric", month: "long" }), liste: zeilenListe(tag) } };
   }
   function feedAufbauen() {
     let k = (PS.karten || []).filter((x) => x.schluessel !== "wetter");
@@ -487,6 +523,7 @@
     const ww = (PS.einst.karten_aus || []).includes("wetter") || gewarnt ? null : wetterwechsel(); if (ww) k.push(ww);
     if (!k.length) k.push(okKarte());
     if (!(PS.einst.karten_aus || []).includes("termin")) { k.push(...terminKarten()); const mk = morgenKarte(); if (mk) k.push(mk); }
+    if (!(PS.einst.karten_aus || []).includes("stundenplan")) { const sk = stundenplanKarte(); if (sk) k.push(sk); }
     kartenSetzen(sortiert(k));
   }
 
@@ -555,19 +592,44 @@
   // ------------------------------------------------------------ Modulleiste und Sheet
   const stapel = [];
   let zuletztBeruehrt = Date.now();
+  // Nur Symbole; der aktive Eintrag zeigt zusätzlich seinen Namen. Die ersten `dock_anzahl` Module stehen direkt in der
+  // Leiste (plus „Start“), die übrigen hinter „Mehr“ (kleines Glas-Raster über der Leiste). Bleibt nur ein Modul übrig, steht es direkt da.
+  let mehrOffen = false;
+  const dockKnopf = (m, def, zahl, klasse = "") => {
+    const name = def.kurz || def.titel;
+    return `<button type="button" data-m="${m}" aria-label="${PS.esc(def.titel)}" title="${PS.esc(def.titel)}"${klasse ? ` class="${klasse}"` : ""}>${PS.ic(def.icon)}${zahl ? `<span class="zaehler">${zahl}</span>` : ""}<span class="dock-name">${PS.esc(name)}</span></button>`;
+  };
   function dock() {
     const mods = ["start", ...(PS.einst.module || [])].filter((m) => PS.modulDa(m) || m === "start");
-    $("#dock").innerHTML = mods.map((m) => {
-      const def = m === "start" ? { titel: "Start", icon: "home" } : PS.module[m];
-      const zahl = def.zaehler ? def.zaehler() : 0;
-      return `<button data-m="${m}">${PS.ic(def.icon)}${zahl ? `<span class="zaehler">${zahl}</span>` : ""}${PS.esc(def.kurz || def.titel)}</button>`;
-    }).join("");
-    $("#dock").querySelectorAll("button").forEach((b) => b.addEventListener("click", () => (b.dataset.m === "start" ? PS.schliessen() : PS.oeffnen(b.dataset.m))));
+    const def = (m) => (m === "start" ? { titel: "Start", icon: "home" } : PS.module[m]);
+    const zaehler = (m) => (def(m).zaehler ? def(m).zaehler() : 0);
+    const anzahl = Math.max(3, Math.min(12, +PS.einst.dock_anzahl || 6));
+    let direkt = mods.slice(0, anzahl + 1), mehr = mods.slice(anzahl + 1);  // „Start“ zählt nicht mit
+    if (mehr.length === 1) { direkt = mods; mehr = []; }
+    if (!mehr.length) mehrOffen = false;
+    const summe = mehr.reduce((n, m) => n + zaehler(m), 0);
+    $("#dock").innerHTML = direkt.map((m) => dockKnopf(m, def(m), zaehler(m))).join("")
+      + (mehr.length ? `${dockKnopf("mehr", { titel: "Mehr", icon: "dots-horizontal" }, summe).replace("<button ", `<button aria-haspopup="true" aria-expanded="${mehrOffen}" `)}`
+        + `<div class="dock-mehr" id="dock-mehr" role="menu" aria-label="Weitere Module"${mehrOffen ? "" : " hidden"}>${mehr.map((m) => dockKnopf(m, def(m), zaehler(m))).join("")}</div>` : "");
+    $("#dock").dataset.mehr = mehr.join(",");
+    $("#dock").querySelectorAll("button").forEach((b) => b.addEventListener("click", () => {
+      if (b.dataset.m === "mehr") { mehrSetzen(!mehrOffen); return; }
+      mehrSetzen(false);
+      if (b.dataset.m === "start") PS.schliessen(); else PS.oeffnen(b.dataset.m);
+    }));
     markieren();
   }
+  function mehrSetzen(an) {
+    mehrOffen = an;
+    const box = $("#dock-mehr"); if (box) box.hidden = !an;
+    const knopf = document.querySelector('#dock button[data-m="mehr"]'); if (knopf) knopf.setAttribute("aria-expanded", String(an));
+  }
+  document.addEventListener("pointerdown", (ev) => { if (mehrOffen && !ev.target.closest("#dock")) mehrSetzen(false); });
+  document.addEventListener("keydown", (ev) => { if (ev.key === "Escape" && mehrOffen) mehrSetzen(false); });
   function markieren() {
     const aktiv = stapel.length ? stapel[0].modul : "start";
-    document.querySelectorAll("#dock button").forEach((b) => b.classList.toggle("aktiv", b.dataset.m === aktiv));
+    const versteckt = ($("#dock").dataset.mehr || "").split(",");
+    document.querySelectorAll("#dock button").forEach((b) => b.classList.toggle("aktiv", b.dataset.m === aktiv || (b.dataset.m === "mehr" && versteckt.includes(aktiv))));
   }
   PS.oeffnen = (modul, arg) => {
     const def = PS.module[modul]; if (!def) return;
@@ -786,11 +848,11 @@
   });
   PS.on("meldungen", () => { statusZeile(); if (stapel.length && stapel[0].modul === "hinweise") PS.neuZeichnen(); });
   PS.on("ereignis", ereignis);
-  PS.on("einstellungen", () => { schnellzugriff(); raeumeKurz(); dock(); zeigen(false); gruss(); });
+  PS.on("einstellungen", () => { schnellzugriff(); raeumeKurz(); dock(); zeigen(false); gruss(); termineLaden(); });
   PS.on("registry", () => { raeumeKurz(); });
   let diffTimer = null;
   PS.on("diff", (ids) => {
-    const relevant = [...ids].some((e) => e.startsWith("person.") || e.startsWith("binary_sensor.") || e.startsWith("lock.") || e === PS.opt.alarm_entitaet || e === PS.opt.wetter_entitaet || e === PS.opt.aussentemperatur || e.startsWith("sensor.") || e.startsWith("light.") || e.startsWith("climate.") || e.startsWith("update."));
+    const relevant = [...ids].some((e) => e.startsWith("person.") || e.startsWith("binary_sensor.") || e.startsWith("lock.") || e === PS.opt.alarm_entitaet || (PS.einst.status_modi || []).includes(e) || e === PS.opt.wetter_entitaet || e === PS.opt.aussentemperatur || e.startsWith("sensor.") || e.startsWith("light.") || e.startsWith("climate.") || e.startsWith("update."));
     if (!relevant || diffTimer) return;
     diffTimer = setTimeout(() => { diffTimer = null; wetter(); personen(); statusZeile(); raeumeKurz(); dock(); gruss(); }, 600);
   });

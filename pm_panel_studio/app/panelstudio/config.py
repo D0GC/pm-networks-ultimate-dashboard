@@ -32,10 +32,11 @@ MODULE = (
     "energie",
     "shisha",
     "wartung",
+    "telefon",
     "suche",
 )
 # Module, die nach dem ersten Release hinzukamen: gespeicherte Einstellungen ohne „module_bekannt“ kennen sie noch nicht
-MODULE_NACHTRAG = ("shisha", "studio", "musik", "haushalt")
+MODULE_NACHTRAG = ("shisha", "studio", "musik", "haushalt", "telefon")
 
 
 def _entity(value: Any) -> str:
@@ -54,6 +55,16 @@ def _entities(values: Any) -> list[str]:
         if e and e not in out:
             out.append(e)
     return out
+
+
+TEXT_OPTIONEN = (
+    "telefon_server",
+    "telefon_benutzer",
+    "telefon_passwort",
+    "telefon_externe_adresse",
+    "fritz_benutzer",
+    "fritz_passwort",
+)
 
 
 @dataclass
@@ -81,6 +92,13 @@ class Options:
     # PM Klima Studio im Panel: interne Adresse der App und derselbe Schlüssel wie dort (panel_schluessel)
     klima_studio_url: str = "http://bdf1cc64-pm-klima-studio:8099"
     klima_studio_schluessel: str = ""
+    # Telefon: eigenes IP-Telefon an der FRITZ!Box (leerer Server = aus) und optional TR-064 für Telefonbuch/Anrufliste
+    telefon_server: str = ""
+    telefon_benutzer: str = ""
+    telefon_passwort: str = ""
+    telefon_externe_adresse: str = ""  # Adresse des Home-Assistant-Hosts im LAN; leer = automatisch
+    fritz_benutzer: str = ""
+    fritz_passwort: str = ""
     log_level: str = "info"
 
     @classmethod
@@ -106,11 +124,15 @@ class Options:
             cur = getattr(opts, f.name)
             if isinstance(cur, list):
                 setattr(opts, f.name, _entities(val))
-            elif f.name in ("log_level", "klima_praefix", "klima_studio_url", "klima_studio_schluessel"):
+            elif f.name in ("log_level", "klima_praefix", "klima_studio_url", "klima_studio_schluessel", *TEXT_OPTIONEN):
                 setattr(opts, f.name, str(val or "").strip())
             else:
                 setattr(opts, f.name, _entity(val))
         return opts
+
+    @property
+    def telefon(self) -> bool:
+        return bool(self.telefon_server and self.telefon_benutzer and self.telefon_passwort)
 
     @property
     def klima_studio(self) -> bool:
@@ -121,7 +143,10 @@ class Options:
         d = asdict(self)
         d.pop("klima_studio_schluessel", None)
         d.pop("klima_studio_url", None)
+        for k in TEXT_OPTIONEN:
+            d.pop(k, None)
         d["klima_studio"] = self.klima_studio
+        d["telefon"] = self.telefon
         return d
 
 
@@ -139,6 +164,14 @@ STANDARD_SCHNELLZUGRIFF = [
 
 # Modus-Schalter und Helfer ohne Bereich, die in Räumen erscheinen sollen (Zuordnung nur in der App, nicht in der
 # HA-Registry, damit Sprachbefehle wie „alles im Wohnzimmer aus“ sie nicht mitschalten)
+STANDARD_STATUS_MODI = [
+    "input_boolean.finn_ist_da",
+    "input_boolean.alles_stumm",
+    "input_boolean.gina_lernt",
+    "input_boolean.kohle_stumm",
+    "input_boolean.wohnung_ist_leer",
+]
+
 STANDARD_RAUM_SCHALTER: dict[str, list[str]] = {
     "wohnzimmer": ["input_boolean.gina_lernt", "input_boolean.kohle_stumm"],
     "buro": ["input_boolean.kohle_stumm", "input_boolean.finn_ist_da"],
@@ -168,6 +201,9 @@ STANDARD_FREIGABEN = {
 # Außenluftfeuchte: der erste verfügbare Sensor gilt (lokale Wetterstation, DWD als Rückfall)
 STANDARD_AUSSEN_FEUCHTE = ["sensor.wetter_outdoor_module_luftfeuchtigkeit", "sensor.zuhause_relative_luftfeuchtigkeit"]
 
+# Ginas Stundenplan (Kalender „Universität“)
+STANDARD_STUNDENPLAN = ["calendar.universitat"]
+
 
 @dataclass
 class Einstellungen:
@@ -186,6 +222,9 @@ class Einstellungen:
     bereiche_ausblenden: list[str] = field(default_factory=list)
     start_raeume: list[str] = field(default_factory=lambda: ["wohnzimmer", "badezimmer", "schlafzimmer"])
     karten_aus: list[str] = field(default_factory=list)  # Kartenschlüssel, die der Flur nicht zeigt
+    # Stundenpläne (Kalender): keine „Als Nächstes“-Karten, nicht in der Abendvorschau, dafür morgens eine Tageskarte
+    stundenplan_kalender: list[str] = field(default_factory=lambda: list(STANDARD_STUNDENPLAN))
+    dock_anzahl: int = 6  # so viele Module stehen direkt im Dock, die übrigen hinter „Mehr“
     szenen_angeheftet: list[str] = field(default_factory=list)  # stehen in der Raumansicht immer vorn
     szenen_aus: list[str] = field(default_factory=list)  # erscheinen nicht unter den Lieblingsszenen
     animationen: bool = True
@@ -195,6 +234,8 @@ class Einstellungen:
     material_modus: str = "auto"  # Verbrauchsmaterial: "auto" (erkannt) oder "manuell" (nur material_fest)
     material_fest: list[str] = field(default_factory=list)
     aussen_feuchte: list[str] = field(default_factory=lambda: list(STANDARD_AUSSEN_FEUCHTE))
+    # Haus-Modi, die als Pillen in der Statuszeile des Flurs erscheinen, solange sie „on“ sind
+    status_modi: list[str] = field(default_factory=lambda: list(STANDARD_STATUS_MODI))
     freigaben: dict[str, str] = field(default_factory=lambda: dict(STANDARD_FREIGABEN))
     gruss: bool = True  # Begrüßung unten links (Ankunft, Morgen, Nacht)
     gruss_anrede: dict[str, str] = field(default_factory=lambda: {"person.dominik": "Sir"})
@@ -204,6 +245,10 @@ class Einstellungen:
     klingel_lautstaerke: int = 100
     # Verstärkung des Tons von der Haustür beim Gegensprechen (Prozent; die Intercom liefert sehr leise)
     intercom_lautstaerke: int = 400
+    # Verstärkung aller Töne (Hinweis- und Klingelton, Prozent) und des Telefon-Tons; Kette und Kompressor: static/audio.js
+    ton_verstaerkung: int = 300
+    telefon_lautstaerke: int = 400
+    telefon_favoriten: list[dict[str, str]] = field(default_factory=list)  # [{name, nummer}] für die Telefon-Seite
 
     GRENZEN = {  # noqa: RUF012
         "verweildauer_s": (3, 60),
@@ -215,6 +260,9 @@ class Einstellungen:
         "ton_lautstaerke": (5, 100),
         "klingel_lautstaerke": (5, 100),
         "intercom_lautstaerke": (100, 800),
+        "ton_verstaerkung": (100, 800),
+        "telefon_lautstaerke": (100, 800),
+        "dock_anzahl": (3, 12),
     }
 
     @classmethod
@@ -257,6 +305,22 @@ class Einstellungen:
                 pass  # frühere Jarvis-Liste, ersetzt durch die automatische Geräteprüfung
             elif key in ("wartung_ignorieren", "material_fest", "aussen_feuchte"):
                 setattr(self, key, _entities(val)[:60])
+            elif key == "status_modi":
+                erlaubt = ("input_boolean.", "switch.", "binary_sensor.")
+                self.status_modi = [e for e in _entities(val) if e.startswith(erlaubt)][:20]
+            elif key == "stundenplan_kalender":
+                self.stundenplan_kalender = [e for e in _entities(val) if e.startswith("calendar.")][:20]
+            elif key == "telefon_favoriten":
+                vals = val if isinstance(val, list) else []
+                favoriten = []
+                for v in vals:
+                    if not isinstance(v, dict):
+                        continue
+                    name = str(v.get("name") or "").strip()[:40]
+                    nummer = re.sub(r"[\s/()-]", "", str(v.get("nummer") or ""))
+                    if name and re.match(r"^\+?[0-9*#]{2,32}$", nummer):
+                        favoriten.append({"name": name, "nummer": nummer})
+                self.telefon_favoriten = favoriten[:24]
             elif key == "material_modus":
                 if val not in ("auto", "manuell"):
                     abgewiesen.append(key)

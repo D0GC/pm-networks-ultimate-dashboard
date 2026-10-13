@@ -7,6 +7,7 @@ Die Panels erhalten über ihren WebSocket nur fertige Daten:
   modus       wach / ruhe, nacht, Verbindungsstatus
   ereignis    Klingel bzw. Person an der Tür (Kamera-Overlay)
   intercom    Signalisierung eines Gesprächs mit der Ring Intercom (nur an das Panel, das es führt)
+  telefon     Zustand des Telefons (Anmeldung, laufender Anruf) an alle Panels
   einstellungen  nach Änderung im Editor
   registry    nach Änderung von Bereichen oder Entitäten
 """
@@ -140,6 +141,11 @@ class Hub:
         self._ereignis_bis = 0.0
         # Gespräche mit der Ring Intercom: eigene Kennung -> Panel-Socket und HA-Abonnement
         self.gespraeche: dict[str, dict[str, Any]] = {}
+        # Telefon (IP-Telefon an der FRITZ!Box); das Panel, das den Anruf führt, hält den Ton
+        self.telefon: Any = None
+        self.telefon_stand: dict[str, Any] = {"aktiv": False}
+        self._telefon_panel: web.WebSocketResponse | None = None
+        self._telefon_letzter: tuple[str | None, str | None] = (None, None)
 
     # ------------------------------------------------------------ Lebenszyklus
 
@@ -151,6 +157,7 @@ class Hub:
         return task
 
     def start(self) -> None:
+        self._telefon_starten()
         self._tasks = [
             asyncio.create_task(self._verbindung_loop(), name="ha-verbindung"),
             asyncio.create_task(self._takt_loop(), name="takt"),
@@ -158,6 +165,9 @@ class Hub:
         ]
 
     async def stop(self) -> None:
+        if self.telefon is not None:
+            with contextlib.suppress(Exception):
+                await self.telefon.stop()
         for t in self._tasks:
             t.cancel()
         for t in self._tasks:
@@ -496,19 +506,33 @@ class Hub:
         while True:
             await asyncio.sleep(1)
             zaehler += 1
-            self._modus_pruefen()
-            if self.ereignis and self.gespraeche:
-                # Während eines Gesprächs bleibt das Overlay offen
-                self._ereignis_bis = max(self._ereignis_bis, time.monotonic() + 30)
-            if self.ereignis and time.monotonic() > self._ereignis_bis:
-                self.ereignis_beenden()
-            if self.popups.aufraeumen():
-                self._popups_senden()
-            if self.verbunden and time.monotonic() - getattr(self, "_szenen_stand", time.monotonic()) > 1800:
-                self._szenen_stand = time.monotonic()
-                self.spawn(self._szenen_laden())
-            if zaehler % 15 == 0 and self.verbunden:
-                self._karten_neu()  # Restzeiten ohne Zustandsänderung (Timer) nachführen
+            # Ein Fehler in einem Takt darf die Schleife nie beenden: sonst gäbe es keinen Wechsel mehr in den Ruhezustand
+            try:
+                self._takt(zaehler)
+            except Exception:
+                _LOGGER.exception("Fehler im Takt")
+            # Die Ruhe-Prüfung läuft unabhängig vom Rest, auch wenn ein Schritt davor scheiterte
+            try:
+                self._modus_pruefen()
+            except Exception:
+                _LOGGER.exception("Ruhe-Prüfung fehlgeschlagen")
+
+    def _takt(self, zaehler: int) -> None:
+        if (self.telefon_stand.get("anruf") or {}).get("zustand") in ("klingelt", "waehlt", "verbunden"):
+            self.letzte_bewegung = time.monotonic()  # während eines Anrufs bleibt das Panel wach
+        self._modus_pruefen()
+        if self.ereignis and self.gespraeche:
+            # Während eines Gesprächs bleibt das Overlay offen
+            self._ereignis_bis = max(self._ereignis_bis, time.monotonic() + 30)
+        if self.ereignis and time.monotonic() > self._ereignis_bis:
+            self.ereignis_beenden()
+        if self.popups.aufraeumen():
+            self._popups_senden()
+        if self.verbunden and time.monotonic() - getattr(self, "_szenen_stand", time.monotonic()) > 1800:
+            self._szenen_stand = time.monotonic()
+            self.spawn(self._szenen_laden())
+        if zaehler % 15 == 0 and self.verbunden:
+            self._karten_neu()  # Restzeiten ohne Zustandsänderung (Timer) nachführen
 
     # ------------------------------------------------------------ Panels
 
@@ -528,6 +552,7 @@ class Hub:
             "popups": self.popups.liste(),
             "szenen": {"stat": self.szenen_stat, "farben": self.szenen_farben},
             "ereignis": self.ereignis or {"aktiv": False},
+            "telefon": self.telefon_stand,
             "ha": {
                 "standort": self.ha_config.get("location_name"),
                 "zeitzone": self.ha_config.get("time_zone"),
@@ -650,9 +675,7 @@ class Hub:
                 self.spawn(self.gespraech_beenden(kennung, melden=False))
 
         try:
-            eintrag["sub"] = await self.client.subscribe(
-                {"type": f"{INTERCOM_DOMAIN}/audio/start", "offer": angebot}, rueckruf
-            )
+            eintrag["sub"] = await self.client.subscribe({"type": f"{INTERCOM_DOMAIN}/audio/start", "offer": angebot}, rueckruf)
         except HAError:
             self.gespraeche.pop(kennung, None)
             raise
@@ -693,6 +716,108 @@ class Hub:
             if ws is None or eintrag["ws"] is ws:
                 await self.gespraech_beenden(kennung, melden=ws is None, grund=grund)
 
+    # ------------------------------------------------------------ Telefon (IP-Telefon an der FRITZ!Box)
+
+    def _telefon_starten(self) -> None:
+        if not self.opts.telefon:
+            return
+        try:
+            # Erst hier laden: ohne Telefon wird das Paket nicht gebraucht
+            from .telefon import Telefon, TelefonConfig
+        except ImportError as err:
+            _LOGGER.error("Telefon nicht verfügbar: %s", err)
+            self.telefon_stand = {"aktiv": False, "fehler": "Telefon-Bibliotheken fehlen"}
+            return
+        cfg = TelefonConfig(
+            server=self.opts.telefon_server,
+            benutzer=self.opts.telefon_benutzer,
+            passwort=self.opts.telefon_passwort,
+            externe_adresse=self.opts.telefon_externe_adresse,
+            fritz_benutzer=self.opts.fritz_benutzer,
+            fritz_passwort=self.opts.fritz_passwort,
+        )
+        self.telefon = Telefon(cfg, self._telefon_melden, session=self.client.session)
+        self.telefon_stand = self.telefon.status()
+        self.spawn(self.telefon.start())
+
+    def _telefon_melden(self, stand: dict[str, Any]) -> None:
+        self.telefon_stand = stand
+        anruf = stand.get("anruf") or {}
+        if anruf.get("zustand") in ("klingelt", "waehlt", "verbunden"):
+            # Ein Anruf weckt das Panel und hält es wach, solange er läuft
+            self.letzte_bewegung = time.monotonic()
+            self._modus_pruefen()
+        if not anruf or anruf.get("zustand") == "beendet":
+            self._telefon_panel = None
+        self.spawn(self.senden_alle({"typ": "telefon", **stand}))
+        # Home Assistant erfährt jeden Wechsel (Automationen: Musik leiser, Ansage …)
+        schluessel = (anruf.get("id"), anruf.get("zustand"))
+        if anruf and schluessel != self._telefon_letzter and self.verbunden:
+            self._telefon_letzter = schluessel
+            daten = {k: anruf.get(k) for k in ("richtung", "nummer", "name", "zustand", "grund")}
+            if anruf.get("zustand") == "beendet" and anruf.get("verbunden_seit"):
+                with contextlib.suppress(ValueError, TypeError):
+                    seit = datetime.fromisoformat(str(anruf["verbunden_seit"]))
+                    daten["dauer_s"] = int((datetime.now(UTC) - seit).total_seconds())
+            self.spawn(self._telefon_ereignis(daten))
+
+    async def _telefon_ereignis(self, daten: dict[str, Any]) -> None:
+        try:
+            await self.client.rest("POST", "events/pm_panel_studio_anruf", json=daten)
+        except HAError as err:
+            _LOGGER.debug("Anruf-Ereignis nicht gesendet: %s", err)
+
+    async def telefon_anfrage(self, typ: str, msg: dict[str, Any], ws: web.WebSocketResponse | None) -> Any:
+        tel = self.telefon
+        if typ in ("telefon_kontakte", "telefon_verlauf"):
+            if tel is None:
+                return []
+            return await (tel.kontakte() if typ == "telefon_kontakte" else tel.verlauf())
+        if tel is None:
+            raise ValueError("Telefon ist nicht eingerichtet")
+        anruf = str(msg.get("anruf") or "")
+        if typ in ("telefon_waehlen", "telefon_annehmen"):
+            if ws is None:
+                raise ValueError("Anrufe nur über eine Panel-Verbindung")
+
+            async def panel_senden(daten: bytes) -> None:
+                with contextlib.suppress(Exception):
+                    await ws.send_bytes(daten)
+
+            vorher = self._telefon_panel
+            self._telefon_panel = ws  # Besitzer des Tons, ab jetzt gelten dessen Binärrahmen
+            try:
+                if typ == "telefon_waehlen":
+                    return await tel.waehlen(str(msg.get("nummer") or ""), panel_senden)
+                return await tel.annehmen(anruf, panel_senden)
+            except BaseException:
+                self._telefon_panel = vorher
+                raise
+        if typ == "telefon_ablehnen":
+            return await tel.ablehnen(anruf)
+        if typ == "telefon_auflegen":
+            return await tel.auflegen(anruf)
+        if typ == "telefon_dtmf":
+            return await tel.dtmf(anruf, str(msg.get("ziffern") or ""))
+        if typ == "telefon_stumm":
+            return await tel.stumm(anruf, bool(msg.get("an")))
+        raise ValueError(f"Unbekannte Anfrage {typ}")
+
+    def telefon_ton(self, ws: web.WebSocketResponse, daten: bytes) -> None:
+        """Binärer Tonrahmen eines Panels; nur der Besitzer des Anrufs wird weitergereicht."""
+        if self.telefon is not None and ws is self._telefon_panel:
+            self.telefon.ton(daten)
+
+    async def telefon_panel_getrennt(self, ws: web.WebSocketResponse) -> None:
+        """Trennt sich das Panel, das den Ton eines Anrufs hält, endet der Anruf (sonst bliebe die Leitung stumm)."""
+        if self.telefon is None or ws is not self._telefon_panel:
+            return
+        self._telefon_panel = None
+        anruf = (self.telefon_stand.get("anruf") or {}).get("id")
+        if anruf:
+            with contextlib.suppress(Exception):
+                await self.telefon.auflegen(anruf)
+
     async def _an_panel(self, ws: web.WebSocketResponse, msg: dict[str, Any]) -> None:
         with contextlib.suppress(Exception):
             await ws.send_str(json.dumps(msg, ensure_ascii=False, default=str))
@@ -706,6 +831,8 @@ class Hub:
             return await self.gespraech_kandidat(str(msg.get("gespraech", "")), msg.get("kandidat"), msg.get("index"))
         if typ == "intercom_ende":
             return await self.gespraech_beenden(str(msg.get("gespraech", "")), melden=False)
+        if isinstance(typ, str) and typ.startswith("telefon_"):
+            return await self.telefon_anfrage(typ, msg, ws)
         if typ == "dienst":
             domain, service = str(msg.get("domain", "")), str(msg.get("service", ""))
             if not dienst_erlaubt(domain, service):

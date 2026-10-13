@@ -1,5 +1,33 @@
 # Änderungen
 
+## 2026.10.25 – 2026-10-14
+
+- Ruhezustand wieder erreichbar: Blieb die Entfernung einer Heimfahrt länger als zehn Minuten gleich, warf die
+  Heimweg-Karte einen Fehler, der den Takt der App beendete. Danach wechselte das Panel nie mehr in Ruhe oder
+  Nachtabdunklung. Die Karte ist korrigiert; Fehler im Takt werden protokolliert und beenden ihn nicht mehr, die
+  Ruhe-Prüfung läuft unabhängig weiter.
+- Telefon: Das Panel arbeitet als eigenes IP-Telefon an der FRITZ!Box (neue App-Optionen `telefon_server`,
+  `telefon_benutzer`, `telefon_passwort`, optional `telefon_externe_adresse`, `fritz_benutzer`, `fritz_passwort`;
+  UDP-Ports 5062 und 40000–40003). Neues Modul „Telefon“ mit Favoriten (Editor), Kontakten aus dem FRITZ!Box-
+  Telefonbuch, Tastatur und Anrufliste. Eingehende Anrufe zeigen eine Anrufkarte mit Klingelton (Ablehnen,
+  Minimieren, Annehmen); im Gespräch Dauer, Stumm, Tastentöne, Minimieren und Auflegen. Minimiert liegt der Anruf als
+  grüne Zeile in der Live-Kapsel, auch auf der Startseite. Die Haustür hat Vorrang; *Sprechen* schaltet das Telefon
+  stumm. Der Gesprächston läuft über die bestehende Panel-Verbindung. Home Assistant erhält bei jedem Wechsel das
+  Ereignis `pm_panel_studio_anruf`. Einrichtung: DOCS, Abschnitt „Telefon“.
+- Verstärker für alle Töne: Hinweis-, Alarm- und Klingelton laufen über eine gemeinsame Kette mit Kompressor. Neue
+  Einstellungen „Verstärkung aller Töne“ (`ton_verstaerkung`, 100–800 %, Standard 300) und „Lautstärke Telefon“
+  (`telefon_lautstaerke`, Standard 400). Das Gegensprechen nutzt dieselbe Kette mit eigenem Regler.
+- Stundenplan: Einträge aus den Kalendern in `stundenplan_kalender` (Standard `calendar.universitat`) erzeugen keine
+  „Als Nächstes“-Karten und stehen nicht im Vorausblick. Stattdessen zeigt von 5:30 bis 9:00 Uhr eine eigene Feed-Karte
+  die Einträge des Tages (im Editor abwählbar).
+- Vorausblick „Morgen“ von 20:00 bis 01:00 Uhr (bisher 21–24 Uhr); nach Mitternacht als „Heute“.
+- Schlankere Menüleiste: nur Symbole, beschriftet ist der geöffnete Eintrag. Direkt sichtbar sind „Start“ und die
+  ersten `dock_anzahl` Module (Standard 6, Editor 3–12), die übrigen hinter „Mehr“.
+- Status-Pillen für Haus-Modi: Solange „Finn ist da“, „Alles stumm“, „Gina lernt“, „Kohle stumm“ oder „Wohnung leer“
+  an sind, erscheinen sie als Pille in der Statuszeile; ein Tipp öffnet die Details. Liste im Editor (`status_modi`).
+- Rams-Karte: Der Spielstand passt in den Ring (Teamlogos darüber), Hinweise wie Verlängerung stehen darunter. Ring
+  bei Sieg grün, bei Niederlage rot, live in Rams-Gold mit dem Spielfortschritt (führend hell, zurück gedämpft).
+
 ## 2026.10.24 – 2026-10-13
 
 - Gegensprechen lauter: Der Ton von der Haustür läuft jetzt über einen Verstärker mit Kompressor, der Spitzen

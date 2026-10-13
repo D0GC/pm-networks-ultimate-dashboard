@@ -19,12 +19,18 @@
     img.replaceWith(Object.assign(document.createElement("span"), { className: "sport-abk", textContent: a || img.alt.slice(0, 3).toUpperCase() }));
   }, true);
 
+  // Ringfarbe: Ergebnis (Sieg grün, Niederlage rot, Remis neutral) bzw. live in Rams-Gold (führend hell, zurück gedimmt)
+  const RING_FARBE = { sieg: "var(--gut)", niederlage: "var(--krit)", remis: "var(--lavender)", fuehrt: "#ffd100", gleich: "#e6b800", hinten: "#a8861a", vorschau: "#ffd100" };
   PS.sportModell = (k, m) => {
     const sp = k.spiel || {}, t = sp.team || {}, g = sp.gegner || {};
-    const mitte = k.zustand === "PRE" ? (sp.auswaerts ? "@" : "vs") : `${t.punkte} : ${g.punkte}`;
-    return { ...m, kopf: "Rams", farbe: t.farbe2 || "#ffd100", anteil: 1,
-      innen: `<div class="sport-paar">${marke(t)}${marke(g)}</div><b class="sport-stand tabular">${PS.esc(mitte)}</b>`,
-      h2: k.titel, p: k.hinweis, badge: { text: k.badge, farbe: k.badge_farbe, live: k.zustand === "IN" } };
+    const art = k.ring_art || "vorschau", live = k.zustand === "IN";
+    // Vorschau: beide Logos mit „vs“/„@“; Live und Ergebnis: beide Logos über dem Stand (Rams zuerst, tabellarische Ziffern)
+    const innen = k.zustand === "PRE"
+      ? `<div class="sport-paar">${marke(t)}${marke(g)}</div><b class="sport-stand tabular">${PS.esc(sp.auswaerts ? "@" : "vs")}</b>`
+      : `<div class="sport-ergebnis"><div class="sport-paar klein">${marke(t, "klein")}${marke(g, "klein")}</div><span class="sport-zahlen tabular"><b class="${art === "niederlage" ? "leise" : ""}">${PS.esc(t.punkte)}</b><i>:</i><b class="${art === "sieg" ? "leise" : ""}">${PS.esc(g.punkte)}</b></span></div>`;
+    return { ...m, kopf: "Rams", farbe: RING_FARBE[art] || "#ffd100", anteil: k.ring != null ? k.ring : 1,
+      ringKlasse: `sport-ring ${live ? "sport-live" : "sport-" + art}`, innen,
+      h2: k.titel, p: k.hinweis, badge: { text: k.badge, farbe: k.badge_farbe, live } };
   };
 
   const zeile = (name, wert) => (wert ? `<div class="sport-zeile"><span>${PS.esc(name)}</span><b>${PS.esc(wert)}</b></div>` : "");
