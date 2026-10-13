@@ -59,6 +59,7 @@ button{font:inherit;color:inherit}
 .pille{display:inline-flex;align-items:center;gap:.5rem;font-size:1.1rem;font-weight:600;padding:.5rem 1rem;border-radius:99px;background:var(--flaeche-tief);border:1px solid var(--linie);color:var(--lavender);cursor:pointer}
 .pille .mdi{font-size:1.4rem}
 .pille.gut{color:var(--gut);background:rgba(95,211,160,.12);border-color:transparent}
+.pille.info{color:var(--info);background:rgba(143,180,255,.12);border-color:transparent}
 .pille.warn{color:var(--warn);background:rgba(240,180,76,.13);border-color:transparent}
 .pille.krit{color:var(--krit);background:rgba(239,106,122,.15);border-color:transparent;animation:puls 1.6s ease-in-out infinite}
 @keyframes puls{50%{opacity:.55}}
@@ -589,7 +590,7 @@ body.zugaenglich .kachel.alarm{border:3px solid var(--krit);border-style:double}
 body.zugaenglich .kachel.alarm::before{content:"!";position:absolute;top:.8rem;right:.9rem;width:1.5rem;height:1.5rem;border-radius:50%;display:grid;place-items:center;
   background:var(--krit);color:#fff;font-weight:700;font-size:.95rem}
 body.zugaenglich .kachel.weg{border-style:dashed}
-body.zugaenglich .pille.gut,body.zugaenglich .pille.warn,body.zugaenglich .pille.krit,body.zugaenglich .chip.warn,body.zugaenglich .chip.an{border:2px solid currentColor}
+body.zugaenglich .pille.gut,body.zugaenglich .pille.info,body.zugaenglich .pille.warn,body.zugaenglich .pille.krit,body.zugaenglich .chip.warn,body.zugaenglich .chip.an{border:2px solid currentColor}
 body.zugaenglich .pille.krit,body.zugaenglich .chip.warn{border-style:dashed}
 body.zugaenglich .chip.an{border-color:var(--cloud)}
 body.zugaenglich .tabs button.aktiv,body.zugaenglich .knopf.aktiv{box-shadow:inset 0 0 0 2px #fff}

@@ -60,6 +60,14 @@
       const st = PS.z[e]; return st.s === "on" && ["door", "window", "opening", "garage_door"].includes(st.a.device_class);
     });
   }
+  // Bekannte Haus-Modi: Text und Symbol der Statuspille (andere Entitäten zeigen Namen und Symbol aus HA)
+  const STATUS_MODI = {
+    "input_boolean.finn_ist_da": ["Finn ist da", "account-child"],
+    "input_boolean.alles_stumm": ["Alles stumm", "volume-off"],
+    "input_boolean.gina_lernt": ["Gina lernt", "book-open-variant"],
+    "input_boolean.kohle_stumm": ["Kohle stumm", "bell-off"],
+    "input_boolean.wohnung_ist_leer": ["Wohnung leer", "home-export-outline"],
+  };
   function statusZeile() {
     const teile = [];
     const al = PS.opt.alarm_entitaet;
@@ -71,6 +79,11 @@
     if (offen.length) teile.push(`<span class="pille warn" data-modul="sicherheit">${PS.ic("door-open")}${offen.length} offen</span>`);
     const schloss = Object.keys(PS.z).filter((e) => e.startsWith("lock.") && PS.sichtbar(e) && PS.s(e) !== "locked" && !PS.nichtDa(e));
     if (schloss.length) teile.push(`<span class="pille warn" data-modul="sicherheit">${PS.ic("lock-open-variant")}${schloss.length === 1 ? PS.esc(PS.name(schloss[0])) : schloss.length + " Schlösser"} offen</span>`);
+    for (const e of PS.einst.status_modi || []) {
+      if (!PS.z[e] || PS.s(e) !== "on") continue;
+      const m = STATUS_MODI[e];
+      teile.push(`<span class="pille info" data-eid="${e}">${m ? PS.ic(m[1]) : PS.icon(e)}${PS.esc(m ? m[0] : PS.name(e))}</span>`);
+    }
     $("#status").innerHTML = teile.join("");
     $("#status").querySelectorAll("[data-eid]").forEach((el) => el.addEventListener("click", () => PS.mehrInfos(el.dataset.eid)));
     $("#status").querySelectorAll("[data-modul]").forEach((el) => el.addEventListener("click", () => PS.oeffnen(el.dataset.modul)));
@@ -839,7 +852,7 @@
   PS.on("registry", () => { raeumeKurz(); });
   let diffTimer = null;
   PS.on("diff", (ids) => {
-    const relevant = [...ids].some((e) => e.startsWith("person.") || e.startsWith("binary_sensor.") || e.startsWith("lock.") || e === PS.opt.alarm_entitaet || e === PS.opt.wetter_entitaet || e === PS.opt.aussentemperatur || e.startsWith("sensor.") || e.startsWith("light.") || e.startsWith("climate.") || e.startsWith("update."));
+    const relevant = [...ids].some((e) => e.startsWith("person.") || e.startsWith("binary_sensor.") || e.startsWith("lock.") || e === PS.opt.alarm_entitaet || (PS.einst.status_modi || []).includes(e) || e === PS.opt.wetter_entitaet || e === PS.opt.aussentemperatur || e.startsWith("sensor.") || e.startsWith("light.") || e.startsWith("climate.") || e.startsWith("update."));
     if (!relevant || diffTimer) return;
     diffTimer = setTimeout(() => { diffTimer = null; wetter(); personen(); statusZeile(); raeumeKurz(); dock(); gruss(); }, 600);
   });

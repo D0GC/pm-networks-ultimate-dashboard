@@ -38,7 +38,7 @@
     $("#szenen_angeheftet").value = (e.szenen_angeheftet || []).join("\n");
     $("#szenen_aus").value = (e.szenen_aus || []).join("\n");
     $("#material_modus").value = e.material_modus || "auto";
-    ["material_fest", "wartung_ignorieren", "aussen_feuchte", "stundenplan_kalender"].forEach((k) => { $("#" + k).value = (e[k] || []).join("\n"); });
+    ["material_fest", "wartung_ignorieren", "aussen_feuchte", "stundenplan_kalender", "status_modi"].forEach((k) => { $("#" + k).value = (e[k] || []).join("\n"); });
     $("#gruss").checked = e.gruss !== false;
     moduleReihe = [...e.module, ...Object.keys(MODULE).filter((m) => !e.module.includes(m))].map((m) => ({ m, an: e.module.includes(m) }));
     modulListe();
@@ -84,7 +84,7 @@
     neu.szenen_angeheftet = $("#szenen_angeheftet").value.split(/\s+/).map((x) => x.trim()).filter(Boolean);
     neu.szenen_aus = $("#szenen_aus").value.split(/\s+/).map((x) => x.trim()).filter(Boolean);
     neu.material_modus = $("#material_modus").value;
-    ["material_fest", "wartung_ignorieren", "aussen_feuchte", "stundenplan_kalender"].forEach((k) => { neu[k] = $("#" + k).value.split(/\s+/).map((x) => x.trim()).filter(Boolean); });
+    ["material_fest", "wartung_ignorieren", "aussen_feuchte", "stundenplan_kalender", "status_modi"].forEach((k) => { neu[k] = $("#" + k).value.split(/\s+/).map((x) => x.trim()).filter(Boolean); });
     neu.gruss = $("#gruss").checked;
     neu.module = moduleReihe.filter((x) => x.an).map((x) => x.m);
     neu.karten_aus = Object.keys(KARTEN).filter((k) => !gewaehlt("#karten_aus").includes(k));

@@ -139,6 +139,14 @@ STANDARD_SCHNELLZUGRIFF = [
 
 # Modus-Schalter und Helfer ohne Bereich, die in Räumen erscheinen sollen (Zuordnung nur in der App, nicht in der
 # HA-Registry, damit Sprachbefehle wie „alles im Wohnzimmer aus“ sie nicht mitschalten)
+STANDARD_STATUS_MODI = [
+    "input_boolean.finn_ist_da",
+    "input_boolean.alles_stumm",
+    "input_boolean.gina_lernt",
+    "input_boolean.kohle_stumm",
+    "input_boolean.wohnung_ist_leer",
+]
+
 STANDARD_RAUM_SCHALTER: dict[str, list[str]] = {
     "wohnzimmer": ["input_boolean.gina_lernt", "input_boolean.kohle_stumm"],
     "buro": ["input_boolean.kohle_stumm", "input_boolean.finn_ist_da"],
@@ -201,6 +209,8 @@ class Einstellungen:
     material_modus: str = "auto"  # Verbrauchsmaterial: "auto" (erkannt) oder "manuell" (nur material_fest)
     material_fest: list[str] = field(default_factory=list)
     aussen_feuchte: list[str] = field(default_factory=lambda: list(STANDARD_AUSSEN_FEUCHTE))
+    # Haus-Modi, die als Pillen in der Statuszeile des Flurs erscheinen, solange sie „on“ sind
+    status_modi: list[str] = field(default_factory=lambda: list(STANDARD_STATUS_MODI))
     freigaben: dict[str, str] = field(default_factory=lambda: dict(STANDARD_FREIGABEN))
     gruss: bool = True  # Begrüßung unten links (Ankunft, Morgen, Nacht)
     gruss_anrede: dict[str, str] = field(default_factory=lambda: {"person.dominik": "Sir"})
@@ -269,6 +279,9 @@ class Einstellungen:
                 pass  # frühere Jarvis-Liste, ersetzt durch die automatische Geräteprüfung
             elif key in ("wartung_ignorieren", "material_fest", "aussen_feuchte"):
                 setattr(self, key, _entities(val)[:60])
+            elif key == "status_modi":
+                erlaubt = ("input_boolean.", "switch.", "binary_sensor.")
+                self.status_modi = [e for e in _entities(val) if e.startswith(erlaubt)][:20]
             elif key == "stundenplan_kalender":
                 self.stundenplan_kalender = [e for e in _entities(val) if e.startswith("calendar.")][:20]
             elif key == "material_modus":

@@ -8,3 +8,4 @@ screenshots/
 brand/
 *.log
 .DS_Store
+/*.png

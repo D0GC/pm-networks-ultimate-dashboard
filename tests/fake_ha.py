@@ -283,7 +283,7 @@ def default_states(jetzt: datetime) -> list[dict[str, Any]]:
             source="Spotify",
         ),
         s("vacuum.roborock_s8", "cleaning", "flur", friendly_name="Roborock S8", fan_speed="max", supported_features=30524),
-        s("input_boolean.alles_stumm", "off", None, friendly_name="Alles stumm"),
+        s("input_boolean.alles_stumm", "on", None, friendly_name="Alles stumm"),
         s("script.morgen_briefing", "off", None, friendly_name="Morgen-Briefing"),
         s("todo.einkaufsliste", "2", None, friendly_name="Einkaufsliste"),
         s("calendar.privat", "off", None, friendly_name="Privat"),
@@ -505,6 +505,9 @@ def default_states(jetzt: datetime) -> list[dict[str, Any]]:
         ),
         s("counter.kohle", "1176", "balkon", friendly_name="Kohle", step=3, initial=0),
         s("input_boolean.kohle_stumm", "off", None, friendly_name="Kohle Stumm", icon="mdi:volume-off"),
+        s("input_boolean.finn_ist_da", "on", None, friendly_name="Finn ist da"),
+        s("input_boolean.gina_lernt", "on", None, friendly_name="Gina lernt"),
+        s("input_boolean.wohnung_ist_leer", "off", None, friendly_name="Wohnung ist leer"),
         # Luftqualität Wohnzimmer (PM Klima, Wetterstation, Luftreiniger)
         s(
             "sensor.pm_wohnzimmer_luftqualitaet",
