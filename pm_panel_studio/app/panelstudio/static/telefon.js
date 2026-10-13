@@ -71,55 +71,58 @@
   let lokal = null;          // {id, a, minimiert, dtmf, stumm, annehmen, laeuft, abbruch, verbundenAb, dauer, beendet}
   let endeTimer = null, tickTimer = null, sig = "";
   let intercomStumm = false;
-  let pc = null, mic = null, tonHandle = null, klingelt = false;
 
   const aktuell = () => (lokal && lokal.a) || null;
   const stummAnzeige = () => !!(lokal && lokal.stumm) || intercomStumm;
 
-  // ------------------------------------------------------------ WebRTC
-  function tonStoppen() { if (tonHandle) { try { tonHandle.stoppen(); } catch { /* bereits gestoppt */ } tonHandle = null; } }
-  function tonStarten(strom) {
-    tonStoppen();
-    if (PS.audio && PS.audio.strom) { tonHandle = PS.audio.strom(strom, "telefon"); return; }
-    const el = document.getElementById("telefon-ton"); if (!el) return;
-    el.srcObject = strom; el.muted = false; el.volume = 1; el.play().catch(() => {});
-    tonHandle = { stoppen() { el.srcObject = null; } };
-  }
+  // ------------------------------------------------------------ Ton über den Panel-WebSocket
+  // Mikrofon → AudioWorklet (8 kHz, Int16, 160 Samples je 20 ms) → binäre WS-Nachrichten; Gegenrichtung genauso.
+  // Kein WebRTC: Die App läuft im Docker-Netz, ICE-Kandidaten wären für das Panel unerreichbar.
+  let ton = null;  // {strom, quelle, mikN, wgN, stumm0, hoerer}
   function medienAufraeumen() {
-    tonStoppen();
-    if (pc) { try { pc.close(); } catch { /* bereits zu */ } pc = null; }
-    if (mic) { mic.getTracks().forEach((t) => t.stop()); mic = null; }
+    const t = ton; ton = null;
+    if (!t) return;
+    t.aus = true;
+    try { t.mikN.port.onmessage = null; t.mikN.disconnect(); } catch { /* getrennt */ }
+    try { t.wgN.disconnect(); } catch { /* getrennt */ }
+    try { t.quelle.disconnect(); } catch { /* getrennt */ }
+    try { t.null.disconnect(); } catch { /* getrennt */ }
+    t.strom.getTracks().forEach((x) => x.stop());
+    PS.off("telefon_ton", t.hoerer);
   }
-  function micSetzen() { if (mic) mic.getAudioTracks().forEach((t) => { t.enabled = !stummAnzeige(); }); }
-  function eisWarten(verbindung, ms) {
-    if (verbindung.iceGatheringState === "complete") return Promise.resolve();
-    return new Promise((ok) => {
-      const fertig = () => { verbindung.removeEventListener("icegatheringstatechange", pruefen); clearTimeout(t); ok(); };
-      const pruefen = () => { if (verbindung.iceGatheringState === "complete") fertig(); };
-      const t = setTimeout(fertig, ms);
-      verbindung.addEventListener("icegatheringstatechange", pruefen);
-    });
-  }
-  // Mikrofon und Verbindung anlegen, Angebot (SDP) nach dem ICE-Sammeln liefern
-  async function angebotBauen() {
+  function micSetzen() { if (ton) { ton.strom.getAudioTracks().forEach((t) => { t.enabled = !stummAnzeige(); }); ton.mikN.port.postMessage({ stumm: stummAnzeige() }); } }
+  // Mikrofon öffnen, Worklets starten. Wirft bei gesperrtem Mikrofon.
+  async function tonStarten() {
+    if (ton) return;
     if (!sicher()) { PS.toast("Mikrofon gesperrt: Panel-Adresse in Chromium als sicher freigeben (siehe Dokumentation)", true); throw new Error("mikrofon"); }
+    const ctx = PS.audio && PS.audio.kontext && PS.audio.kontext();
+    if (!ctx || !ctx.audioWorklet) { PS.toast("Telefon: Web Audio nicht verfügbar", true); throw new Error("mikrofon"); }
+    let strom;
     try {
-      mic = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }, video: false });
+      strom = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }, video: false });
     } catch (e) { PS.toast("Mikrofon gesperrt: " + (e && e.message ? e.message : e), true); throw e; }
-    const neu = new RTCPeerConnection({ iceServers: [] });
-    pc = neu;
-    mic.getTracks().forEach((t) => neu.addTransceiver(t, { direction: "sendrecv", streams: [mic] }));
-    neu.ontrack = (ev) => tonStarten(ev.streams[0] || new MediaStream([ev.track]));
-    neu.onconnectionstatechange = () => {
-      if (pc !== neu) return;
-      if (neu.connectionState === "failed") { PS.toast("Telefon: Audioverbindung fehlgeschlagen", true); auflegen(); }
-    };
-    await neu.setLocalDescription(await neu.createOffer());
-    await eisWarten(neu, 3000);
-    micSetzen();
-    return neu.localDescription.sdp;
+    try {
+      if (ctx.state === "suspended") await ctx.resume().catch(() => {});
+      await ctx.audioWorklet.addModule("static/telefon-ton.js");
+      const quelle = ctx.createMediaStreamSource(strom);
+      const mikN = new AudioWorkletNode(ctx, "tel-mikrofon", { numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [1] });
+      const wgN = new AudioWorkletNode(ctx, "tel-wiedergabe", { numberOfInputs: 0, numberOfOutputs: 1, outputChannelCount: [1] });
+      const nullPegel = ctx.createGain(); nullPegel.gain.value = 0;  // hält das Mikrofon-Worklet am Laufen, ohne Mithören
+      quelle.connect(mikN).connect(nullPegel).connect(ctx.destination);
+      const aus = PS.audio.ausgang("telefon") || ctx.destination;
+      wgN.connect(aus);
+      const t = { strom, quelle, mikN, wgN, null: nullPegel, aus: false, gesendet: 0, empfangen: 0 };
+      t.hoerer = (buf) => { if (!t.aus && buf && buf.byteLength === 320) { t.empfangen++; wgN.port.postMessage(buf, [buf]); } };
+      mikN.port.onmessage = (e) => { if (!t.aus && !stummAnzeige() && PS.sendeBinaer(e.data)) t.gesendet++; };
+      PS.on("telefon_ton", t.hoerer);
+      ton = t; micSetzen();
+      PS.telefonTonStand = () => (ton ? { gesendet: ton.gesendet, empfangen: ton.empfangen } : null);
+    } catch (e) {
+      strom.getTracks().forEach((x) => x.stop());
+      PS.toast("Telefon: Ton konnte nicht gestartet werden (" + (e && e.message ? e.message : e) + ")", true);
+      throw e;
+    }
   }
-  const antwortSetzen = (sdp) => pc.setRemoteDescription({ type: "answer", sdp: typeof sdp === "string" ? sdp : (sdp && (sdp.antwort || sdp.sdp)) || "" });
 
   // ------------------------------------------------------------ Aktionen
   function neuerLokal(id) {
@@ -139,13 +142,12 @@
     (async () => {
       try {
         if (demo) { setTimeout(() => PS.telefonDemo("waehlt"), 150); setTimeout(() => PS.telefonDemo("verbunden"), 2500); lokal.laeuft = false; return; }
-        const angebot = await angebotBauen();
-        const r = await PS.anfrage({ typ: "telefon_waehlen", nummer, angebot });
+        await tonStarten();
+        const r = await PS.anfrage({ typ: "telefon_waehlen", nummer });
         const l = lokal;
         if (!l) return;
         l.laeuft = false;
         if (r && r.anruf) { if (l.id == null) l.id = r.anruf.id; l.a = { ...l.a, ...r.anruf }; }
-        if (r && r.antwort && pc) await antwortSetzen(r.antwort);
         if (l.abbruch) auflegen();
         zeichnen();
       } catch (e) {
@@ -161,9 +163,8 @@
     l.annehmen = true; zeichnen();
     try {
       if (demo) return void anf({ typ: "telefon_annehmen" });
-      const angebot = await angebotBauen();
-      const antwort = await PS.anfrage({ typ: "telefon_annehmen", anruf: a.id, angebot });
-      if (pc) await antwortSetzen(antwort);
+      await tonStarten();
+      await PS.anfrage({ typ: "telefon_annehmen", anruf: a.id });
     } catch (e) {
       l.annehmen = false;
       PS.anfrage({ typ: "telefon_ablehnen", anruf: a.id }).catch(() => {});
@@ -290,7 +291,7 @@
   let kEl = null;
   function karte() {
     if (kEl) return kEl;
-    kEl = E(`<div class="tel-karte" id="tel-karte" aria-live="assertive" aria-hidden="true"><div class="tel-box"></div><audio id="telefon-ton" autoplay playsinline></audio></div>`);
+    kEl = E(`<div class="tel-karte" id="tel-karte" aria-live="assertive" aria-hidden="true"><div class="tel-box"></div></div>`);
     body.appendChild(kEl);
     kEl.addEventListener("click", (ev) => {
       const b = ev.target.closest("[data-akt]"); if (!b || b.disabled) return;

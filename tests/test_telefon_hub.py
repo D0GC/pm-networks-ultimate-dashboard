@@ -4,20 +4,30 @@ import asyncio
 import json
 import time
 
+import aiohttp
+import pytest
+
 from panelstudio.config import Einstellungen, Options
 
 
 class TelefonAttrappe:
     def __init__(self) -> None:
         self.aufrufe: list[tuple] = []
+        self.toene: list[bytes] = []
+        self.senden = None
 
-    async def waehlen(self, nummer, angebot):
-        self.aufrufe.append(("waehlen", nummer, angebot))
-        return {"anruf": "a1", "antwort": "v=0 antwort"}
+    async def waehlen(self, nummer, panel_senden):
+        self.aufrufe.append(("waehlen", nummer))
+        self.senden = panel_senden
+        return {"anruf": "a1"}
 
-    async def annehmen(self, anruf, angebot):
-        self.aufrufe.append(("annehmen", anruf, angebot))
-        return "v=0 antwort"
+    async def annehmen(self, anruf, panel_senden):
+        self.aufrufe.append(("annehmen", anruf))
+        self.senden = panel_senden
+        return True
+
+    def ton(self, pcm):
+        self.toene.append(pcm)
 
     async def ablehnen(self, anruf):
         self.aufrufe.append(("ablehnen", anruf))
@@ -98,12 +108,8 @@ def test_favoriten_werden_geprueft():
 
 async def test_ohne_telefon_leere_listen_und_fehler(hub):
     assert await hub.anfrage({"typ": "telefon_kontakte"}) == []
-    try:
+    with pytest.raises(ValueError, match="nicht eingerichtet"):
         await hub.anfrage({"typ": "telefon_auflegen", "anruf": "a1"})
-    except ValueError as err:
-        assert "nicht eingerichtet" in str(err)
-    else:
-        raise AssertionError("Fehler erwartet")
     assert hub.init_daten()["telefon"] == {"aktiv": False}
 
 
@@ -120,10 +126,34 @@ async def test_anfragen_und_meldungen(ingress, hub):
     assert m["anruf"]["zustand"] == "klingelt"
     assert hub.modus == "wach"
 
-    await ws.send_str(json.dumps({"typ": "telefon_annehmen", "id": 7, "anruf": "a1", "angebot": "v=0 x"}))
+    await ws.send_str(json.dumps({"typ": "telefon_annehmen", "id": 7, "anruf": "a1"}))
     m = await _warte_auf(ws, lambda m: m["typ"] == "antwort" and m["id"] == 7)
-    assert m["ok"] and m["ergebnis"] == "v=0 antwort"
+    assert m["ok"] and m["ergebnis"] is True
     assert hub._telefon_panel is not None
+
+    # Ton: Rahmen des Besitzers kommen an, Ausgangsrahmen landen beim Besitzer
+    rahmen = bytes(range(160)) * 2
+    await ws.send_bytes(rahmen)
+    fremd = await ingress.ws_connect("/api/ws")
+    await _warte_auf(fremd, lambda m: m["typ"] == "init")
+    await fremd.send_bytes(b"\x01" * 320)
+    await ws.send_bytes(rahmen)  # Synchronisationspunkt: zweiter Rahmen des Besitzers
+    for _ in range(40):
+        if len(tel.toene) >= 2:
+            break
+        await asyncio.sleep(0.05)
+    assert tel.toene == [rahmen, rahmen]
+    await tel.senden(b"\x07" * 320)
+    m = await asyncio.wait_for(ws.receive(), 3)
+    while m.type == aiohttp.WSMsgType.TEXT:  # Statusmeldungen überspringen
+        m = await asyncio.wait_for(ws.receive(), 3)
+    assert m.type == aiohttp.WSMsgType.BINARY and m.data == b"\x07" * 320
+    await fremd.close()
+
+    # waehlen: ebenfalls ohne Angebot
+    await ws.send_str(json.dumps({"typ": "telefon_waehlen", "id": 6, "nummer": "0921123"}))
+    m = await _warte_auf(ws, lambda m: m["typ"] == "antwort" and m["id"] == 6)
+    assert m["ergebnis"] == {"anruf": "a1"} and ("waehlen", "0921123") in tel.aufrufe
 
     await ws.send_str(json.dumps({"typ": "telefon_dtmf", "id": 8, "anruf": "a1", "ziffern": "12#"}))
     await _warte_auf(ws, lambda m: m["typ"] == "antwort" and m["id"] == 8)

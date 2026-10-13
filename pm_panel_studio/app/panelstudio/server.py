@@ -130,6 +130,9 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
     await hub.init_senden(ws)
     try:
         async for msg in ws:
+            if msg.type == aiohttp.WSMsgType.BINARY:
+                hub.telefon_ton(ws, msg.data)  # Telefonton (320 Byte je 20 ms), billig und ohne eigenen Task
+                continue
             if msg.type != aiohttp.WSMsgType.TEXT:
                 continue
             try:

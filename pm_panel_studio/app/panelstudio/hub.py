@@ -724,7 +724,7 @@ class Hub:
         if not self.opts.telefon:
             return
         try:
-            # Erst hier laden: aiortc/av sind groß und werden ohne Telefon nicht gebraucht
+            # Erst hier laden: ohne Telefon wird das Paket nicht gebraucht
             from .telefon import Telefon, TelefonConfig
         except ImportError as err:
             _LOGGER.error("Telefon nicht verfügbar: %s", err)
@@ -778,18 +778,23 @@ class Hub:
         if tel is None:
             raise ValueError("Telefon ist nicht eingerichtet")
         anruf = str(msg.get("anruf") or "")
-        if typ == "telefon_waehlen":
+        if typ in ("telefon_waehlen", "telefon_annehmen"):
             if ws is None:
                 raise ValueError("Anrufe nur über eine Panel-Verbindung")
-            ergebnis = await tel.waehlen(str(msg.get("nummer") or ""), msg.get("angebot"))
-            self._telefon_panel = ws
-            return ergebnis
-        if typ == "telefon_annehmen":
-            if ws is None:
-                raise ValueError("Anrufe nur über eine Panel-Verbindung")
-            antwort = await tel.annehmen(anruf, msg.get("angebot"))
-            self._telefon_panel = ws
-            return antwort
+
+            async def panel_senden(daten: bytes) -> None:
+                with contextlib.suppress(Exception):
+                    await ws.send_bytes(daten)
+
+            vorher = self._telefon_panel
+            self._telefon_panel = ws  # Besitzer des Tons, ab jetzt gelten dessen Binärrahmen
+            try:
+                if typ == "telefon_waehlen":
+                    return await tel.waehlen(str(msg.get("nummer") or ""), panel_senden)
+                return await tel.annehmen(anruf, panel_senden)
+            except BaseException:
+                self._telefon_panel = vorher
+                raise
         if typ == "telefon_ablehnen":
             return await tel.ablehnen(anruf)
         if typ == "telefon_auflegen":
@@ -799,6 +804,11 @@ class Hub:
         if typ == "telefon_stumm":
             return await tel.stumm(anruf, bool(msg.get("an")))
         raise ValueError(f"Unbekannte Anfrage {typ}")
+
+    def telefon_ton(self, ws: web.WebSocketResponse, daten: bytes) -> None:
+        """Binärer Tonrahmen eines Panels; nur der Besitzer des Anrufs wird weitergereicht."""
+        if self.telefon is not None and ws is self._telefon_panel:
+            self.telefon.ton(daten)
 
     async def telefon_panel_getrennt(self, ws: web.WebSocketResponse) -> None:
         """Trennt sich das Panel, das den Ton eines Anrufs hält, endet der Anruf (sonst bliebe die Leitung stumm)."""

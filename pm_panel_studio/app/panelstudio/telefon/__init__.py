@@ -1,6 +1,6 @@
-"""Telefon-Fassade: SIP-Anmeldung an der FRITZ!Box, ein Anruf zur Zeit, Audio über WebRTC zum Browser.
+"""Telefon-Fassade: SIP-Anmeldung an der FRITZ!Box, ein Anruf zur Zeit, Ton über die Panel-Verbindung (WebSocket).
 
-``Telefon`` verbindet ``SipAgent`` (Signalisierung), ``RtpSitzung`` (G.711-Audio), ``Bruecke`` (WebRTC) und
+``Telefon`` verbindet ``SipAgent`` (Signalisierung), ``RtpSitzung`` (G.711-Audio), ``TonBruecke`` (Panel-Ton) und
 ``FritzBox`` (Namen, Telefonbuch, Anrufliste). Jede Zustandsänderung geht als ``status()``-Wörterbuch an ``melden``.
 """
 
@@ -10,13 +10,14 @@ import asyncio
 import contextlib
 import logging
 import re
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
 import aiohttp
 
 from . import g711
+from .bruecke import TonBruecke
 from .rtp import RtpSitzung
 from .sip import SipAgent, SipAnruf, SipConfig, SipFehler
 
@@ -27,12 +28,12 @@ except ImportError:  # pragma: no cover
 
 _LOGGER = logging.getLogger(__name__)
 
+PanelSenden = Callable[[bytes], Awaitable[None]]
 NUMMER_MUSTER = re.compile(r"[0-9*#+]{1,32}")
-SDP_MAX = 20000
 BEENDET_ANZEIGE_S = 3.0  # so lange bleibt ein beendeter Anruf im Status sichtbar
 
 
-class TelefonFehler(Exception):
+class TelefonFehler(ValueError):
     """Der Aufruf ist im aktuellen Zustand nicht möglich (Meldungstext ist für die Anzeige gedacht)."""
 
 
@@ -72,12 +73,6 @@ class _Verbindung:
 
 def _iso() -> str:
     return datetime.now(UTC).isoformat(timespec="seconds")
-
-
-def _pruefe_sdp(sdp: str) -> str:
-    if not isinstance(sdp, str) or not sdp.startswith("v=0") or len(sdp) > SDP_MAX:
-        raise ValueError("Ungültiges SDP-Angebot")
-    return sdp
 
 
 class Telefon:
@@ -228,6 +223,8 @@ class Telefon:
             if v.verbunden_seit is None:
                 v.verbunden_seit = _iso()
             self._ziel_setzen(v)
+            if v.bruecke is not None:
+                v.bruecke.starten()
         elif anruf.zustand == "beendet":
             if v.aufraeumen is None:
                 v.aufraeumen = asyncio.get_running_loop().call_later(BEENDET_ANZEIGE_S, self._leeren, v)
@@ -260,12 +257,6 @@ class Telefon:
         rtp.schliessen()
         self._belegt.discard(rtp.port)
 
-    def _webrtc_abbruch(self, v: _Verbindung) -> None:
-        if v.sip.zustand != "beendet" and self._sip is not None:
-            _LOGGER.warning("Telefon: WebRTC-Verbindung abgebrochen, Anruf wird beendet")
-            v.sip.grund = "Audioverbindung zum Browser abgebrochen"
-            self._hintergrund(self._sip.auflegen(v.sip))
-
     # ------------------------------------------------------------------ Hilfen für Aufrufe
 
     def _bereit(self) -> SipAgent:
@@ -292,27 +283,11 @@ class Telefon:
             return rtp
         raise TelefonFehler("Kein freier RTP-Port")
 
-    async def _bruecke_aufbauen(self, v: _Verbindung, angebot: str) -> str:
-        try:
-            from .bruecke import Bruecke
-        except ImportError as exc:
-            raise TelefonFehler("WebRTC-Unterstützung (aiortc) ist nicht installiert") from exc
-        v.rtp = await self._rtp_oeffnen()
-        v.bruecke = Bruecke(v.rtp, bei_abbruch=lambda: self._webrtc_abbruch(v))
-        try:
-            return await v.bruecke.antworten(angebot)
-        except ValueError:
-            raise
-        except Exception as exc:
-            _LOGGER.exception("Telefon: WebRTC-Aufbau fehlgeschlagen")
-            raise TelefonFehler(f"Audioverbindung konnte nicht aufgebaut werden: {exc}") from exc
-
     # ------------------------------------------------------------------ Aktionen
 
-    async def waehlen(self, nummer: str, angebot: str) -> dict:
+    async def waehlen(self, nummer: str, panel_senden: PanelSenden) -> dict:
         if not isinstance(nummer, str) or not NUMMER_MUSTER.fullmatch(nummer):
             raise ValueError("Ungültige Rufnummer")
-        _pruefe_sdp(angebot)
         sip = self._bereit()
         if not sip.registriert:
             raise TelefonFehler(sip.fehler or "Telefon ist nicht angemeldet")
@@ -320,24 +295,8 @@ class Telefon:
             raise TelefonFehler("Es läuft bereits ein Gespräch")
         rtp = await self._rtp_oeffnen()
         try:
-            from .bruecke import Bruecke
-        except ImportError as exc:
-            self._rtp_freigeben(rtp)
-            raise TelefonFehler("WebRTC-Unterstützung (aiortc) ist nicht installiert") from exc
-        bruecke = Bruecke(rtp, bei_abbruch=lambda: self._webrtc_abbruch(self._v) if self._v else None)
-        try:
-            antwort = await bruecke.antworten(angebot)
-        except ValueError:
-            self._rtp_freigeben(rtp)
-            raise
-        except Exception as exc:
-            self._rtp_freigeben(rtp)
-            _LOGGER.exception("Telefon: WebRTC-Aufbau fehlgeschlagen")
-            raise TelefonFehler(f"Audioverbindung konnte nicht aufgebaut werden: {exc}") from exc
-        try:
             call = sip.anrufen(nummer, rtp.port)
         except SipFehler as exc:
-            await bruecke.schliessen()
             self._rtp_freigeben(rtp)
             raise TelefonFehler(str(exc)) from exc
         alt = self._v
@@ -345,33 +304,38 @@ class Telefon:
             alt.aufraeumen.cancel()
         v = _Verbindung(call, self._name_fuer(nummer))
         v.rtp = rtp
-        v.bruecke = bruecke
+        v.bruecke = TonBruecke(rtp, panel_senden)
         self._v = v
         self._senden()
-        return {"anruf": v.id, "antwort": antwort}
+        return {"anruf": v.id}
 
-    async def annehmen(self, anruf: str, angebot: str) -> str:
+    async def annehmen(self, anruf: str, panel_senden: PanelSenden) -> bool:
         v = self._anruf(anruf)
-        _pruefe_sdp(angebot)
         sip = self._bereit()
         if v.sip.richtung != "ein" or v.sip.zustand != "klingelt":
             raise TelefonFehler("Kein klingelnder Anruf")
         if v.rtp is not None:
             raise TelefonFehler("Anruf wird bereits angenommen")
         try:
-            antwort = await self._bruecke_aufbauen(v, angebot)
+            v.rtp = await self._rtp_oeffnen()
+            v.bruecke = TonBruecke(v.rtp, panel_senden)
             if v.sip.zustand != "klingelt":  # während des Aufbaus aufgelegt/abgebrochen
                 raise TelefonFehler("Der Anruf wurde inzwischen beendet")
             self._ziel_setzen(v)
-            assert v.rtp is not None
             await sip.annehmen(v.sip, v.rtp.port)
-        except (TelefonFehler, SipFehler, ValueError) as exc:
+        except (TelefonFehler, SipFehler) as exc:
             await self._freigeben(v)
             v.ressourcen_frei = False
             if isinstance(exc, SipFehler):
                 raise TelefonFehler(str(exc)) from exc
             raise
-        return antwort
+        return True
+
+    def ton(self, pcm: bytes) -> None:
+        """Ein Rahmen (320 Byte Int16, 8 kHz) vom Panel, das den Anruf führt."""
+        v = self._v
+        if v is not None and v.bruecke is not None:
+            v.bruecke.eingang(pcm)
 
     async def ablehnen(self, anruf: str) -> bool:
         v = self._anruf(anruf)

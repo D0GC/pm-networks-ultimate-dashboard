@@ -1,25 +1,20 @@
-"""WebRTC-Brücke: Browser (Opus über WebRTC) ↔ RTP-Strecke zur FRITZ!Box (G.711).
+"""Tonbrücke: Panel-Verbindung (WebSocket, 8 kHz Int16) ↔ RTP-Strecke zur FRITZ!Box (G.711).
 
-Pro Anruf gibt es eine ``RTCPeerConnection`` (aiortc) ohne ICE-Server. Der Browser schickt ein vollständiges
-Angebot (kein Trickle-ICE), die Antwort wird nach dem Sammeln der Kandidaten zurückgegeben.
+Das Panel schickt und empfängt Ton als binäre Rahmen zu je 320 Byte (160 Samples Int16 little endian, 8 kHz mono,
+20 ms). Ein Takt-Task läuft alle 20 ms (absolute Zeitplanung, kein Drift):
 
-Browser → Telefon: eingehende Audio-Frames (meist 48 kHz) werden mit ``av.AudioResampler`` auf 8 kHz mono s16
-gebracht, in 20-ms-Blöcke (160 Samples) zerlegt und über ``RtpSitzung.senden`` als G.711 verschickt.
-Telefon → Browser: ``RtpSitzung.lesen`` liefert alle 20 ms genau einen Block PCM, den ``_AusgangsSpur`` als
-``av.AudioFrame`` an aiortc übergibt (Stille, wenn nichts ankommt). aiortc resampelt für Opus selbst.
+* Telefon → Panel: ``rtp.lesen()`` (bei fehlenden Daten Stille) geht an den ``senden``-Rückruf.
+* Panel → Telefon: eingehende Rahmen landen in einem kleinen Puffer (höchstens ``PUFFER_MAX``, ältere werden
+  verworfen) und werden im Takt an ``rtp.senden`` weitergegeben, damit ein Burst der WebSocket-Verbindung nicht als
+  Paketstoß bei der Gegenstelle ankommt. Bei ``stumm`` werden Nullen gesendet.
 """
 
 from __future__ import annotations
 
 import asyncio
-import contextlib
 import logging
-from collections.abc import Callable
-from fractions import Fraction
-
-import av
-from aiortc import RTCConfiguration, RTCPeerConnection, RTCSessionDescription
-from aiortc.mediastreams import MediaStreamError, MediaStreamTrack
+from collections import deque
+from collections.abc import Awaitable, Callable
 
 from . import g711
 from .rtp import RtpSitzung
@@ -27,132 +22,69 @@ from .rtp import RtpSitzung
 _LOGGER = logging.getLogger(__name__)
 
 TAKT = 0.02  # 20 ms je Rahmen
-BLOCK = g711.RAHMEN_SAMPLES  # 160 Samples @ 8 kHz
+RAHMEN_BYTES = g711.RAHMEN_BYTES  # 320
+PUFFER_MAX = 10  # Rahmen (200 ms) im Eingang
+SENDE_TIMEOUT_S = 1.0
 
 
-class _AusgangsSpur(MediaStreamTrack):
-    """Liefert das Telefon-Audio (8 kHz mono s16) im 20-ms-Takt an aiortc."""
-
-    kind = "audio"
-
-    def __init__(self, rtp: RtpSitzung) -> None:
-        super().__init__()
+class TonBruecke:
+    def __init__(self, rtp: RtpSitzung, senden: Callable[[bytes], Awaitable[None]]) -> None:
         self._rtp = rtp
-        self._start: float | None = None
-        self._zaehler = 0
-
-    async def recv(self) -> av.AudioFrame:
-        if self.readyState != "live":
-            raise MediaStreamError
-        loop = asyncio.get_running_loop()
-        if self._start is None:
-            self._start = loop.time()
-        # Absolute Zeitplanung: kein Auseinanderlaufen durch Verarbeitungszeit
-        ziel = self._start + self._zaehler * TAKT
-        verzug = ziel - loop.time()
-        if verzug > 0:
-            await asyncio.sleep(verzug)
-        elif verzug < -1.0:  # lange Pause (z. B. blockierte Schleife): neu aufsetzen statt aufholen
-            self._start = loop.time() - self._zaehler * TAKT
-        frame = av.AudioFrame(format="s16", layout="mono", samples=BLOCK)
-        frame.sample_rate = g711.RATE
-        frame.pts = self._zaehler * BLOCK
-        frame.time_base = Fraction(1, g711.RATE)
-        frame.planes[0].update(self._rtp.lesen())
-        self._zaehler += 1
-        return frame
-
-
-class Bruecke:
-    """Eine WebRTC-Verbindung zum Browser, gekoppelt an eine ``RtpSitzung``."""
-
-    def __init__(self, rtp: RtpSitzung, bei_abbruch: Callable[[], None] | None = None) -> None:
-        self._rtp = rtp
-        self._bei_abbruch = bei_abbruch
+        self._senden = senden
         self.stumm = False
-        self.rahmen_empfangen = 0  # Audio-Frames vom Browser (Diagnose/Tests)
-        self._pc: RTCPeerConnection | None = None
-        self._aus: _AusgangsSpur | None = None
-        self._tasks: set[asyncio.Task] = set()
+        self.rahmen_eingang = 0  # angenommene Rahmen vom Panel (Diagnose/Tests)
+        self.rahmen_ausgang = 0  # an das Panel gesendete Rahmen
+        self._puffer: deque[bytes] = deque(maxlen=PUFFER_MAX)
+        self._task: asyncio.Task | None = None
         self._geschlossen = False
 
-    # ------------------------------------------------------------------ Aushandlung
+    @property
+    def laeuft(self) -> bool:
+        return self._task is not None and not self._task.done()
 
-    async def antworten(self, angebot: str) -> str:
-        """Nimmt das (vollständige) SDP-Angebot des Browsers an und liefert die SDP-Antwort."""
-        if self._pc is not None:
-            raise RuntimeError("Brücke ist bereits aufgebaut")
-        pc = RTCPeerConnection(RTCConfiguration(iceServers=[]))
-        self._pc = pc
+    def starten(self) -> None:
+        """Startet den Takt (Aufruf, sobald der Anruf verbunden ist)."""
+        if self._task is None and not self._geschlossen:
+            self._task = asyncio.create_task(self._lauf())
 
-        @pc.on("track")
-        def _spur(track: MediaStreamTrack) -> None:
-            if track.kind == "audio":
-                self._starte(self._eingang(track))
+    def eingang(self, pcm: bytes) -> None:
+        """Ein Rahmen vom Panel; falsche Längen und Rahmen vor dem Start werden ignoriert."""
+        if len(pcm) != RAHMEN_BYTES or not self.laeuft:
+            return
+        self._puffer.append(bytes(pcm))
+        self.rahmen_eingang += 1
 
-        @pc.on("connectionstatechange")
-        def _zustand() -> None:
-            _LOGGER.debug("WebRTC-Zustand: %s", pc.connectionState)
-            if pc.connectionState in ("failed", "closed") and not self._geschlossen and self._bei_abbruch:
-                try:
-                    self._bei_abbruch()
-                except Exception:
-                    _LOGGER.exception("WebRTC: Abbruch-Rückruf fehlgeschlagen")
-
-        try:
-            await pc.setRemoteDescription(RTCSessionDescription(sdp=angebot, type="offer"))
-            audio = [t for t in pc.getTransceivers() if t.kind == "audio"]
-            if not audio:
-                raise ValueError("Das Angebot enthält kein Audio")
-            self._aus = _AusgangsSpur(self._rtp)
-            pc.addTrack(self._aus)
-            await pc.setLocalDescription(await pc.createAnswer())  # wartet, bis alle Kandidaten gesammelt sind
-        except BaseException:
-            await self.schliessen()
-            raise
-        return pc.localDescription.sdp
-
-    # ------------------------------------------------------------------ Audio
-
-    def _starte(self, coro) -> None:
-        t = asyncio.create_task(coro)
-        self._tasks.add(t)
-        t.add_done_callback(self._tasks.discard)
-
-    async def _eingang(self, track: MediaStreamTrack) -> None:
-        """Browser-Audio → 8 kHz mono → 20-ms-Blöcke → RTP."""
-        resampler = av.AudioResampler(format="s16", layout="mono", rate=g711.RATE)
-        rest = bytearray()
-        try:
-            while True:
-                frame = await track.recv()
-                self.rahmen_empfangen += 1
-                for r in resampler.resample(frame):
-                    rest += bytes(r.planes[0])[: r.samples * 2]
-                while len(rest) >= g711.RAHMEN_BYTES:
-                    block = bytes(rest[: g711.RAHMEN_BYTES])
-                    del rest[: g711.RAHMEN_BYTES]
-                    self._rtp.senden(bytes(g711.RAHMEN_BYTES) if self.stumm else block)
-        except MediaStreamError:
-            pass  # Spur beendet
-        except asyncio.CancelledError:
-            raise
-        except Exception:
-            _LOGGER.exception("WebRTC: Fehler im Audio-Eingang")
-
-    # ------------------------------------------------------------------ Ende
+    async def _lauf(self) -> None:
+        loop = asyncio.get_running_loop()
+        start = loop.time()
+        n = 0
+        while True:
+            n += 1
+            verzug = start + n * TAKT - loop.time()
+            if verzug > 0:
+                await asyncio.sleep(verzug)
+            elif verzug < -1.0:  # lange Pause (blockierte Schleife): neu aufsetzen statt aufholen
+                start = loop.time() - n * TAKT
+            if self._puffer:
+                rahmen = self._puffer.popleft()
+                self._rtp.senden(bytes(RAHMEN_BYTES) if self.stumm else rahmen)
+            try:
+                await asyncio.wait_for(self._senden(self._rtp.lesen()), SENDE_TIMEOUT_S)
+                self.rahmen_ausgang += 1
+            except asyncio.CancelledError:
+                raise
+            except Exception as err:
+                _LOGGER.debug("Ton an das Panel nicht gesendet: %s", err)
 
     async def schliessen(self) -> None:
-        """Beendet Verbindung und Hintergrundaufgaben (idempotent)."""
+        """Beendet den Takt (idempotent)."""
         self._geschlossen = True
-        tasks = list(self._tasks)
-        for t in tasks:
-            t.cancel()
-        if tasks:
-            await asyncio.gather(*tasks, return_exceptions=True)
-        if self._aus is not None:
-            self._aus.stop()
-        pc, self._pc = self._pc, None
-        if pc is not None:
-            with contextlib.suppress(Exception):
-                await asyncio.wait_for(pc.close(), timeout=5)
+        task, self._task = self._task, None
+        if task is not None:
+            task.cancel()
+            await asyncio.gather(task, return_exceptions=True)
+        self._puffer.clear()
+
+
+__all__ = ["TonBruecke"]
+

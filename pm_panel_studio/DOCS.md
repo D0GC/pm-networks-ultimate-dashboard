@@ -185,8 +185,8 @@ sehr leise; ein Audio-Element käme nicht über 100 %. Änderungen im Editor wir
 ## Telefon
 
 Das Panel kann als eigenes Telefon an der FRITZ!Box arbeiten: Kontakte, Wähltastatur, Anrufliste, Anrufe annehmen und
-führen. Die App meldet sich als IP-Telefon an der FRITZ!Box an (SIP im LAN, G.711) und reicht den Gesprächston per
-WebRTC an das Panel weiter, wie beim Gegensprechen an der Haustür. ha-sip bleibt davon unberührt und kann weiter für
+führen. Die App meldet sich als IP-Telefon an der FRITZ!Box an (SIP im LAN, G.711) und reicht den Gesprächston über
+die bestehende Panel-Verbindung (WebSocket) an das Panel weiter, das den Anruf führt. ha-sip bleibt davon unberührt und kann weiter für
 Alarm- und Notrufanrufe dienen.
 
 ### Einrichtung

@@ -9,6 +9,7 @@
   // ------------------------------------------------------------ Ereignisse
   const hoerer = {};
   PS.on = (name, fn) => (hoerer[name] = hoerer[name] || []).push(fn);
+  PS.off = (name, fn) => { const l = hoerer[name]; const i = l ? l.indexOf(fn) : -1; if (i >= 0) l.splice(i, 1); };
   PS.emit = (name, data) => (hoerer[name] || []).forEach((fn) => { try { fn(data); } catch (e) { console.error(e); } });
 
   // ------------------------------------------------------------ Verbindung
@@ -18,8 +19,10 @@
     const url = new URL("api/ws", location.href);
     url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
     ws = new WebSocket(url);
+    ws.binaryType = "arraybuffer";
     ws.onopen = () => { warteZeit = 1000; };
     ws.onmessage = (ev) => {
+      if (typeof ev.data !== "string") { PS.emit("telefon_ton", ev.data); return; }  // Binär: Telefon-Ton (8 kHz Int16)
       let m; try { m = JSON.parse(ev.data); } catch { return; }
       verarbeiten(m);
     };
@@ -99,6 +102,8 @@
     ws.send(JSON.stringify({ ...msg, id }));
     setTimeout(() => { if (offen.has(id)) { offen.delete(id); reject(new Error("Zeitüberschreitung")); } }, 30000);
   });
+  // Binärrahmen (Telefon-Ton) senden; bei vollem Sendepuffer (> 64 KB) verwerfen
+  PS.sendeBinaer = (buf) => { if (!ws || ws.readyState !== 1 || ws.bufferedAmount > 65536) return false; ws.send(buf); return true; };
   PS.dienst = (domain, service, data = {}, antwort = false) =>
     PS.anfrage({ typ: "dienst", domain, service, data, antwort }).catch((e) => { PS.toast(e.message, true); throw e; });
   let letzteMeldung = 0;
