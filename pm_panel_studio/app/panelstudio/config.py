@@ -204,6 +204,9 @@ class Einstellungen:
     klingel_lautstaerke: int = 100
     # Verstärkung des Tons von der Haustür beim Gegensprechen (Prozent; die Intercom liefert sehr leise)
     intercom_lautstaerke: int = 400
+    # Verstärkung aller Töne (Hinweis- und Klingelton, Prozent) und des Telefon-Tons; Kette und Kompressor: static/audio.js
+    ton_verstaerkung: int = 300
+    telefon_lautstaerke: int = 400
 
     GRENZEN = {  # noqa: RUF012
         "verweildauer_s": (3, 60),
@@ -215,6 +218,8 @@ class Einstellungen:
         "ton_lautstaerke": (5, 100),
         "klingel_lautstaerke": (5, 100),
         "intercom_lautstaerke": (100, 800),
+        "ton_verstaerkung": (100, 800),
+        "telefon_lautstaerke": (100, 800),
     }
 
     @classmethod

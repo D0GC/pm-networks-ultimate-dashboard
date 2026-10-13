@@ -164,5 +164,16 @@ keine Datei). Es unterscheidet sich vom dreistimmigen Hinweiston bei Meldungen.
 - Der Ton ist immer voll: `input_boolean.alles_stumm`, Finn, Gina lernt und die Nachtabsenkung gelten für ihn nicht.
   Im Editor lassen sich „Lautstärke Klingelton“ (`klingel_lautstaerke`, 5–100 %, Standard 100) und der Schalter
   „Klingelton beim Haustür-Overlay“ (`ton_klingel`) einstellen; die Lautstärke des Hinweistons gilt hier nicht.
+
+### Lautstärke und Verstärkung aller Töne
+
+Alle Töne des Panels laufen zentral über `static/audio.js` (`PS.audio`): Pegel je Art, ein gemeinsamer Kompressor
+(fängt Spitzen ab, damit die Verstärkung nicht übersteuert), dann die Lautsprecher. Die Lautsprecher des Panels sind
+sehr leise; ein Audio-Element käme nicht über 100 %. Änderungen im Editor wirken sofort, auch bei laufendem Ton.
+
+- „Verstärkung aller Töne“ (`ton_verstaerkung`, 100–800 %, Standard 300) wird mit dem Pegel von Hinweiston
+  (`ton_lautstaerke`) und Klingelton (`klingel_lautstaerke`) malgenommen.
+- „Lautstärke Gegensprechen“ (`intercom_lautstaerke`) und „Lautstärke Telefon“ (`telefon_lautstaerke`), je 100–800 %,
+  Standard 400, verstärken den Ton der Haustür bzw. des Telefons und enthalten die Verstärkung bereits.
 - Ohne `--autoplay-policy=no-user-gesture-required` (siehe Kiosk) spielt Chromium nach einem Neuladen erst nach der
   ersten Berührung des Panels Ton ab.
