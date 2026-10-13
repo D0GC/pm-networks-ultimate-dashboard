@@ -2,6 +2,8 @@ import json
 from datetime import UTC, date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
+import pytest
+
 from panelstudio import karten as kt
 
 JETZT = datetime(2026, 10, 1, 14, 0, tzinfo=UTC)
@@ -287,6 +289,31 @@ def test_rams_post_ergebnis_und_zwoelf_stunden():
     assert _rams("POST", "off", jetzt=ende + timedelta(hours=11, minutes=30), last_changed=frueh) is None
     # Am Spieltag bleibt die Karte, auch wenn das Spiel länger her ist
     assert _rams("POST", "on", jetzt=ende + timedelta(hours=20)) is not None
+
+
+def test_rams_ring_ergebnis_farbart_und_stand():
+    ende = datetime(2026, 10, 13, 4, 0, tzinfo=UTC) + timedelta(hours=1)
+    sieg = _rams("POST", "off", jetzt=ende, team_winner=True, opponent_winner=False)
+    assert (sieg["ring_art"], sieg["ring"], sieg["wert"]) == ("sieg", 1.0, "21:17")
+    # Niederlage in der Verlängerung (34:37): rot, Rams-Punkte zuerst, „n. Verl.“ im Text statt im Ring
+    n = _rams("POST", "off", jetzt=ende, team_score="34", opponent_score="37", team_winner=False, opponent_winner=True, quarter=5, clock="Final/OT")
+    assert (n["ring_art"], n["wert"], n["badge_farbe"]) == ("niederlage", "34:37", "#b3303c")
+    assert n["hinweis"] == "Niederlage n. Verl. · Di 13.10."
+    assert (n["spiel"]["team"]["punkte"], n["spiel"]["gegner"]["punkte"], n["spiel"]["team"]["abk"]) == ("34", "37", "LAR")
+    assert _rams("POST", "off", jetzt=ende, team_winner=None, team_score=17)["ring_art"] == "remis"
+    assert _rams("POST", "off", jetzt=ende, team_winner=None, team_score=10)["ring_art"] == "niederlage"  # ohne Sieger-Flag zählt der Stand
+
+
+def test_rams_ring_live_fortschritt_und_fuehrung():
+    k = _rams("IN", quarter=3, clock="7:30")  # 21:17 vorn, 37,5 min gespielt
+    assert k["ring_art"] == "fuehrt" and k["ring"] == pytest.approx(37.5 / 60)
+    assert _rams("IN", quarter=2, clock="15:00", team_score=3)["ring_art"] == "hinten"
+    assert _rams("IN", quarter=2, clock="15:00", team_score=17)["ring_art"] == "gleich"
+    assert _rams("IN", quarter=2, clock="15:00")["ring"] == pytest.approx(0.25)
+    assert _rams("IN", quarter=5, clock="3:00")["ring"] == 1.0  # Verlängerung: voll
+    assert _rams("IN", quarter=2, clock="Halftime")["ring"] == pytest.approx(0.25)  # Uhr nicht lesbar
+    assert _rams("IN", quarter=0, clock="")["ring"] == 0.02  # Kickoff: Mindestanteil, damit der Ring sichtbar bleibt
+    assert _rams("PRE", "on", jetzt=datetime(2026, 10, 12, 12, 0, tzinfo=UTC))["ring_art"] == "vorschau"
 
 
 def test_rams_reihenfolge_im_feed():

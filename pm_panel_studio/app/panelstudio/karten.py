@@ -291,6 +291,18 @@ def _punkte(value: Any) -> str:
     return str(round(num)) if num is not None else "0"
 
 
+def rams_fortschritt(viertel: Any, uhr: Any) -> float:
+    """Spielfortschritt 0–1 aus Viertel und Restzeit des Viertels (4 × 15 min, Verlängerung = voll)."""
+    q = _num(viertel)
+    if q is None or q <= 0:
+        return 0.0
+    if q > 4:
+        return 1.0
+    m = re.match(r"^\s*(\d{1,2}):(\d{2})", str(uhr or ""))
+    rest = min(15.0, int(m[1]) + int(m[2]) / 60) if m else 15.0  # ohne lesbare Uhr („Halftime“) zählt das Viertel als begonnen
+    return max(0.0, min(1.0, ((q - 1) * 15 + 15 - rest) / 60))
+
+
 def rams_anpfiff(a: dict, tz: Any) -> tuple[datetime | None, str, str]:
     """Anpfiff als Ortszeit: (Zeitpunkt, „Mo 13.10.“, „02:15 Uhr“)."""
     dt = _parse_zeit(a.get("date"))
@@ -321,6 +333,7 @@ def akt_rams(states: States, jetzt: datetime, lokal: datetime | None = None) -> 
     punkte, punkte_g = _punkte(a.get("team_score")), _punkte(a.get("opponent_score"))
     auswaerts = _text(a.get("team_homeaway")).lower() == "away"
     tv = _text(a.get("tv_network"))
+    ring, ring_art = 1.0, "vorschau"  # Ring-Anteil und Farbart: live fuehrt/hinten/gleich, Ende sieg/niederlage/remis
     if zustand == "PRE":
         titel = f"{team} {'@' if auswaerts else 'vs'} {gegner}"
         zweit = " · ".join(x for x in (tag, uhr, tv) if x)
@@ -331,6 +344,9 @@ def akt_rams(states: States, jetzt: datetime, lokal: datetime | None = None) -> 
         phase = "Kickoff" if viertel is None or viertel <= 0 else "OT" if viertel > 4 else f"Q{round(viertel)}"
         zweit = " · ".join(x for x in (phase, _text(a.get("clock")), _text(a.get("down_distance_text"))) if x)
         badge, farbe, wert = "● LIVE", "#e2231a", f"{punkte}:{punkte_g}"
+        eigene, fremde = _num(a.get("team_score")) or 0, _num(a.get("opponent_score")) or 0
+        ring_art = "fuehrt" if eigene > fremde else "hinten" if eigene < fremde else "gleich"
+        ring = max(0.02, rams_fortschritt(a.get("quarter"), a.get("clock")))
     else:
         titel = f"{team} {punkte} : {punkte_g} {gegner}"
         sieg = a.get("team_winner")
@@ -338,8 +354,11 @@ def akt_rams(states: States, jetzt: datetime, lokal: datetime | None = None) -> 
             eigene, fremde = _num(a.get("team_score")), _num(a.get("opponent_score"))
             sieg = None if eigene is None or fremde is None or eigene == fremde else eigene > fremde
         ergebnis = "Unentschieden" if sieg is None else "Sieg" if sieg else "Niederlage"
-        zweit = " · ".join(x for x in (ergebnis, tag) if x)
-        badge, farbe, wert = "FINAL", "#2e7d32" if sieg else "#6b7280", f"{punkte}:{punkte_g}"
+        ring_art = "remis" if sieg is None else "sieg" if sieg else "niederlage"
+        verl = (_num(a.get("quarter")) or 0) > 4 or "OT" in _text(a.get("clock")).upper()
+        zweit = " · ".join(x for x in (ergebnis + (" n. Verl." if verl else ""), tag) if x)
+        farbe = {"sieg": "#2e7d32", "niederlage": "#b3303c"}.get(ring_art, "#6b7280")
+        badge, wert = "FINAL", f"{punkte}:{punkte_g}"
 
     def seite(praefix: str, name: str, punkte_text: str) -> dict:
         farben = a.get(f"{praefix}_colors")
@@ -360,7 +379,8 @@ def akt_rams(states: States, jetzt: datetime, lokal: datetime | None = None) -> 
         "titel": titel,
         "wert": wert,
         "hinweis": zweit,
-        "ring": 1.0,
+        "ring": ring,
+        "ring_art": ring_art,
         "ende": None,
         "dauer_s": None,
         "relevanz": RAMS_RELEVANZ[zustand],
