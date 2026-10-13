@@ -14,7 +14,7 @@ body.ohne-animation .sport-badge.puls{animation:none}
 /* Stand im Ring: „34 : 37“ in einer Zeile, darunter die Teamkürzel; die Schrift passt sich dem Ring an (cqw), nichts läuft über */
 .karte .ring.sport-ring{container-type:inline-size}
 .ring .innen .sport-ergebnis{display:grid;justify-items:center;gap:.5rem;max-width:68cqw;margin-inline:auto}
-.ring .innen .sport-zahlen{display:flex;align-items:baseline;justify-content:center;gap:.35em;font-size:min(2.9rem,19cqw);font-weight:600;line-height:1;font-variant-numeric:tabular-nums;white-space:nowrap}
+.ring .innen .sport-zahlen{display:flex;align-items:baseline;justify-content:center;gap:.3em;font-size:min(2.6rem,14.5cqw);font-weight:600;line-height:1;font-variant-numeric:tabular-nums;white-space:nowrap}
 .ring .innen .sport-zahlen b{font-size:1em;font-weight:inherit;min-width:1.2ch;text-align:center}
 .ring .innen .sport-zahlen b.leise{opacity:.55}
 .ring .innen .sport-zahlen i{font-style:normal;opacity:.5;font-weight:400}
