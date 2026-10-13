@@ -1,5 +1,11 @@
 # Änderungen
 
+## 2026.10.24 – 2026-10-13
+
+- Gegensprechen lauter: Der Ton von der Haustür läuft jetzt über einen Verstärker mit Kompressor, der Spitzen
+  abfängt. Neue Einstellung „Lautstärke Gegensprechen“ im Editor (100–800 %, Standard 400 %); sie wirkt auch
+  während eines laufenden Gesprächs. Mikrofon- und Sprachlautstärke der Intercom stehen bereits auf dem Maximum.
+
 ## 2026.10.23 – 2026-10-09
 
 - Müll-Karte ohne Sondermüll: Sondermüll- und Schadstoffabholungen erscheinen nicht mehr im Feed. Stehen am selben

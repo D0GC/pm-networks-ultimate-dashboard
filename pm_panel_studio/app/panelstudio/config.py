@@ -202,6 +202,8 @@ class Einstellungen:
     ton_lautstaerke: int = 70
     ton_klingel: bool = True  # Klingelton beim Haustür-Overlay; bewusst unabhängig von ton_hoch und „alles_stumm“
     klingel_lautstaerke: int = 100
+    # Verstärkung des Tons von der Haustür beim Gegensprechen (Prozent; die Intercom liefert sehr leise)
+    intercom_lautstaerke: int = 400
 
     GRENZEN = {  # noqa: RUF012
         "verweildauer_s": (3, 60),
@@ -212,6 +214,7 @@ class Einstellungen:
         "ereignis_dauer_s": (15, 600),
         "ton_lautstaerke": (5, 100),
         "klingel_lautstaerke": (5, 100),
+        "intercom_lautstaerke": (100, 800),
     }
 
     @classmethod
