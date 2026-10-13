@@ -11,7 +11,7 @@ import asyncio
 import logging
 import re
 import time
-import xml.etree.ElementTree as ET  # noqa: S405 - Dokumente werden vorher auf DOCTYPE/ENTITY geprüft
+import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta, timezone
 from urllib.parse import urlsplit
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -27,6 +27,7 @@ MAX_BYTES = 5 * 1024 * 1024
 KONTAKTE_TTL_S = 15 * 60
 VERLAUF_TTL_S = 2 * 60
 MAX_ANRUFE = 500
+FEHLER_PAUSE_S = 30
 
 # Anruftyp der FRITZ!Box -> Richtung (1/2/3 = ein/verpasst/aus, 9/10/11 = dasselbe über Rufnummernblock)
 _RICHTUNG = {"1": "ein", "9": "ein", "2": "verpasst", "10": "verpasst", "3": "aus", "11": "aus"}
@@ -127,7 +128,7 @@ def anrufe_parsen(daten: bytes) -> list[dict]:
         if richtung == "aus" and not nummer:
             nummer = _kind_text(call, "CalledNumber")
         try:
-            zeit = datetime.strptime(_kind_text(call, "Date"), "%d.%m.%y %H:%M").replace(tzinfo=zone)  # noqa: DTZ007
+            zeit = datetime.strptime(_kind_text(call, "Date"), "%d.%m.%y %H:%M").replace(tzinfo=zone)
         except ValueError:
             continue
         eintraege.append(
@@ -156,8 +157,8 @@ class FritzBox:
         self._kontakte: list[dict] = []
         self._anrufe: list[dict] = []
         self._index: dict[str, str] = {}
-        self._kontakte_stand = 0.0
-        self._verlauf_stand = 0.0
+        self._kontakte_faellig = 0.0
+        self._verlauf_faellig = 0.0
         self._verlauf_anzahl = 0
         self.fehler: str | None = None
 
@@ -200,11 +201,13 @@ class FritzBox:
         return {_lokal(el.tag): (el.text or "").strip() for el in wurzel.iter() if len(el) == 0}
 
     async def _hole(self, url: str, anhang: str = "") -> bytes:
-        """Von der Box gelieferte Adresse (mit sid) abrufen - nur auf demselben Host."""
+        """Von der Box gelieferte Adresse (mit sid) abrufen. Nur Pfad und Abfrage werden übernommen, Host und Port
+        sind immer die konfigurierten: Die Box nennt sich je nach Firmware „fritz.box“ oder per IP, und eine fremde
+        Adresse in der Antwort darf nie abgerufen werden."""
         teile = urlsplit(url)
-        if (teile.hostname or "").lower() != self._host.lower() or teile.scheme not in ("http", "https"):
+        if teile.scheme not in ("http", "https") or not teile.path.startswith("/"):
             raise FritzFehler("FRITZ!Box: Unerwartete Adresse in der Antwort")
-        ziel = f"{url}{anhang}"
+        ziel = f"http://{self._host}:{self._port}{teile.path}{'?' + teile.query if teile.query else ''}{anhang}"
         async with self._session.get(ziel, timeout=aiohttp.ClientTimeout(total=TIMEOUT_S), allow_redirects=False) as resp:
             daten = await self._lesen(resp)
             self._pruefe_status(resp.status)
@@ -244,19 +247,26 @@ class FritzBox:
         self._verlauf_anzahl = anzahl
 
     async def aktualisieren(self, erzwingen: bool = False, anzahl: int = 50) -> None:
-        """Zwischenspeicher auffrischen, wenn abgelaufen (oder erzwungen). Setzt `fehler`, wirft nie."""
+        """Zwischenspeicher auffrischen, wenn abgelaufen (oder erzwungen). Setzt `fehler`, wirft nie.
+
+        Nach einem Fehler wird erst nach FEHLER_PAUSE_S erneut versucht (kein Dauerfeuer bei falschem Passwort).
+        """
         async with self._lock:
             jetzt = time.monotonic()
+            anzahl = min(max(anzahl, 1), MAX_ANRUFE)
+            versucht = False
             fehler: str | None = None
-            if erzwingen or jetzt - self._kontakte_stand >= KONTAKTE_TTL_S:
+            if erzwingen or jetzt >= self._kontakte_faellig:
+                versucht = True
                 fehler = await self._versuche(self._kontakte_laden())
-                self._kontakte_stand = time.monotonic()
-            if fehler is None and (erzwingen or jetzt - self._verlauf_stand >= VERLAUF_TTL_S or anzahl > self._verlauf_anzahl):
-                fehler = await self._versuche(self._verlauf_laden(min(max(anzahl, 1), MAX_ANRUFE)))
-                self._verlauf_stand = time.monotonic()
+                self._kontakte_faellig = time.monotonic() + (FEHLER_PAUSE_S if fehler else KONTAKTE_TTL_S)
+            if fehler is None and (erzwingen or jetzt >= self._verlauf_faellig or anzahl > self._verlauf_anzahl):
+                versucht = True
+                fehler = await self._versuche(self._verlauf_laden(anzahl))
+                self._verlauf_faellig = time.monotonic() + (FEHLER_PAUSE_S if fehler else VERLAUF_TTL_S)
             if fehler is not None:
                 self.fehler = fehler
-            elif erzwingen or self._kontakte_stand == self._verlauf_stand or self.fehler:
+            elif versucht:
                 self.fehler = None
 
     async def _versuche(self, aufgabe) -> str | None:
