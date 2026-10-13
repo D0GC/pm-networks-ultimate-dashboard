@@ -24,10 +24,10 @@
   PS.sportModell = (k, m) => {
     const sp = k.spiel || {}, t = sp.team || {}, g = sp.gegner || {};
     const art = k.ring_art || "vorschau", live = k.zustand === "IN";
-    // Vorschau: beide Logos mit „vs“/„@“; Live und Ergebnis: Stand mit Teamkürzeln darunter (Rams zuerst, tabellarische Ziffern)
+    // Vorschau: beide Logos mit „vs“/„@“; Live und Ergebnis: beide Logos über dem Stand (Rams zuerst, tabellarische Ziffern)
     const innen = k.zustand === "PRE"
       ? `<div class="sport-paar">${marke(t)}${marke(g)}</div><b class="sport-stand tabular">${PS.esc(sp.auswaerts ? "@" : "vs")}</b>`
-      : `<div class="sport-ergebnis"><span class="sport-zahlen tabular"><b class="${art === "niederlage" ? "leise" : ""}">${PS.esc(t.punkte)}</b><i>:</i><b class="${art === "sieg" ? "leise" : ""}">${PS.esc(g.punkte)}</b></span><span class="sport-abks"><span>${PS.esc(t.abk)}</span><span>${PS.esc(g.abk)}</span></span></div>`;
+      : `<div class="sport-ergebnis"><div class="sport-paar klein">${marke(t, "klein")}${marke(g, "klein")}</div><span class="sport-zahlen tabular"><b class="${art === "niederlage" ? "leise" : ""}">${PS.esc(t.punkte)}</b><i>:</i><b class="${art === "sieg" ? "leise" : ""}">${PS.esc(g.punkte)}</b></span></div>`;
     return { ...m, kopf: "Rams", farbe: RING_FARBE[art] || "#ffd100", anteil: k.ring != null ? k.ring : 1,
       ringKlasse: `sport-ring ${live ? "sport-live" : "sport-" + art}`, innen,
       h2: k.titel, p: k.hinweis, badge: { text: k.badge, farbe: k.badge_farbe, live } };

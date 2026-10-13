@@ -7,6 +7,9 @@ body.ohne-animation .sport-badge.puls{animation:none}
 .sport-marke{display:inline-grid;place-items:center;width:4.4rem;height:4.4rem;flex:none}
 .sport-marke img{width:100%;height:100%;object-fit:contain}
 .sport-marke.gross{width:7.5rem;height:7.5rem}
+.sport-marke.klein{width:min(3.4rem,18cqw);height:min(3.4rem,18cqw)}
+.sport-marke.klein .sport-abk{font-size:.85rem}
+.ring .innen .sport-paar.klein{gap:1.1rem;margin-bottom:.2rem}
 .sport-abk{display:grid;place-items:center;width:100%;height:100%;border-radius:50%;background:var(--team,#443171);color:#fff;font-size:1.15rem;font-weight:700;letter-spacing:.04em}
 .sport-marke.gross .sport-abk{font-size:1.9rem}
 .ring .innen .sport-paar{display:flex;justify-content:center;gap:.3rem}
@@ -18,7 +21,6 @@ body.ohne-animation .sport-badge.puls{animation:none}
 .ring .innen .sport-zahlen b{font-size:1em;font-weight:inherit;min-width:1.2ch;text-align:center}
 .ring .innen .sport-zahlen b.leise{opacity:.55}
 .ring .innen .sport-zahlen i{font-style:normal;opacity:.5;font-weight:400}
-.ring .innen .sport-abks{display:flex;justify-content:center;gap:1.6rem;font-size:.95rem;letter-spacing:.14em;color:var(--leise);font-weight:600}
 /* Live: Ring in Rams-Blau/Gold nach Spielfortschritt mit weichem Puls */
 .ring.sport-live .spur{stroke:rgba(0,53,148,.55)}
 .ring.sport-live .wert{animation:sport-glut 2.6s ease-in-out infinite}
