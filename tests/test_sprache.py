@@ -154,3 +154,12 @@ def test_alte_verstaerkungen_werden_zurueckgesetzt():
     assert alt.telefon_lautstaerke == 100 and alt.ansage_lautstaerke == 100 and alt.ton_lautstaerke == 40
     neu = Einstellungen.from_dict({"telefon_lautstaerke": 150, "ton_stand": TON_STAND})
     assert neu.telefon_lautstaerke == 150 and neu.to_dict()["ton_stand"] == TON_STAND
+
+
+def test_weckwort_ruhezeit_standardmaessig_aus():
+    from panelstudio.config import WECK_STAND, Einstellungen
+
+    alt = Einstellungen.from_dict({"weckwort_ruhe_von": 23, "weckwort_ruhe_bis": 6})
+    assert alt.weckwort_ruhe_von == alt.weckwort_ruhe_bis == 0
+    neu = Einstellungen.from_dict({"weckwort_ruhe_von": 22, "weckwort_ruhe_bis": 7, "weck_stand": WECK_STAND})
+    assert (neu.weckwort_ruhe_von, neu.weckwort_ruhe_bis) == (22, 7)

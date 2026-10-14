@@ -37,6 +37,8 @@ MODULE = (
 )
 # Verstärkerlogik: Stand 2 = saubere Kette ohne Sättigung, Verstärkungen um 100 %
 TON_STAND = 2
+# Weckwort: Stand 2 = Ruhezeit standardmäßig aus
+WECK_STAND = 2
 VERSTAERKUNGEN = ("intercom_lautstaerke", "ton_verstaerkung", "telefon_lautstaerke", "ansage_lautstaerke")
 
 # Module, die nach dem ersten Release hinzukamen: gespeicherte Einstellungen ohne „module_bekannt“ kennen sie noch nicht
@@ -242,8 +244,9 @@ class Einstellungen:
     # Weckwort (openWakeWord in Home Assistant): nur Wandpanels, nicht die Vorschau im Editor; Ruhezeit in vollen Stunden
     weckwort_aktiv: bool = True
     weckwort: str = "hey_jarvis"
-    weckwort_ruhe_von: int = 23
-    weckwort_ruhe_bis: int = 6  # gleich „von“: keine Ruhezeit
+    weckwort_ruhe_von: int = 0
+    weckwort_ruhe_bis: int = 0  # gleich „von“: keine Ruhezeit (Vorgabe)
+    weck_stand: int = WECK_STAND  # ältere Stände übernehmen die Ruhezeit nicht (Vorgabe war 23–6 Uhr)
     material_fest: list[str] = field(default_factory=list)
     aussen_feuchte: list[str] = field(default_factory=lambda: list(STANDARD_AUSSEN_FEUCHTE))
     # Haus-Modi, die als Pillen in der Statuszeile des Flurs erscheinen, solange sie „on“ sind
@@ -290,6 +293,9 @@ class Einstellungen:
             # Frühere Verstärkungen (bis 800 %) glichen eine zu niedrige Systemlautstärke aus und übersteuern jetzt
             for k in VERSTAERKUNGEN:
                 raw.pop(k, None)
+        if raw.pop("weck_stand", 0) != WECK_STAND:
+            raw.pop("weckwort_ruhe_von", None)
+            raw.pop("weckwort_ruhe_bis", None)
         e.aktualisieren(raw)
         if isinstance((raw or {}).get("module"), list):
             # Neue Module, die der gespeicherte Stand noch nicht kannte, einmalig einreihen (vor „Suche“)
@@ -383,7 +389,7 @@ class Einstellungen:
                 setattr(self, key, [e for e in _entities(val) if e.startswith("scene.")][:60])
             elif key == "schnellzugriff":
                 self.schnellzugriff = _entities(val)[:8]
-            elif key in ("module_bekannt", "ton_stand"):
+            elif key in ("module_bekannt", "ton_stand", "weck_stand"):
                 pass  # wird beim Laden gesetzt
             elif key == "module":
                 vals = val if isinstance(val, list) else []

@@ -1,5 +1,10 @@
 # Änderungen
 
+## 2026.10.31 – 2026-10-14
+
+- Weckwort: Ruhezeit standardmäßig aus (bisher 23–6 Uhr); eine gespeicherte Ruhezeit wird einmalig zurückgesetzt.
+  Die Einstellung bleibt im Editor erhalten.
+
 ## 2026.10.30 – 2026-10-14
 
 - Tonkette überarbeitet (Kratzen behoben): Die tanh-Sättigung entfällt, Verstärkungen gehen nur noch von 25 bis 400 %
