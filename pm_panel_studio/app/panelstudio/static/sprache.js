@@ -156,6 +156,16 @@
   }
 
   PS.on("assist", (m) => {
+    // Antwortton: kommt oft erst nach „ende“ (Home Assistant meldet tts-end und run-end gleichzeitig, die App lädt den
+    // Ton danach), deshalb unabhängig vom Lauf abspielen
+    if (m.phase === "spricht" && m.ton) {
+      if (laufend) laufend.stoppen();
+      laufend = PS.audio.abspielen(tonUrl(m.ton), "ansage");
+      // Overlay bleibt, bis die Antwort ungefähr gesprochen ist (≈ 70 ms je Zeichen, mind. 5 s)
+      const n = (box() && box().querySelector(".assist-antwort").textContent.length) || 60;
+      schliessen(Math.max(5000, Math.min(30000, n * 70 + 1500)));
+      return;
+    }
     const l = lauf;
     if (!l) return;
     if (m.phase === "lauscht") { knopfZeigen(); return; }
@@ -169,13 +179,7 @@
     if (["versteht", "denkt", "antwortet", "fehler"].includes(m.phase)) l.zu = true;  // keine Rahmen mehr senden
     if (m.phase === "versteht" || m.phase === "denkt") overlay("denkt", m.text != null ? m.text : null);
     else if (m.phase === "antwortet") { overlay("antwortet", null, m.antwort || ""); l.antwort = true; schliessen(9000); }
-    else if (m.phase === "spricht" && m.ton) {
-      if (laufend) laufend.stoppen();
-      laufend = PS.audio.abspielen(tonUrl(m.ton), "ansage");
-      // Overlay bleibt, bis die Antwort ungefähr gesprochen ist (≈ 70 ms je Zeichen, mind. 5 s)
-      const n = (box() && box().querySelector(".assist-antwort").textContent.length) || 60;
-      schliessen(Math.max(5000, Math.min(30000, n * 70 + 1500)));
-    } else if (m.phase === "fehler") { overlay("fehler", null, m.fehler || ""); schliessen(5000); clearTimeout(l.timer); nachLauf(5000); }
+    else if (m.phase === "fehler") { overlay("fehler", null, m.fehler || ""); schliessen(5000); clearTimeout(l.timer); nachLauf(5000); }
     else if (m.phase === "ende") {
       clearTimeout(l.timer);
       if (!l.geweckt) { nachLauf(m.code ? 3000 : 500); return; }  // Lauschen endete ohne Weckwort: neu beginnen

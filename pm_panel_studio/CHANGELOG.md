@@ -1,5 +1,12 @@
 # Änderungen
 
+## 2026.10.32 – 2026-10-14
+
+- Sprachassistent: Die Antwort wird jetzt vorgelesen. Home Assistant meldet Antwortton und Laufende gleichzeitig; das
+  Panel verwarf den Ton, weil der Lauf schon beendet war.
+- Weckwort: Die letzte halbe Sekunde vor der Erkennung geht mit an die Spracherkennung, damit der Satzanfang direkt
+  nach „Hey Jarvis“ nicht verloren geht.
+
 ## 2026.10.31 – 2026-10-14
 
 - Weckwort: Ruhezeit standardmäßig aus (bisher 23–6 Uhr); eine gespeicherte Ruhezeit wird einmalig zurückgesetzt.

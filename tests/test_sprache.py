@@ -116,6 +116,7 @@ async def test_weckwort_lauf():
     await sp.assist_start(ws, senden, None, weckwort="hey_jarvis")
     payload, cb = c.abos[7]
     assert payload["start_stage"] == "wake_word" and payload["input"]["timeout"] >= 600
+    assert 0 < payload["input"]["audio_seconds_to_buffer"] <= 1
     cb({"type": "run-start", "data": {"runner_data": {"stt_binary_handler_id": 3}}})
     await asyncio.sleep(0)
     assert an_panel[-1]["phase"] == "lauscht"
