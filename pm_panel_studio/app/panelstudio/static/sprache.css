@@ -1,0 +1,24 @@
+/* Sprachassistent: Knopf neben der Glocke und Overlay unten mittig (Glas wie Dock und Live-Kapsel) */
+.glocke-zeile{gap:.8rem}
+.assist-knopf.aktiv{background:var(--akzent,#9b6bff);color:#fff;animation:assist-puls 1.4s ease-in-out infinite}
+@keyframes assist-puls{0%,100%{box-shadow:0 0 0 0 rgba(155,107,255,.55)}50%{box-shadow:0 0 0 .9rem rgba(155,107,255,0)}}
+
+.assist{position:fixed;left:50%;bottom:9rem;z-index:40;width:min(46rem,80vw);display:flex;gap:1.4rem;align-items:center;
+  padding:1.3rem 1.8rem;border-radius:2rem;background:rgba(15,12,42,.86);backdrop-filter:blur(18px) saturate(1.2);
+  border:1px solid var(--linie-stark,rgba(236,235,242,.18));box-shadow:0 2.4rem 4rem -1.6rem rgba(0,0,0,.7);
+  transform:translate(-50%,1.2rem) scale(.97);opacity:0;transition:opacity .3s ease,transform .45s cubic-bezier(.2,.9,.3,1.2);cursor:pointer}
+.assist.an{opacity:1;transform:translate(-50%,0) scale(1)}
+.assist-ring{flex:none;width:4.4rem;height:4.4rem;border-radius:50%;display:grid;place-items:center;font-size:2rem;
+  color:#fff;background:var(--akzent,#9b6bff)}
+.assist[data-phase="hoert"] .assist-ring{animation:assist-puls 1.4s ease-in-out infinite}
+.assist[data-phase="denkt"] .assist-ring,.assist[data-phase="versteht"] .assist-ring{opacity:.7;animation:assist-atmen 1.6s ease-in-out infinite}
+.assist[data-phase="fehler"] .assist-ring{background:var(--krit,#ef6a7a)}
+@keyframes assist-atmen{0%,100%{transform:scale(.92)}50%{transform:scale(1.04)}}
+.assist-inhalt{min-width:0;display:flex;flex-direction:column;gap:.3rem}
+.assist-phase{color:var(--lavender);font-size:1rem;letter-spacing:.12em;text-transform:uppercase}
+.assist-phase:empty{display:none}
+.assist-text{margin:0;font-size:1.25rem;color:var(--leise,#b9b3d6)}
+.assist-text:empty{display:none}
+.assist-antwort{margin:0;font-size:1.5rem;font-weight:600;line-height:1.3}
+.assist-antwort:empty{display:none}
+body.ohne-animation .assist,body.ohne-animation .assist-ring,body.ohne-animation .assist-knopf{animation:none;transition:none}

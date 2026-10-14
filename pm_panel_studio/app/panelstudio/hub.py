@@ -33,6 +33,7 @@ from . import szenen as sz
 from .config import Einstellungen, EinstellungsSpeicher, Options
 from .ha_client import HAClient, HAError
 from .popups import PopupSpeicher, text_aus_inhalt, weckt
+from .sprache import Sprache
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -109,6 +110,7 @@ class Hub:
         self.opts = opts
         self.client = client
         self.speicher = speicher
+        self.sprache = Sprache(client, self.senden_alle)
         self.einstellungen: Einstellungen = speicher.laden()
         self.states: dict[str, dict[str, Any]] = {}
         self.registry: dict[str, dict[str, Any]] = {}
@@ -288,6 +290,11 @@ class Hub:
         if data.get("domain") not in ("browser_mod", "script"):
             return
         sd = data.get("service_data") or {}
+        if data.get("domain") == "script" and data.get("service") == "panel_ansage":
+            # Ansage über die Panels (Piper): Home Assistant spricht den Text, die Panels spielen ihn ab
+            if "ansage" not in self.einstellungen.karten_aus:
+                self.spawn(self.sprache.ansage(sd))
+            return
         # Kamera-Popup (z. B. „Wohnungstür Personenerkennung Popup“) -> Vollbild-Overlay statt Meldung, wie früher
         if data.get("domain") == "browser_mod" and data.get("service") == "popup":
             _text, kamera = text_aus_inhalt(sd.get("content"))
@@ -717,6 +724,8 @@ class Hub:
 
     async def gespraeche_beenden(self, ws: web.WebSocketResponse | None = None, grund: str | None = None) -> None:
         """Alle Gespräche beenden, oder nur die eines getrennten Panels."""
+        if ws is not None and ws is self.sprache.assist_ws:
+            await self.sprache.assist_stopp()
         for kennung, eintrag in list(self.gespraeche.items()):
             if ws is None or eintrag["ws"] is ws:
                 await self.gespraech_beenden(kennung, melden=ws is None, grund=grund)
@@ -903,6 +912,8 @@ class Hub:
 
     def telefon_ton(self, ws: web.WebSocketResponse, daten: bytes) -> None:
         """Binärer Tonrahmen eines Panels; nur der Besitzer des Anrufs wird weitergereicht."""
+        if self.sprache.assist_ton(ws, daten):  # Spracheingabe für den Assistenten (16 kHz)
+            return
         if self.telefon is not None and ws is self._telefon_panel:
             self.telefon.ton(daten)
 
@@ -931,6 +942,21 @@ class Hub:
             return await self.gespraech_beenden(str(msg.get("gespraech", "")), melden=False)
         if isinstance(typ, str) and typ.startswith("telefon_"):
             return await self.telefon_anfrage(typ, msg, ws)
+        if typ == "assist_start":
+            if ws is None:
+                raise ValueError("Assistent nur über eine Panel-Verbindung")
+            if (self.telefon_stand.get("anruf") or {}).get("zustand") in ("klingelt", "waehlt", "verbunden"):
+                raise ValueError("Während eines Anrufs ist der Assistent nicht verfügbar")
+
+            async def an_panel(nachricht: dict[str, Any]) -> None:
+                with contextlib.suppress(Exception):
+                    await ws.send_str(json.dumps(nachricht, ensure_ascii=False))
+
+            return await self.sprache.assist_start(ws, an_panel, self.einstellungen.assist_pipeline or None)
+        if typ == "assist_stopp":
+            if ws is self.sprache.assist_ws:
+                await self.sprache.assist_ende_senden()
+            return True
         if typ == "dienst":
             domain, service = str(msg.get("domain", "")), str(msg.get("service", ""))
             if not dienst_erlaubt(domain, service):

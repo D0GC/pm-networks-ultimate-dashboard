@@ -1,5 +1,19 @@
 # Änderungen
 
+## 2026.10.29 – 2026-10-14
+
+- Ansagen über das Panel: Neues Skript „Panel-Ansage sprechen“ (`script.panel_ansage`, Felder `text`, optional
+  `titel`, `engine`, `stimme`). Die App lässt Home Assistant den Text sprechen – Vorgabe Piper mit der Stimme Jarvis
+  (`tts.piper`, `de_DE-jarvis-medium`) – und spielt den Ton über die Lautsprecher und die Tonkette des Panels ab; der
+  Text erscheint kurz als Einblendung. Neuer Pegel „Lautstärke Ansagen und Assistent“ im Editor; abschaltbar über den
+  Kartentyp `ansage` in „Karten aus“.
+- Heimkomm-Briefing (Dominik und Gina) spricht jetzt über das Panel im Flur statt über die Echos. „Alles stumm“
+  unterdrückt die Ansage weiterhin; Popup, Push und Panel-Meldungen bleiben unverändert.
+- Sprachassistent am Panel: Mikrofon-Knopf neben der Glocke. Antippen startet eine Assist-Pipeline (Vorgabe
+  „Home Assistant Cloud“, wählbar im Editor, z. B. „Nur Lokal“ mit faster-whisper); das Panel schickt 16-kHz-Ton,
+  Home Assistant erkennt das Sprechende selbst. Erkannter Text und Antwort erscheinen unten im Overlay, die Antwort wird
+  gesprochen. Erneutes Tippen beendet die Eingabe oder schließt das Overlay. Während eines Telefonats gesperrt.
+
 ## 2026.10.28 – 2026-10-14
 
 - Verpasste Anrufe: Ein eingehender Anruf, den niemand am Panel annimmt, erscheint als Feed-Karte „Verpasster Anruf“

@@ -68,6 +68,8 @@
       case "ereignis": PS.ereignis = m; PS.emit("ereignis", m); PS.klingelPruefen(m); break;
       case "intercom": PS.emit("intercom", m); break;
       case "telefon": PS.telefon = m; PS.emit("telefon", m); break;
+      case "ansage": PS.emit("ansage", m); break;
+      case "assist": PS.emit("assist", m); break;
       case "einstellungen":
         PS.einst = m.einstellungen || {};
         document.body.classList.toggle("ohne-animation", PS.einst.animationen === false);

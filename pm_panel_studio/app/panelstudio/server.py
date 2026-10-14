@@ -169,6 +169,15 @@ async def _anfrage(hub: Hub, ws: web.WebSocketResponse, data: dict[str, Any]) ->
         await ws.send_str(json.dumps(antwort, ensure_ascii=False, default=str))
 
 
+async def ansage_ton(request: web.Request) -> web.Response:
+    """Tondatei einer Ansage oder Assistenten-Antwort (von Home Assistant erzeugt, in der App zwischengespeichert)."""
+    ton = request.app[K_HUB].sprache.ton(request.query.get("id", ""))
+    if ton is None:
+        raise web.HTTPNotFound(text="Ton nicht (mehr) vorhanden")
+    daten, ctype = ton
+    return web.Response(body=daten, content_type=ctype, headers={"Cache-Control": "no-store"})
+
+
 async def bild(request: web.Request) -> web.Response:
     """Kamerabilder und Cover über Home Assistant (die Panels kennen kein HA-Token)."""
     hub = request.app[K_HUB]
@@ -334,6 +343,21 @@ async def klima_studio(request: web.Request) -> web.StreamResponse:
         raise web.HTTPBadGateway(text="PM Klima Studio nicht erreichbar.") from err
 
 
+async def assist_pipelines(request: web.Request) -> web.Response:
+    """Assist-Pipelines aus Home Assistant für die Auswahl im Editor."""
+    try:
+        res = await request.app[K_HUB].client.ws_command({"type": "assist_pipeline/pipeline/list"}, timeout=15)
+    except HAError:
+        return web.json_response([])
+    return web.json_response(
+        [
+            {"id": p.get("id"), "name": p.get("name"), "stt": p.get("stt_engine"), "tts": p.get("tts_engine")}
+            for p in (res or {}).get("pipelines", [])
+            if isinstance(p, dict)
+        ]
+    )
+
+
 async def einstellungen_get(request: web.Request) -> web.Response:
     hub = request.app[K_HUB]
     return web.json_response(
@@ -388,6 +412,7 @@ def _gemeinsam(app: web.Application) -> None:
     app.router.add_get("/api/health", health)
     app.router.add_get("/api/ws", ws_handler)
     app.router.add_get("/api/bild", bild)
+    app.router.add_get("/api/ansage", ansage_ton)
     app.router.add_get("/api/kamera", kamera)
     app.router.add_get("/api/hls/{pfad:.+}", hls)
     app.router.add_get("/api/video", video)
@@ -404,6 +429,7 @@ def create_ingress_app(hub: Hub, token: list[str], networks: list[Any] | None = 
     app.router.add_get("/", seite_editor)
     app.router.add_get("/panel", seite_panel)
     app.router.add_get("/api/einstellungen", einstellungen_get)
+    app.router.add_get("/api/assist_pipelines", assist_pipelines)
     app.router.add_post("/api/einstellungen", einstellungen_post)
     app.router.add_post("/api/token", token_neu)
     _gemeinsam(app)

@@ -6,14 +6,14 @@
  * der Begrenzer kurz unter 0 dBFS verhindert Übersteuern. (Früher saß ein Kompressor mit -30 dB Schwelle hinter der
  * Verstärkung und nahm sie fast vollständig wieder weg.) Sprache (Gegensprechen, Telefon) wird vorher ausgeglichen,
  * damit leise Stellen mitkommen. Arten: "ton" (Hinweis-/Alarmton), "klingel" (Türklingel),
- * "intercom" (Gegensprechen), "telefon" (Telefonie). Pegel je Art und Verstärkung kommen aus den Einstellungen. */
+ * "intercom" (Gegensprechen), "telefon" (Telefonie), "ansage" (Piper-Ansagen, Assistent). Pegel je Art und Verstärkung kommen aus den Einstellungen. */
 (function () {
   "use strict";
   const PS = window.PS;
-  const ARTEN = ["ton", "klingel", "intercom", "telefon"];
+  const ARTEN = ["ton", "klingel", "intercom", "telefon", "ansage"];
   let ctx = null, eingang = null, saettigung = null, begrenzer = null;
   const pegel = {};
-  const SPRACHE = ["intercom", "telefon"];
+  const SPRACHE = ["intercom", "telefon", "ansage"];
 
   // tanh-Kennlinie, normiert auf ±1: kleine Pegel werden rund dreifach angehoben, große laufen weich gegen ±1
   function kennlinie() {
@@ -31,6 +31,7 @@
     if (art === "klingel") return Math.max(0.05, Math.min(1, zahl("klingel_lautstaerke", 100) / 100)) * m;
     if (art === "intercom") return Math.max(1, Math.min(8, zahl("intercom_lautstaerke", 400) / 100));
     if (art === "telefon") return Math.max(1, Math.min(8, zahl("telefon_lautstaerke", 400) / 100));
+    if (art === "ansage") return Math.max(1, Math.min(8, zahl("ansage_lautstaerke", 300) / 100));
     return 1;
   }
   function pegelSetzen() {

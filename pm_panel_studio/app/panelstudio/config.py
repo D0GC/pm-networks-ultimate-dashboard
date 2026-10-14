@@ -232,6 +232,9 @@ class Einstellungen:
     raum_schalter: dict[str, list[str]] = field(default_factory=lambda: {k: list(v) for k, v in STANDARD_RAUM_SCHALTER.items()})
     wartung_ignorieren: list[str] = field(default_factory=list)  # Entitäten, deren Gerät der Systemzustand nicht prüft
     material_modus: str = "auto"  # Verbrauchsmaterial: "auto" (erkannt) oder "manuell" (nur material_fest)
+    # Sprachassistent am Panel: Assist-Pipeline (leer = bevorzugte Pipeline); Vorgabe „Home Assistant Cloud“
+    assist_pipeline: str = "01k8y1dbxge6tn0b42ydq60n8w"
+    assist_aktiv: bool = True
     material_fest: list[str] = field(default_factory=list)
     aussen_feuchte: list[str] = field(default_factory=lambda: list(STANDARD_AUSSEN_FEUCHTE))
     # Haus-Modi, die als Pillen in der Statuszeile des Flurs erscheinen, solange sie „on“ sind
@@ -248,6 +251,7 @@ class Einstellungen:
     # Verstärkung aller Töne (Hinweis- und Klingelton, Prozent) und des Telefon-Tons; Kette und Kompressor: static/audio.js
     ton_verstaerkung: int = 300
     telefon_lautstaerke: int = 400
+    ansage_lautstaerke: int = 300  # Ansagen (Piper) und Antworten des Assistenten, Prozent wie Telefon
     telefon_favoriten: list[dict[str, str]] = field(default_factory=list)  # [{name, nummer}] für die Telefon-Seite
 
     GRENZEN = {  # noqa: RUF012
@@ -262,6 +266,7 @@ class Einstellungen:
         "intercom_lautstaerke": (100, 800),
         "ton_verstaerkung": (100, 800),
         "telefon_lautstaerke": (100, 800),
+        "ansage_lautstaerke": (100, 800),
         "dock_anzahl": (3, 12),
     }
 
@@ -321,6 +326,11 @@ class Einstellungen:
                     if name and re.match(r"^\+?[0-9*#]{2,32}$", nummer):
                         favoriten.append({"name": name, "nummer": nummer})
                 self.telefon_favoriten = favoriten[:24]
+            elif key == "assist_pipeline":
+                if not isinstance(val, str) or not re.match(r"^[A-Za-z0-9_-]{0,64}$", val):
+                    abgewiesen.append(key)
+                    continue
+                self.assist_pipeline = val
             elif key == "material_modus":
                 if val not in ("auto", "manuell"):
                     abgewiesen.append(key)
@@ -359,7 +369,7 @@ class Einstellungen:
             elif key in ("bereiche_reihenfolge", "bereiche_ausblenden", "start_raeume", "karten_aus"):
                 vals = val if isinstance(val, list) else []
                 setattr(self, key, [s for s in dict.fromkeys(str(v).strip() for v in vals) if re.match(r"^[a-z0-9_]{1,64}$", s)])
-            elif key in ("animationen", "ton_hoch", "ton_klingel", "gruss", "zugaenglich"):
+            elif key in ("animationen", "ton_hoch", "ton_klingel", "gruss", "zugaenglich", "assist_aktiv"):
                 setattr(self, key, bool(val))
             else:
                 abgewiesen.append(key)
