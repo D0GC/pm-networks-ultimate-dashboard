@@ -276,7 +276,7 @@ folgen ein kurzer Doppelton, Spracherkennung und Antwort wie beim Knopf.
 
 - In der gewählten Pipeline müssen „Weckwort-Engine“ (`wake_word.openwakeword`) und dasselbe Weckwort wie im Editor
   eingestellt sein; meldet die Engine ein anderes Wort, verwirft die App den Lauf.
-- Ruhezeit in vollen Stunden (Vorgabe 23 bis 6 Uhr; gleiche Zahl = keine Ruhezeit). Während eines Anrufs ruht das
+- Ruhezeit in vollen Stunden, z. B. 23 bis 6 Uhr (Vorgabe: gleiche Zahl = keine Ruhezeit). Während eines Anrufs ruht das
   Lauschen. Die Vorschau im Editor hört nie dauerhaft mit.
 - Ein kleiner Punkt am Mikrofon-Knopf zeigt, dass das Panel lauscht.
 
