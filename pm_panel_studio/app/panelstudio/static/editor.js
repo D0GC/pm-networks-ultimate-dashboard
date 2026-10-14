@@ -5,7 +5,7 @@
   const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const MODULE = { raeume: "Räume", klima: "Klima", studio: "Klima Studio", licht: "Licht", sicherheit: "Sicherheit", medien: "Medien", musik: "Music Assistant", haushalt: "Haushaltsgeräte", listen: "Listen", energie: "Energie", shisha: "Shisha", wartung: "Wartung", suche: "Suche" };
   const KARTEN = { meldung: "Panel-Meldungen", eil: "Eilmeldung", warnung: "Warnung", termin: "Termin", stundenplan: "Stundenplan", arbeit: "Fahrten", wetter: "Wetter", muell: "Müll", fertig: "Gerät fertig", offen: "Offen", lueften: "Lüften", pollen: "Pollen", eigen: "Eigener Hinweis", dusche: "Duschmodus", spa: "Spa", kohle: "Kohle", waesche: "Waschmaschine", spueler: "Spülmaschine", robo: "Roborock", musik: "Musik", heimweg: "Heimweg", pakete: "Pakete", verpasst: "Verpasster Anruf" };
-  const ZAHLEN = ["verweildauer_s", "ruhe_nach_s", "bedienung_zurueck_s", "ruhe_helligkeit", "nacht_helligkeit", "ereignis_dauer_s", "ton_lautstaerke", "klingel_lautstaerke", "intercom_lautstaerke", "ton_verstaerkung", "telefon_lautstaerke", "ansage_lautstaerke", "dock_anzahl"];
+  const ZAHLEN = ["verweildauer_s", "ruhe_nach_s", "bedienung_zurueck_s", "ruhe_helligkeit", "nacht_helligkeit", "ereignis_dauer_s", "ton_lautstaerke", "klingel_lautstaerke", "intercom_lautstaerke", "ton_verstaerkung", "telefon_lautstaerke", "ansage_lautstaerke", "dock_anzahl", "weckwort_ruhe_von", "weckwort_ruhe_bis"];
   let daten = null, bereiche = [], ws = null, wsId = 1, moduleReihe = [];
 
   async function laden(nurStatus = false) {
@@ -44,6 +44,8 @@
     $("#ton_hoch").checked = e.ton_hoch !== false;
     $("#ton_klingel").checked = e.ton_klingel !== false;
     $("#assist_aktiv").checked = e.assist_aktiv !== false;
+    $("#weckwort_aktiv").checked = e.weckwort_aktiv !== false;
+    $("#weckwort").value = e.weckwort || "hey_jarvis";
     pipelinesLaden(e.assist_pipeline || "");
     $("#schnellzugriff").value = (e.schnellzugriff || []).join("\n");
     $("#raum_schalter").value = Object.entries(e.raum_schalter || {}).map(([b, ids]) => `${b}: ${ids.join(", ")}`).join("\n");
@@ -89,6 +91,8 @@
     neu.ton_hoch = $("#ton_hoch").checked;
     neu.ton_klingel = $("#ton_klingel").checked;
     neu.assist_aktiv = $("#assist_aktiv").checked;
+    neu.weckwort_aktiv = $("#weckwort_aktiv").checked;
+    neu.weckwort = $("#weckwort").value;
     neu.assist_pipeline = $("#assist_pipeline").value;
     neu.schnellzugriff = $("#schnellzugriff").value.split(/\s+/).map((s) => s.trim()).filter(Boolean);
     neu.raum_schalter = {};

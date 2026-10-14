@@ -1,5 +1,9 @@
 /* Sprachassistent: Knopf neben der Glocke und Overlay unten mittig (Glas wie Dock und Live-Kapsel) */
 .glocke-zeile{gap:.8rem}
+.assist-knopf{position:relative}
+/* Weckwort lauscht: kleiner Punkt am Knopf */
+.assist-knopf.lauscht::after{content:"";position:absolute;top:.45rem;right:.45rem;width:.55rem;height:.55rem;border-radius:50%;
+  background:var(--akzent,#9b6bff);box-shadow:0 0 .5rem var(--akzent,#9b6bff)}
 .assist-knopf.aktiv{background:var(--akzent,#9b6bff);color:#fff;animation:assist-puls 1.4s ease-in-out infinite}
 @keyframes assist-puls{0%,100%{box-shadow:0 0 0 0 rgba(155,107,255,.55)}50%{box-shadow:0 0 0 .9rem rgba(155,107,255,0)}}
 

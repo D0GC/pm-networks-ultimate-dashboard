@@ -125,6 +125,7 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
     hub = request.app[K_HUB]
     ws = web.WebSocketResponse(heartbeat=25, max_msg_size=1024 * 1024)
     await ws.prepare(request)
+    ws["rolle"] = request.app[K_ROLLE]  # „panel“ (Wandpanel) oder „ingress“ (Vorschau in Home Assistant)
     hub.clients.add(ws)
     _LOGGER.info("Panel verbunden (%s, %s), jetzt %d", request.remote, request.app[K_ROLLE], len(hub.clients))
     await hub.init_senden(ws)

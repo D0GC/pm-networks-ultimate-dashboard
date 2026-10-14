@@ -1,37 +1,33 @@
 /* PM Panel Studio – zentrale Tonausgabe (Web Audio). Alle Töne des Panels laufen über eine Kette:
- * Quelle → [Sprache: Ausgleich] → Pegel je Art (Verstärkung) → Hochpass 300 Hz → Präsenz +6 dB bei 2,8 kHz →
- * Sättigung → Begrenzer → Lautsprecher.
- * Die Lautsprecher des Panels sind sehr leise; ein Audio-Element kann nicht über 100 % gehen. Die Verstärkung sitzt
- * deshalb VOR Sättigung und Begrenzer: Die weiche Sättigung (tanh) macht laute Töne dichter und damit hörbar lauter,
- * der Begrenzer kurz unter 0 dBFS verhindert Übersteuern. (Früher saß ein Kompressor mit -30 dB Schwelle hinter der
- * Verstärkung und nahm sie fast vollständig wieder weg.) Sprache (Gegensprechen, Telefon) wird vorher ausgeglichen,
- * damit leise Stellen mitkommen. Arten: "ton" (Hinweis-/Alarmton), "klingel" (Türklingel),
- * "intercom" (Gegensprechen), "telefon" (Telefonie), "ansage" (Piper-Ansagen, Assistent). Pegel je Art und Verstärkung kommen aus den Einstellungen. */
+ * Quelle → [Gegensprechen/Telefon: Ausgleich] → Pegel je Art → Hochpass 250 Hz → Präsenz +3 dB bei 2,8 kHz →
+ * Begrenzer → Lautsprecher.
+ * Die Grundlautstärke kommt von der Systemlautstärke des Panels. Die Kette verstärkt nur gezielt (Pegel je Art,
+ * 100 % = unverändert) und lässt saubere Quellen wie Piper unverändert durch. Der Begrenzer fängt nur Spitzen ab.
+ * Früher machten eine tanh-Sättigung und Verstärkungen bis 800 % eine zu niedrige Systemlautstärke wett; das
+ * übersteuerte hörbar (Kratzen), sobald die Systemlautstärke wieder normal stand.
+ * Der Ausgleich für Gegensprechen und Telefon hebt leise Stellen an; sein automatischer Aufholpegel wird danach
+ * wieder abgezogen, damit 100 % auch dort ungefähr dem Original entspricht. Arten: "ton" (Hinweis-/Alarmton),
+ * "klingel" (Türklingel), "intercom" (Gegensprechen), "telefon" (Telefonie), "ansage" (Piper-Ansagen, Assistent). */
 (function () {
   "use strict";
   const PS = window.PS;
   const ARTEN = ["ton", "klingel", "intercom", "telefon", "ansage"];
-  let ctx = null, eingang = null, saettigung = null, begrenzer = null;
+  let ctx = null, eingang = null, begrenzer = null;
   const pegel = {};
-  const SPRACHE = ["intercom", "telefon", "ansage"];
-
-  // tanh-Kennlinie, normiert auf ±1: kleine Pegel werden rund dreifach angehoben, große laufen weich gegen ±1
-  function kennlinie() {
-    const n = 2048, k = new Float32Array(n);
-    for (let i = 0; i < n; i++) { const x = (i / (n - 1)) * 2 - 1; k[i] = Math.tanh(x * 3) / Math.tanh(3); }
-    return k;
-  }
+  const AUSGLEICH = ["intercom", "telefon"];  // Piper-Ansagen sind bereits gleichmäßig ausgesteuert
+  const AUFHOL = 0.33;  // ≈ −9,6 dB: gleicht den automatischen Aufholpegel des Ausgleichs aus
 
   const zahl = (k, standard) => { const v = Number(PS.einst && PS.einst[k]); return Number.isFinite(v) ? v : standard; };
-  // Verstärkungsfaktor je Art. ton und klingel: ihr Pegel (5–100 %) mal die Master-Verstärkung ton_verstaerkung;
-  // intercom und telefon bringen ihre eigene Verstärkung (100–800 %) mit.
+  const verst = (k, standard) => Math.max(0.25, Math.min(4, zahl(k, standard) / 100));
+  // Verstärkungsfaktor je Art. ton und klingel: ihr Pegel (5–100 %) mal die Verstärkung ton_verstaerkung;
+  // intercom, telefon und ansage bringen ihre eigene Verstärkung (25–400 %, 100 % = unverändert) mit.
   function faktor(art) {
-    const m = Math.max(1, Math.min(8, zahl("ton_verstaerkung", 300) / 100));
+    const m = verst("ton_verstaerkung", 100);
     if (art === "ton") return Math.max(0.05, Math.min(1, zahl("ton_lautstaerke", 70) / 100)) * m;
     if (art === "klingel") return Math.max(0.05, Math.min(1, zahl("klingel_lautstaerke", 100) / 100)) * m;
-    if (art === "intercom") return Math.max(1, Math.min(8, zahl("intercom_lautstaerke", 400) / 100));
-    if (art === "telefon") return Math.max(1, Math.min(8, zahl("telefon_lautstaerke", 400) / 100));
-    if (art === "ansage") return Math.max(1, Math.min(8, zahl("ansage_lautstaerke", 300) / 100));
+    if (art === "intercom") return verst("intercom_lautstaerke", 150);
+    if (art === "telefon") return verst("telefon_lautstaerke", 100);
+    if (art === "ansage") return verst("ansage_lautstaerke", 100);
     return 1;
   }
   function pegelSetzen() {
@@ -49,20 +45,19 @@
         const AC = window.AudioContext || window.webkitAudioContext;
         if (!AC) return null;
         ctx = new AC();
-        // Klang an die kleinen Lautsprecher anpassen: Tiefen unter ~300 Hz geben sie kaum wieder, kosten aber Aussteuerung;
-        // der Bereich um 2,8 kHz klingt dort am lautesten (und dort ist das Gehör am empfindlichsten).
-        eingang = ctx.createBiquadFilter(); eingang.type = "highpass"; eingang.frequency.value = 300; eingang.Q.value = 0.7;
+        // Klang an die kleinen Lautsprecher anpassen: Tiefen unter ~250 Hz geben sie kaum wieder, kosten aber Aussteuerung
+        // (und klirren als Erste); um 2,8 kHz etwas Präsenz für Verständlichkeit.
+        eingang = ctx.createBiquadFilter(); eingang.type = "highpass"; eingang.frequency.value = 250; eingang.Q.value = 0.7;
         const praesenz = ctx.createBiquadFilter();
-        praesenz.type = "peaking"; praesenz.frequency.value = 2800; praesenz.Q.value = 0.9; praesenz.gain.value = 6;
-        saettigung = ctx.createWaveShaper(); saettigung.curve = kennlinie(); saettigung.oversample = "4x";
-        eingang.connect(praesenz).connect(saettigung);
+        praesenz.type = "peaking"; praesenz.frequency.value = 2800; praesenz.Q.value = 0.9; praesenz.gain.value = 3;
+        // Begrenzer: greift nur bei Spitzen über −3 dBFS, damit nie digital übersteuert wird
         begrenzer = ctx.createDynamicsCompressor();
-        begrenzer.threshold.value = -1.5; begrenzer.knee.value = 0; begrenzer.ratio.value = 20;
-        begrenzer.attack.value = 0.002; begrenzer.release.value = 0.1;
-        saettigung.connect(begrenzer).connect(ctx.destination);
+        begrenzer.threshold.value = -3; begrenzer.knee.value = 3; begrenzer.ratio.value = 20;
+        begrenzer.attack.value = 0.003; begrenzer.release.value = 0.25;
+        eingang.connect(praesenz).connect(begrenzer).connect(ctx.destination);
       } catch (e) {
         console.warn("audio: Web Audio nicht verfügbar", e);
-        ctx = null; eingang = null; saettigung = null; begrenzer = null;
+        ctx = null; eingang = null; begrenzer = null;
         return null;
       }
     }
@@ -79,11 +74,12 @@
       g.gain.value = faktor(art);
       g.connect(eingang);
       pegel[art] = g;
-      if (SPRACHE.includes(art)) {
-        // Ausgleich für Sprache: hebt leise Stellen an, bevor verstärkt wird
+      if (AUSGLEICH.includes(art)) {
+        // Ausgleich für Gegensprechen und Telefon: hebt leise Stellen an; der Aufholpegel wird danach wieder abgezogen
         const a = ctx.createDynamicsCompressor();
-        a.threshold.value = -32; a.knee.value = 12; a.ratio.value = 4; a.attack.value = 0.003; a.release.value = 0.25;
-        a.connect(g);
+        a.threshold.value = -24; a.knee.value = 10; a.ratio.value = 3; a.attack.value = 0.005; a.release.value = 0.3;
+        const zurueck = ctx.createGain(); zurueck.gain.value = AUFHOL;
+        a.connect(zurueck).connect(g);
         pegel[art]._eingang = a;
       }
     }
