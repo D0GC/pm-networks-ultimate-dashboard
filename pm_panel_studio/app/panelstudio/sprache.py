@@ -36,6 +36,7 @@ MAX_TEXT = 4000
 MAX_TOENE = 12  # zuletzt erzeugte Tondateien im Speicher (Ansagen und Antworten)
 ASSIST_MAX_S = 15  # längste Aufnahme; danach endet die Spracheingabe von selbst
 WECK_LAUF_S = 3600  # ein Lausch-Lauf; danach beginnt das Panel einen neuen
+WECK_PUFFER_S = 0.5  # Ton vor der Weckwort-Erkennung, der an die Spracherkennung geht
 
 Senden = Callable[[dict[str, Any]], Awaitable[None]]
 
@@ -120,8 +121,10 @@ class Sprache:
             "timeout": WECK_LAUF_S if weckwort else 60,
         }
         if weckwort:
-            # Lauschen bis höchstens WECK_LAUF_S; danach beginnt das Panel einfach einen neuen Lauf
+            # Lauschen bis höchstens WECK_LAUF_S; danach beginnt das Panel einfach einen neuen Lauf. Die letzte halbe
+            # Sekunde vor der Erkennung geht mit an die Spracherkennung, sonst fehlt bei „Hey Jarvis, wie spät …“ das „wie“.
             anfrage["input"]["timeout"] = WECK_LAUF_S
+            anfrage["input"]["audio_seconds_to_buffer"] = WECK_PUFFER_S
         if pipeline:
             anfrage["pipeline"] = pipeline
         try:
