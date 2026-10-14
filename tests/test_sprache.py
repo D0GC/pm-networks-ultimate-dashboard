@@ -50,7 +50,12 @@ async def test_ansage_piper_jarvis_und_panel_meldung():
     tid = await sp.ansage({"text": "Willkommen zurück, Sir.", "titel": "Heimkomm"})
     method, path, body = c.rest_aufrufe[0]
     assert (method, path) == ("POST", "tts_get_url")
-    assert body == {"engine_id": "tts.piper", "message": "Willkommen zurück, Sir.", "language": "de_DE", "options": {"voice": "de_DE-jarvis-medium"}}
+    assert body == {
+        "engine_id": "tts.piper",
+        "message": "Willkommen zurück, Sir.",
+        "language": "de_DE",
+        "options": {"voice": "de_DE-jarvis-medium"},
+    }
     assert gesendet == [{"typ": "ansage", "id": tid, "text": "Willkommen zurück, Sir.", "titel": "Heimkomm"}]
     assert sp.ton(tid) == (b"ID3-ton", "audio/mpeg")
     assert await sp.ansage({"text": "  "}) is None
@@ -70,7 +75,9 @@ async def test_assist_ablauf():
     ws = object()
     await sp.assist_start(ws, senden, "pipe1")
     payload, cb = c.abos[7]
-    assert payload["type"] == "assist_pipeline/run" and payload["pipeline"] == "pipe1" and payload["input"] == {"sample_rate": 16000}
+    assert (
+        payload["type"] == "assist_pipeline/run" and payload["pipeline"] == "pipe1" and payload["input"] == {"sample_rate": 16000}
+    )
     # Ton vor „run-start“ wird gepuffert und nachgereicht, mit der Binär-Kennung davor
     assert sp.assist_ton(ws, b"\x01\x02")
     assert not sp.assist_ton(object(), b"\x00")  # fremdes Panel: nicht für den Assistenten
@@ -92,3 +99,58 @@ async def test_assist_ablauf():
     assert next(m for m in an_panel if m["phase"] == "antwortet")["antwort"] == "Erledigt."
     assert sp.ton(next(m for m in an_panel if m["phase"] == "spricht")["ton"])
     assert c.entfernt == [7]
+
+
+async def test_weckwort_lauf():
+    an_panel = []
+
+    async def senden(m):
+        an_panel.append(m)
+
+    async def alle(_m):
+        pass
+
+    c = Client()
+    sp = Sprache(c, alle)
+    ws = object()
+    await sp.assist_start(ws, senden, None, weckwort="hey_jarvis")
+    payload, cb = c.abos[7]
+    assert payload["start_stage"] == "wake_word" and payload["input"]["timeout"] >= 600
+    cb({"type": "run-start", "data": {"runner_data": {"stt_binary_handler_id": 3}}})
+    await asyncio.sleep(0)
+    assert an_panel[-1]["phase"] == "lauscht"
+    # Lauschen hat keine 15-s-Grenze
+    assert sp.assist_ton(ws, b"\x01") and sp.sitzungen[ws].bis == float("inf")
+    cb({"type": "wake_word-end", "data": {"wake_word_output": {"wake_word_id": "hey_jarvis"}}})
+    await asyncio.sleep(0)
+    assert an_panel[-1]["phase"] == "geweckt" and sp.sitzungen[ws].bis < float("inf")
+
+
+async def test_fremdes_weckwort_bricht_ab():
+    an_panel = []
+
+    async def senden(m):
+        an_panel.append(m)
+
+    async def alle(_m):
+        pass
+
+    c = Client()
+    sp = Sprache(c, alle)
+    ws = object()
+    await sp.assist_start(ws, senden, None, weckwort="hey_jarvis")
+    _payload, cb = c.abos[7]
+    cb({"type": "run-start", "data": {"runner_data": {"stt_binary_handler_id": 3}}})
+    cb({"type": "wake_word-end", "data": {"wake_word_output": {"wake_word_id": "alexa"}}})
+    for _ in range(3):
+        await asyncio.sleep(0)
+    assert an_panel[-1]["phase"] == "ende" and ws not in sp.sitzungen and c.entfernt == [7]
+
+
+def test_alte_verstaerkungen_werden_zurueckgesetzt():
+    from panelstudio.config import TON_STAND, Einstellungen
+
+    alt = Einstellungen.from_dict({"telefon_lautstaerke": 600, "ansage_lautstaerke": 300, "ton_lautstaerke": 40})
+    assert alt.telefon_lautstaerke == 100 and alt.ansage_lautstaerke == 100 and alt.ton_lautstaerke == 40
+    neu = Einstellungen.from_dict({"telefon_lautstaerke": 150, "ton_stand": TON_STAND})
+    assert neu.telefon_lautstaerke == 150 and neu.to_dict()["ton_stand"] == TON_STAND

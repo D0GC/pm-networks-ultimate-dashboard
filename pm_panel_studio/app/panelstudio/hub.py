@@ -724,8 +724,8 @@ class Hub:
 
     async def gespraeche_beenden(self, ws: web.WebSocketResponse | None = None, grund: str | None = None) -> None:
         """Alle Gespräche beenden, oder nur die eines getrennten Panels."""
-        if ws is not None and ws is self.sprache.assist_ws:
-            await self.sprache.assist_stopp()
+        if ws is not None:
+            await self.sprache.assist_stopp(ws)
         for kennung, eintrag in list(self.gespraeche.items()):
             if ws is None or eintrag["ws"] is ws:
                 await self.gespraech_beenden(kennung, melden=ws is None, grund=grund)
@@ -758,9 +758,11 @@ class Hub:
         self.telefon_stand = stand
         anruf = stand.get("anruf") or {}
         if anruf.get("zustand") in ("klingelt", "waehlt", "verbunden"):
-            # Ein Anruf weckt das Panel und hält es wach, solange er läuft
+            # Ein Anruf weckt das Panel und hält es wach, solange er läuft; Assistent und Weckwort ruhen
             self.letzte_bewegung = time.monotonic()
             self._modus_pruefen()
+            if self.sprache.sitzungen:
+                self.spawn(self.sprache.assist_stopp())
         if not anruf or anruf.get("zustand") == "beendet":
             self._telefon_panel = None
         self.spawn(self.senden_alle({"typ": "telefon", **self._telefon_voll()}))
@@ -910,6 +912,18 @@ class Hub:
             return await tel.stumm(anruf, bool(msg.get("an")))
         raise ValueError(f"Unbekannte Anfrage {typ}")
 
+    def weckwort_gesperrt(self, ws: web.WebSocketResponse) -> str | None:
+        """Grund, warum dieses Panel gerade nicht auf das Weckwort hört (None = darf lauschen)."""
+        e = self.einstellungen
+        if not (e.weckwort_aktiv and e.assist_aktiv):
+            return "aus"
+        if ws.get("rolle") != "panel":
+            return "vorschau"  # Editor-Vorschau in Home Assistant hört nie dauerhaft mit
+        von, bis, stunde = e.weckwort_ruhe_von, e.weckwort_ruhe_bis, self._lokal(datetime.now(UTC)).hour
+        if von != bis and (von <= stunde < bis if von < bis else (stunde >= von or stunde < bis)):
+            return "ruhe"
+        return None
+
     def telefon_ton(self, ws: web.WebSocketResponse, daten: bytes) -> None:
         """Binärer Tonrahmen eines Panels; nur der Besitzer des Anrufs wird weitergereicht."""
         if self.sprache.assist_ton(ws, daten):  # Spracheingabe für den Assistenten (16 kHz)
@@ -947,15 +961,22 @@ class Hub:
                 raise ValueError("Assistent nur über eine Panel-Verbindung")
             if (self.telefon_stand.get("anruf") or {}).get("zustand") in ("klingelt", "waehlt", "verbunden"):
                 raise ValueError("Während eines Anrufs ist der Assistent nicht verfügbar")
+            weckwort = None
+            if msg.get("weckwort"):
+                if grund := self.weckwort_gesperrt(ws):
+                    return {"ok": False, "grund": grund}
+                weckwort = self.einstellungen.weckwort
 
             async def an_panel(nachricht: dict[str, Any]) -> None:
                 with contextlib.suppress(Exception):
                     await ws.send_str(json.dumps(nachricht, ensure_ascii=False))
 
-            return await self.sprache.assist_start(ws, an_panel, self.einstellungen.assist_pipeline or None)
+            return await self.sprache.assist_start(ws, an_panel, self.einstellungen.assist_pipeline or None, weckwort)
         if typ == "assist_stopp":
-            if ws is self.sprache.assist_ws:
-                await self.sprache.assist_ende_senden()
+            if msg.get("abbrechen"):
+                await self.sprache.assist_stopp(ws)
+            else:
+                await self.sprache.assist_ende_senden(ws)
             return True
         if typ == "dienst":
             domain, service = str(msg.get("domain", "")), str(msg.get("service", ""))

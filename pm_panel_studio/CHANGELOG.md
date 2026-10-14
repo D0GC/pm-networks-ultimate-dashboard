@@ -1,5 +1,18 @@
 # Änderungen
 
+## 2026.10.30 – 2026-10-14
+
+- Tonkette überarbeitet (Kratzen behoben): Die tanh-Sättigung entfällt, Verstärkungen gehen nur noch von 25 bis 400 %
+  (100 % = unverändert). Die hohen Werte bis 800 % glichen eine zu niedrige Systemlautstärke des Panels aus und
+  übersteuerten, sobald diese wieder normal stand. Gespeicherte Verstärkungen werden einmalig auf die neuen Vorgaben
+  zurückgesetzt (Gegensprechen 150 %, alles andere 100 %). Piper-Ansagen laufen ohne Ausgleich; beim Gegensprechen und
+  Telefon wird der automatische Aufholpegel des Ausgleichs wieder abgezogen. Präsenzanhebung +3 statt +6 dB, Begrenzer
+  bei −3 dBFS.
+- Weckwort für den Sprachassistenten: Wandpanels hören dauerhaft mit, die Erkennung übernimmt openWakeWord in Home
+  Assistant (Vorgabe „Hey Jarvis“). Nach dem Weckwort ein kurzer Doppelton, dann wie beim Mikrofon-Knopf. Ein Punkt
+  am Knopf zeigt, dass gelauscht wird. Ruhezeit (Vorgabe 23–6 Uhr), Pause während Anrufen, nie in der Vorschau im
+  Editor. Andere Weckwörter der Engine (etwa „Alexa“) werden verworfen.
+
 ## 2026.10.29 – 2026-10-14
 
 - Ansagen über das Panel: Neues Skript „Panel-Ansage sprechen“ (`script.panel_ansage`, Felder `text`, optional

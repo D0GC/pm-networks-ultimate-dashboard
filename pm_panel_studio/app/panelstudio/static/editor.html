@@ -41,12 +41,13 @@
       <label>Abdunklung in Ruhe <span><input id="ruhe_helligkeit" type="number" min="0" max="90"> %</span></label>
       <label>Abdunklung nachts <span><input id="nacht_helligkeit" type="number" min="0" max="95"> %</span></label>
       <label>Kamera-Overlay zeigen für <span><input id="ereignis_dauer_s" type="number" min="15" max="600"> s</span></label>
-      <label>Verstärkung aller Töne <span><input id="ton_verstaerkung" type="number" min="100" max="800" step="50"> %</span></label>
+      <p>Die Grundlautstärke kommt von der Systemlautstärke des Panels. 100 % lässt den Ton unverändert; höhere Werte nur, wenn eine Quelle zu leise ist (über 200 % klirrt es leicht).</p>
+      <label>Verstärkung Hinweis- und Klingelton <span><input id="ton_verstaerkung" type="number" min="25" max="400" step="25"> %</span></label>
       <label>Lautstärke Hinweiston <span><input id="ton_lautstaerke" type="number" min="5" max="100"> %</span></label>
       <label>Lautstärke Klingelton <span><input id="klingel_lautstaerke" type="number" min="5" max="100"> %</span></label>
-      <label>Lautstärke Gegensprechen <span><input id="intercom_lautstaerke" type="number" min="100" max="800" step="50"> %</span></label>
-      <label>Lautstärke Telefon <span><input id="telefon_lautstaerke" type="number" min="100" max="800" step="50"> %</span></label>
-      <label>Lautstärke Ansagen und Assistent <span><input id="ansage_lautstaerke" type="number" min="100" max="800" step="50"> %</span></label>
+      <label>Lautstärke Gegensprechen <span><input id="intercom_lautstaerke" type="number" min="25" max="400" step="25"> %</span></label>
+      <label>Lautstärke Telefon <span><input id="telefon_lautstaerke" type="number" min="25" max="400" step="25"> %</span></label>
+      <label>Lautstärke Ansagen und Assistent <span><input id="ansage_lautstaerke" type="number" min="25" max="400" step="25"> %</span></label>
       <label class="haken"><input id="animationen" type="checkbox"> Animationen</label>
       <label class="haken"><input id="zugaenglich" type="checkbox"> Lesbarkeit: mehr Kontrast, größere Tippflächen, Zustände auch als Form</label>
       <label class="haken"><input id="ton_hoch" type="checkbox"> Ton bei zeitkritischen und kritischen Meldungen</label>
@@ -54,6 +55,12 @@
       <label class="haken"><input id="gruss" type="checkbox"> Begrüßung unten links (Ankunft, morgens, nachts)</label>
       <label class="haken"><input id="assist_aktiv" type="checkbox"> Sprachassistent: Mikrofon-Knopf neben der Glocke</label>
       <label>Assist-Pipeline <select id="assist_pipeline"></select></label>
+      <label class="haken"><input id="weckwort_aktiv" type="checkbox"> Weckwort: Wandpanels hören dauerhaft mit (Erkennung in Home Assistant, nicht in der Vorschau hier)</label>
+      <label>Weckwort <select id="weckwort">
+        <option value="hey_jarvis">Hey Jarvis</option><option value="okay_nabu">Okay Nabu</option>
+        <option value="hey_mycroft">Hey Mycroft</option><option value="hey_rhasspy">Hey Rhasspy</option><option value="alexa">Alexa</option>
+      </select></label>
+      <label>Weckwort ruht von <span><input id="weckwort_ruhe_von" type="number" min="0" max="23"> bis <input id="weckwort_ruhe_bis" type="number" min="0" max="23"> Uhr (gleiche Zahl: keine Ruhezeit)</span></label>
     </div>
 
     <h2>Schnellzugriff</h2>

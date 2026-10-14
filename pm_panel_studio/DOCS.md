@@ -268,3 +268,17 @@ nicht über `script.turn_on`. Stummregeln („Alles stumm“, Nacht) prüft der 
 **Sprachassistent.** Der Mikrofon-Knopf neben der Glocke startet Assist mit der im Editor gewählten Pipeline
 (Vorgabe „Home Assistant Cloud“). Für den Mikrofonzugriff braucht der Kiosk dieselben Chromium-Parameter wie das
 Gegensprechen (`--unsafely-treat-insecure-origin-as-secure` und `--use-fake-ui-for-media-stream`).
+
+**Weckwort.** Mit „Weckwort“ im Editor (Vorgabe an, „Hey Jarvis“) schicken die Wandpanels ihr Mikrofon dauerhaft an
+die App (16 kHz, etwa 32 kB/s im Heimnetz). Die App startet die Pipeline mit der Stufe `wake_word`; openWakeWord in
+Home Assistant erkennt das Wort. Vorher verlässt kein Ton Home Assistant, auch bei der Cloud-Pipeline nicht. Danach
+folgen ein kurzer Doppelton, Spracherkennung und Antwort wie beim Knopf.
+
+- In der gewählten Pipeline müssen „Weckwort-Engine“ (`wake_word.openwakeword`) und dasselbe Weckwort wie im Editor
+  eingestellt sein; meldet die Engine ein anderes Wort, verwirft die App den Lauf.
+- Ruhezeit in vollen Stunden (Vorgabe 23 bis 6 Uhr; gleiche Zahl = keine Ruhezeit). Während eines Anrufs ruht das
+  Lauschen. Die Vorschau im Editor hört nie dauerhaft mit.
+- Ein kleiner Punkt am Mikrofon-Knopf zeigt, dass das Panel lauscht.
+
+**Lautstärke.** Die Grundlautstärke kommt von der Systemlautstärke des Panels. Die Verstärkungen im Editor
+(25–400 %, 100 % = unverändert) gleichen nur leise Quellen aus; über etwa 200 % beginnt es zu klirren.

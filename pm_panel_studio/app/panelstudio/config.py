@@ -35,6 +35,10 @@ MODULE = (
     "telefon",
     "suche",
 )
+# Verstärkerlogik: Stand 2 = saubere Kette ohne Sättigung, Verstärkungen um 100 %
+TON_STAND = 2
+VERSTAERKUNGEN = ("intercom_lautstaerke", "ton_verstaerkung", "telefon_lautstaerke", "ansage_lautstaerke")
+
 # Module, die nach dem ersten Release hinzukamen: gespeicherte Einstellungen ohne „module_bekannt“ kennen sie noch nicht
 MODULE_NACHTRAG = ("shisha", "studio", "musik", "haushalt", "telefon")
 
@@ -235,6 +239,11 @@ class Einstellungen:
     # Sprachassistent am Panel: Assist-Pipeline (leer = bevorzugte Pipeline); Vorgabe „Home Assistant Cloud“
     assist_pipeline: str = "01k8y1dbxge6tn0b42ydq60n8w"
     assist_aktiv: bool = True
+    # Weckwort (openWakeWord in Home Assistant): nur Wandpanels, nicht die Vorschau im Editor; Ruhezeit in vollen Stunden
+    weckwort_aktiv: bool = True
+    weckwort: str = "hey_jarvis"
+    weckwort_ruhe_von: int = 23
+    weckwort_ruhe_bis: int = 6  # gleich „von“: keine Ruhezeit
     material_fest: list[str] = field(default_factory=list)
     aussen_feuchte: list[str] = field(default_factory=lambda: list(STANDARD_AUSSEN_FEUCHTE))
     # Haus-Modi, die als Pillen in der Statuszeile des Flurs erscheinen, solange sie „on“ sind
@@ -246,12 +255,13 @@ class Einstellungen:
     ton_lautstaerke: int = 70
     ton_klingel: bool = True  # Klingelton beim Haustür-Overlay; bewusst unabhängig von ton_hoch und „alles_stumm“
     klingel_lautstaerke: int = 100
-    # Verstärkung des Tons von der Haustür beim Gegensprechen (Prozent; die Intercom liefert sehr leise)
-    intercom_lautstaerke: int = 400
-    # Verstärkung aller Töne (Hinweis- und Klingelton, Prozent) und des Telefon-Tons; Kette und Kompressor: static/audio.js
-    ton_verstaerkung: int = 300
-    telefon_lautstaerke: int = 400
-    ansage_lautstaerke: int = 300  # Ansagen (Piper) und Antworten des Assistenten, Prozent wie Telefon
+    # Verstärkung je Art in Prozent (100 = unverändert); Kette und Begrenzer: static/audio.js. Die Grundlautstärke
+    # kommt von der Systemlautstärke des Panels; die Verstärkung gleicht nur leise Quellen aus (z. B. die Intercom).
+    intercom_lautstaerke: int = 150
+    ton_verstaerkung: int = 100  # Hinweis- und Klingelton
+    telefon_lautstaerke: int = 100
+    ansage_lautstaerke: int = 100  # Ansagen (Piper) und Antworten des Assistenten
+    ton_stand: int = TON_STAND  # Stand der Verstärkerlogik; ältere Stände setzen die Verstärkungen einmalig zurück
     telefon_favoriten: list[dict[str, str]] = field(default_factory=list)  # [{name, nummer}] für die Telefon-Seite
 
     GRENZEN = {  # noqa: RUF012
@@ -263,16 +273,23 @@ class Einstellungen:
         "ereignis_dauer_s": (15, 600),
         "ton_lautstaerke": (5, 100),
         "klingel_lautstaerke": (5, 100),
-        "intercom_lautstaerke": (100, 800),
-        "ton_verstaerkung": (100, 800),
-        "telefon_lautstaerke": (100, 800),
-        "ansage_lautstaerke": (100, 800),
+        "intercom_lautstaerke": (25, 400),
+        "ton_verstaerkung": (25, 400),
+        "telefon_lautstaerke": (25, 400),
+        "ansage_lautstaerke": (25, 400),
         "dock_anzahl": (3, 12),
+        "weckwort_ruhe_von": (0, 23),
+        "weckwort_ruhe_bis": (0, 23),
     }
 
     @classmethod
     def from_dict(cls, raw: dict[str, Any]) -> Einstellungen:
         e = cls()
+        raw = dict(raw or {})
+        if raw.pop("ton_stand", 0) != TON_STAND:
+            # Frühere Verstärkungen (bis 800 %) glichen eine zu niedrige Systemlautstärke aus und übersteuern jetzt
+            for k in VERSTAERKUNGEN:
+                raw.pop(k, None)
         e.aktualisieren(raw)
         if isinstance((raw or {}).get("module"), list):
             # Neue Module, die der gespeicherte Stand noch nicht kannte, einmalig einreihen (vor „Suche“)
@@ -331,6 +348,11 @@ class Einstellungen:
                     abgewiesen.append(key)
                     continue
                 self.assist_pipeline = val
+            elif key == "weckwort":
+                if not isinstance(val, str) or not re.match(r"^[a-z0-9_]{1,40}$", val):
+                    abgewiesen.append(key)
+                    continue
+                self.weckwort = val
             elif key == "material_modus":
                 if val not in ("auto", "manuell"):
                     abgewiesen.append(key)
@@ -361,7 +383,7 @@ class Einstellungen:
                 setattr(self, key, [e for e in _entities(val) if e.startswith("scene.")][:60])
             elif key == "schnellzugriff":
                 self.schnellzugriff = _entities(val)[:8]
-            elif key == "module_bekannt":
+            elif key in ("module_bekannt", "ton_stand"):
                 pass  # wird beim Laden gesetzt
             elif key == "module":
                 vals = val if isinstance(val, list) else []
@@ -369,7 +391,7 @@ class Einstellungen:
             elif key in ("bereiche_reihenfolge", "bereiche_ausblenden", "start_raeume", "karten_aus"):
                 vals = val if isinstance(val, list) else []
                 setattr(self, key, [s for s in dict.fromkeys(str(v).strip() for v in vals) if re.match(r"^[a-z0-9_]{1,64}$", s)])
-            elif key in ("animationen", "ton_hoch", "ton_klingel", "gruss", "zugaenglich", "assist_aktiv"):
+            elif key in ("animationen", "ton_hoch", "ton_klingel", "gruss", "zugaenglich", "assist_aktiv", "weckwort_aktiv"):
                 setattr(self, key, bool(val))
             else:
                 abgewiesen.append(key)
