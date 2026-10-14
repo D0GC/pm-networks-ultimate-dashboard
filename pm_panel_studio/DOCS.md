@@ -221,7 +221,7 @@ Alarm- und Notrufanrufe dienen.
 - Seite „Telefon“ mit Favoriten, Kontakten (FRITZ!Box-Telefonbuch, Suche; beim Öffnen der Kontakte holt die App das
   Telefonbuch neu, höchstens alle 30 Sekunden, sonst alle 5 Minuten), Tastatur und Verlauf (Anrufliste der
   FRITZ!Box, verpasste Anrufe rot, Tipp ruft zurück).
-- Eingehender Anruf: Die Anrufkarte erscheint mit Name aus dem Telefonbuch, Klingelton und den Knöpfen Ablehnen,
+- Eingehender Anruf: Die Anrufkarte erscheint mit Name aus dem Telefonbuch, ruhigem Klingelton („Marimba und Harfe“, C–E–G–E alle 3,5 s) und den Knöpfen Ablehnen,
   Minimieren und Annehmen. Solange es klingelt, laufen drei grüne Wellen vom Kartenrand nach außen (Halo, dazu ein
   weiches Glühen); sie enden mit dem Annehmen, Ablehnen oder Auflegen und entfallen bei abgeschalteten Animationen.
   Ein Anruf weckt das Panel und hält es wach, solange er läuft.

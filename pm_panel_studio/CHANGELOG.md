@@ -27,6 +27,11 @@
   Home Assistant erkennt das Sprechende selbst. Erkannter Text und Antwort erscheinen unten im Overlay, die Antwort wird
   gesprochen. Erneutes Tippen beendet die Eingabe oder schließt das Overlay. Während eines Telefonats gesperrt.
 
+## 2026.10.29 – 2026-10-14
+
+- Ruhigerer Telefon-Klingelton „Marimba und Harfe“: vier weiche Töne C–E–G–E in mittlerer Tonlage mit
+  Marimba-Anschlag und Harfenausklang, alle 3,5 Sekunden (bisher ein hohes „Ti-ta“ bei 1,4–1,9 kHz).
+
 ## 2026.10.28 – 2026-10-14
 
 - Verpasste Anrufe: Ein eingehender Anruf, den niemand am Panel annimmt, erscheint als Feed-Karte „Verpasster Anruf“
