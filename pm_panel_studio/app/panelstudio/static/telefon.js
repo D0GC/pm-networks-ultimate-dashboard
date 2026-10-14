@@ -269,28 +269,28 @@
       if (!kl.an || c.state !== "running") return;
       const pegel = c.createGain(); pegel.gain.value = 1; pegel.connect(aus || c.destination);
       // Über PS.audio setzen Pegel (klingel_lautstaerke) und Verstärkung die Lautstärke; ohne die Kette nur der Pegel
-      const laut = aus ? 0.8 : 0.5 * Math.max(0.2, Math.min(1, (PS.einst.klingel_lautstaerke ?? 100) / 100));
+      const laut = aus ? 0.5 : 0.4 * Math.max(0.2, Math.min(1, (PS.einst.klingel_lautstaerke ?? 100) / 100));
       const t0 = c.currentTime + 0.05;
-      // Im Bereich 1,4–1,9 kHz, den die kleinen Lautsprecher am lautesten wiedergeben; jeder Ton steht kurz voll
-      [[1396.9, 0], [1864.7, 0.2], [1396.9, 0.6], [1864.7, 0.8]].forEach(([hz, ab]) => {
-        [[hz, 1], [hz * 2, 0.25]].forEach(([f, anteil]) => {
+      // „Marimba und Harfe“: Marimba-Anschlag mit Harfenausklang, Töne C–E–G–E. Teiltöne je Anschlag: Grundton,
+      // 4. Oberton (Holzklang, kurz), 2. und 3. Oberton (Nachklang); mittlere Tonlage, ruhig, aber gut hörbar.
+      [[523.3, 0], [659.3, 0.26], [784, 0.52], [659.3, 0.78]].forEach(([hz, ab]) => {
+        [[1, 1, 1.5], [4, 0.12, 0.18], [2, 0.3, 0.8], [3, 0.1, 0.45]].forEach(([faktor, anteil, abkling]) => {
           const o = c.createOscillator(), g = c.createGain();
-          o.type = "sine"; o.frequency.value = f;
+          o.type = "sine"; o.frequency.value = hz * faktor;
           g.gain.setValueAtTime(0, t0 + ab);
-          g.gain.linearRampToValueAtTime(laut * anteil, t0 + ab + 0.02);
-          g.gain.setValueAtTime(laut * anteil, t0 + ab + 0.14);
-          g.gain.exponentialRampToValueAtTime(0.0001, t0 + ab + 0.32);
-          o.connect(g).connect(pegel); o.start(t0 + ab); o.stop(t0 + ab + 0.36);
+          g.gain.linearRampToValueAtTime(laut * anteil, t0 + ab + 0.008);
+          g.gain.exponentialRampToValueAtTime(0.0001, t0 + ab + abkling);
+          o.connect(g).connect(pegel); o.start(t0 + ab); o.stop(t0 + ab + abkling + 0.05);
         });
       });
       const alt = kl.pegel; kl.pegel = pegel;
-      if (alt) setTimeout(() => { try { alt.disconnect(); } catch { /* getrennt */ } }, 100);
+      if (alt) setTimeout(() => { try { alt.disconnect(); } catch { /* getrennt */ } }, 2500);  // Ausklang nicht abschneiden
     }).catch(() => {});
   }
   function klingelnStart() {
     if (kl.an || PS.einst.ton_klingel === false) return;
     kl.an = true; klingelSpielen();
-    kl.timer = setInterval(klingelSpielen, 3200);
+    kl.timer = setInterval(klingelSpielen, 3500);
   }
   function klingelnStopp() {
     kl.an = false; clearInterval(kl.timer); kl.timer = null;
