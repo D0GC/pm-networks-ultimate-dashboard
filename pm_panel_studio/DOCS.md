@@ -246,3 +246,25 @@ Alarm- und Notrufanrufe dienen.
 Jeder Wechsel eines Anrufs erzeugt in Home Assistant das Ereignis `pm_panel_studio_anruf` mit `richtung`
 (`ein`/`aus`), `nummer`, `name`, `zustand` (`klingelt`, `waehlt`, `verbunden`, `beendet`), `grund` (z. B. „Verpasst“, „Abgelehnt“, „Woanders angenommen“) und bei `beendet`
 nach einem Gespräch `dauer_s`. Damit lassen sich z. B. Musik leiser stellen oder verpasste Anrufe melden.
+
+## Ansagen und Sprachassistent
+
+**Ansagen.** Das Skript „Panel-Ansage sprechen“ (`script.panel_ansage`) spricht einen Text über das Panel im Flur:
+
+```yaml
+action: script.panel_ansage
+data:
+  text: "Die Waschmaschine ist fertig, Sir."
+  titel: Waschmaschine   # optional, für die Einblendung
+  # engine: tts.piper     # optional, Vorgabe Piper
+  # stimme: de_DE-jarvis-medium
+```
+
+Die App erkennt den Aufruf (wie bei `script.panel_meldung`), lässt Home Assistant den Ton erzeugen
+(`/api/tts_get_url`) und schickt ihn an alle verbundenen Panels. Wichtig: als Aktion `script.panel_ansage` aufrufen,
+nicht über `script.turn_on`. Stummregeln („Alles stumm“, Nacht) prüft der Aufrufer. Lautstärke im Editor unter
+„Lautstärke Ansagen und Assistent“.
+
+**Sprachassistent.** Der Mikrofon-Knopf neben der Glocke startet Assist mit der im Editor gewählten Pipeline
+(Vorgabe „Home Assistant Cloud“). Für den Mikrofonzugriff braucht der Kiosk dieselben Chromium-Parameter wie das
+Gegensprechen (`--unsafely-treat-insecure-origin-as-secure` und `--use-fake-ui-for-media-stream`).

@@ -314,6 +314,18 @@ class HAClient:
             raise HAError(f"Abonnement abgelehnt: {(resp.get('error') or {}).get('message')}", "error")
         return msg_id
 
+    def abo_entfernen(self, sub_id: int) -> None:
+        """Rückruf eines Abonnements vergessen, ohne Home Assistant zu fragen (für Abläufe, die selbst enden,
+        z. B. ``assist_pipeline/run``)."""
+        self._subs.pop(sub_id, None)
+
+    async def send_bytes(self, daten: bytes) -> None:
+        """Binärrahmen auf der WebSocket-Verbindung (Ton für die Assist-Pipeline)."""
+        ws = self._ws
+        if ws is None or ws.closed:
+            raise HAError("WebSocket-Verbindung getrennt")
+        await ws.send_bytes(daten)
+
     async def unsubscribe(self, sub_id: int) -> None:
         """Abonnement beenden (``unsubscribe_events``). Ist die Verbindung schon weg, gibt es nichts zu beenden."""
         if self._subs.pop(sub_id, None) is None:

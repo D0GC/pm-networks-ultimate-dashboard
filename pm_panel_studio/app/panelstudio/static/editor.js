@@ -5,7 +5,7 @@
   const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const MODULE = { raeume: "Räume", klima: "Klima", studio: "Klima Studio", licht: "Licht", sicherheit: "Sicherheit", medien: "Medien", musik: "Music Assistant", haushalt: "Haushaltsgeräte", listen: "Listen", energie: "Energie", shisha: "Shisha", wartung: "Wartung", suche: "Suche" };
   const KARTEN = { meldung: "Panel-Meldungen", eil: "Eilmeldung", warnung: "Warnung", termin: "Termin", stundenplan: "Stundenplan", arbeit: "Fahrten", wetter: "Wetter", muell: "Müll", fertig: "Gerät fertig", offen: "Offen", lueften: "Lüften", pollen: "Pollen", eigen: "Eigener Hinweis", dusche: "Duschmodus", spa: "Spa", kohle: "Kohle", waesche: "Waschmaschine", spueler: "Spülmaschine", robo: "Roborock", musik: "Musik", heimweg: "Heimweg", pakete: "Pakete", verpasst: "Verpasster Anruf" };
-  const ZAHLEN = ["verweildauer_s", "ruhe_nach_s", "bedienung_zurueck_s", "ruhe_helligkeit", "nacht_helligkeit", "ereignis_dauer_s", "ton_lautstaerke", "klingel_lautstaerke", "intercom_lautstaerke", "ton_verstaerkung", "telefon_lautstaerke", "dock_anzahl"];
+  const ZAHLEN = ["verweildauer_s", "ruhe_nach_s", "bedienung_zurueck_s", "ruhe_helligkeit", "nacht_helligkeit", "ereignis_dauer_s", "ton_lautstaerke", "klingel_lautstaerke", "intercom_lautstaerke", "ton_verstaerkung", "telefon_lautstaerke", "ansage_lautstaerke", "dock_anzahl"];
   let daten = null, bereiche = [], ws = null, wsId = 1, moduleReihe = [];
 
   async function laden(nurStatus = false) {
@@ -25,6 +25,16 @@
     const host = location.hostname || "homeassistant.local";
     return `http://${host}:${daten.port}/?token=${encodeURIComponent(daten.token)}`;
   }
+  // Assist-Pipelines für den Sprachassistenten (aus Home Assistant)
+  async function pipelinesLaden(wahl) {
+    const sel = $("#assist_pipeline");
+    let liste = [];
+    try { const r = await fetch("api/assist_pipelines"); if (r.ok) liste = await r.json(); } catch { /* ohne Liste bleibt die Wahl */ }
+    const opt = (id, name) => `<option value="${id}">${name.replace(/</g, "&lt;")}</option>`;
+    sel.innerHTML = opt("", "Bevorzugte Pipeline") + liste.map((p) => opt(p.id, `${p.name} · ${p.stt || "?"} → ${p.tts || "?"}`)).join("");
+    if (wahl && !liste.some((p) => p.id === wahl)) sel.innerHTML += opt(wahl, wahl);
+    sel.value = wahl;
+  }
   function zeigen() {
     const e = daten.einstellungen;
     $("#adresse").textContent = adresse();
@@ -33,6 +43,8 @@
     $("#zugaenglich").checked = e.zugaenglich === true;
     $("#ton_hoch").checked = e.ton_hoch !== false;
     $("#ton_klingel").checked = e.ton_klingel !== false;
+    $("#assist_aktiv").checked = e.assist_aktiv !== false;
+    pipelinesLaden(e.assist_pipeline || "");
     $("#schnellzugriff").value = (e.schnellzugriff || []).join("\n");
     $("#raum_schalter").value = Object.entries(e.raum_schalter || {}).map(([b, ids]) => `${b}: ${ids.join(", ")}`).join("\n");
     $("#szenen_angeheftet").value = (e.szenen_angeheftet || []).join("\n");
@@ -76,6 +88,8 @@
     neu.zugaenglich = $("#zugaenglich").checked;
     neu.ton_hoch = $("#ton_hoch").checked;
     neu.ton_klingel = $("#ton_klingel").checked;
+    neu.assist_aktiv = $("#assist_aktiv").checked;
+    neu.assist_pipeline = $("#assist_pipeline").value;
     neu.schnellzugriff = $("#schnellzugriff").value.split(/\s+/).map((s) => s.trim()).filter(Boolean);
     neu.raum_schalter = {};
     $("#raum_schalter").value.split("\n").forEach((z) => {
