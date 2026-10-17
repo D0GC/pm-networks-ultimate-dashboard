@@ -12,6 +12,10 @@
   border:1px solid var(--linie-stark,rgba(236,235,242,.18));box-shadow:0 2.4rem 4rem -1.6rem rgba(0,0,0,.7);
   transform:translate(-50%,1.2rem) scale(.97);opacity:0;transition:opacity .3s ease,transform .45s cubic-bezier(.2,.9,.3,1.2);cursor:pointer}
 .assist.an{opacity:1;transform:translate(-50%,0) scale(1)}
+/* Ausgeblendet wirklich weg: display:flex oben schlägt sonst das hidden-Attribut, und das unsichtbare Overlay
+   (z-index 40) fing Tipps auf Dialogknöpfen darunter ab (OK ließ sich nicht drücken) */
+.assist[hidden],.assist-knopf[hidden]{display:none}
+.assist:not(.an){pointer-events:none}
 .assist-ring{flex:none;width:4.4rem;height:4.4rem;border-radius:50%;display:grid;place-items:center;font-size:2rem;
   color:#fff;background:var(--akzent,#9b6bff)}
 .assist[data-phase="hoert"] .assist-ring{animation:assist-puls 1.4s ease-in-out infinite}

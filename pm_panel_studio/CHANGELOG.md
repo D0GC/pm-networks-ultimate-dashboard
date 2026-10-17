@@ -1,5 +1,11 @@
 # Änderungen
 
+## 2026.10.33 – 2026-10-17
+
+- Meldungen ließen sich teilweise nicht mit „OK“ schließen: Das ausgeblendete Overlay des Sprachassistenten lag
+  unsichtbar über dem unteren Bildschirmbereich (seit 2026.10.29) und fing die Tipps ab. Es ist jetzt wirklich
+  ausgeblendet und nimmt ohne Anzeige keine Berührungen mehr an.
+
 ## 2026.10.32 – 2026-10-14
 
 - Sprachassistent: Die Antwort wird jetzt vorgelesen. Home Assistant meldet Antwortton und Laufende gleichzeitig; das
