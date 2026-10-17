@@ -138,16 +138,18 @@
     if (m.details) { const md = document.createElement("div"); md.className = "md"; md.innerHTML = PS.markdown(m.details); dlg.appendChild(md); }
     if (m.kamera) { const k = document.createElement("div"); dlg.appendChild(k); PS.kameraLive(k, m.kamera); }
     const r = reihe(); r.classList.add("m-knoepfe");
+    // OK, Bestätigen und Popup-Knöpfe nehmen die Meldung sofort aus Glocke und Feed. Die Automation schließt sie zwar
+    // auch, aber oft erst verzögert (Kohle: nächster Schleifendurchlauf, bis 60 s) oder gar nicht.
     const ok = () => { PS.tonStopp(); return PS.anfrage({ typ: "popup_schliessen", popup: m.id }).catch(() => {}).then(schliessen); };
     if (m.bestaetigen) {
-      r.appendChild(knopf("Bestätigen", "check", () => PS.tonStopp() || PS.dienst(PS.domain(m.bestaetigen), "press", { entity_id: m.bestaetigen }).then(() => { PS.toast("Bestätigt"); schliessen(); }), "gut"));
+      r.appendChild(knopf("Bestätigen", "check", () => PS.tonStopp() || PS.dienst(PS.domain(m.bestaetigen), "press", { entity_id: m.bestaetigen }).then(() => { PS.toast("Bestätigt"); ok(); }), "gut"));
       r.appendChild(knopf("Später", "clock-outline", () => { PS.tonStopp(); schliessen(); }));
     } else {
       r.appendChild(knopf("OK", "check", ok, "primaer"));
     }
     // Zusätzliche Knöpfe des Popups (ohne Doppel zum Bestätigen-Knopf)
     m.knoepfe.filter((b) => b.domain && b.domain !== "browser_mod" && !(m.bestaetigen && (b.data || {}).entity_id === m.bestaetigen)).forEach((b) => {
-      r.appendChild(knopf(b.text, null, () => PS.dienst(b.domain, b.service, b.data || {}).then(() => { PS.toast(`${b.text} ausgeführt`); schliessen(); })));
+      r.appendChild(knopf(b.text, null, () => PS.dienst(b.domain, b.service, b.data || {}).then(() => { PS.toast(`${b.text} ausgeführt`); ok(); })));
     });
     dlg.appendChild(r);
     // Meldungen mit Gewicht (Konzept Stufe 2): kritisch fällt mit Feder herein, kritisch und zeitkritisch senden

@@ -1,5 +1,11 @@
 # Änderungen
 
+## 2026.10.34 – 2026-10-17
+
+- Meldungen: „Bestätigen“ und die Knöpfe eines Popups nehmen die Meldung jetzt sofort aus Glocke und Feed. Bisher
+  wurde nur der Knopf in Home Assistant gedrückt; die Meldung blieb stehen, bis die Automation sie schloss (Kohle bis
+  zu 60 s später, andere Automationen teils gar nicht).
+
 ## 2026.10.33 – 2026-10-17
 
 - Meldungen ließen sich teilweise nicht mit „OK“ schließen: Das ausgeblendete Overlay des Sprachassistenten lag
