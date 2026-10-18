@@ -447,7 +447,10 @@
   function medien(el) {
     const [l, m, r] = seite(el, "medien");
     const player = alle().filter(dom("media_player")).filter((e) => PS.sichtbar(e) && PS.s(e) !== "unavailable");
-    const aktiv = player.filter((e) => PS.s(e) === "playing").concat(player.filter((e) => PS.s(e) === "paused"));
+    // Fernseher mit Bildschirmbild (Android-TV-Integration, Screencap): Fire OS 8 meldet beim Schauen nur „idle“,
+    // daher zählen sie mit Bild auch ohne „playing“ als „läuft“
+    const bildschirm = (e) => ["on", "idle"].includes(PS.s(e)) && PS.a(e).device_class === "tv" && !!PS.a(e).entity_picture;
+    const aktiv = player.filter((e) => PS.s(e) === "playing").concat(player.filter((e) => PS.s(e) === "paused"), player.filter(bildschirm));
     if (aktiv[0]) l.appendChild(PS.medienSteuerung(aktiv[0], true));
     else { const b = box("Läuft gerade"); b.appendChild(E('<div class="leer">Gerade spielt nichts.</div>')); l.appendChild(b); }
     const tv = player.filter((e) => /tv|fire|samsung|fernseh/i.test(e + PS.name(e)));

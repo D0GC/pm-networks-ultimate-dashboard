@@ -169,9 +169,15 @@
     if (zustand.length) { const z = E('<section class="r-box"><h3><span>Zustand</span></h3></section>'); z.appendChild(kachelRaster(zustand.slice(0, 6).sort(sortName(name)), name)); z.lastElementChild.classList.add("mini"); rechts.appendChild(z); }
     // Geräte; Wake-on-LAN-Knöpfe (PC starten) und gesicherte Hauptschalter gehören dazu und stehen vorn
     const wol = (e) => PS.domain(e) === "button" && /(^|_)wol(_|$)|wake_on_lan/.test(e);
+    // Der Schalter zum WoL-Knopf („Main PC“ zu „Main PC starten“) steht direkt daneben
+    const stamm = (e) => PS.name(e).toLowerCase().replace(/\s+(starten|aufwecken|wecken|einschalten)$/, "").trim();
+    const pcStaemme = ids.filter(wol).map(stamm);
+    const pc = (e) => PS.domain(e) === "switch" && pcStaemme.includes(stamm(e));
+    // Einstellungen der Echos (Amazon Kids, Bitte nicht stören …) sind keine Geräte des Raums
+    const echo = (e) => PS.domain(e) === "switch" && ["alexa_media", "alexa_devices"].includes((PS.reg[e] || {}).p);
     const geraete = ids.filter((e) => (["switch", "input_boolean", "fan", "cover", "lock", "vacuum", "humidifier", "valve"].includes(PS.domain(e)) || wol(e)) && !PS.nichtDa(e) && !modi.includes(e)
-      && !Object.values(PS.einst.freigaben || {}).includes(e));  // Freigabe-Helfer nur über den Dialog des Schalters
-    if (geraete.length) { const z = E('<section class="r-box"><h3><span>Geräte</span></h3></section>'); z.appendChild(kachelRaster(geraete.sort((x, y) => wol(y) - wol(x) || !!PS.freigabe(y) - !!PS.freigabe(x) || sortName(name)(x, y)).slice(0, 6), name)); z.lastElementChild.classList.add("mini"); rechts.appendChild(z); }
+      && !echo(e) && !Object.values(PS.einst.freigaben || {}).includes(e));  // Freigabe-Helfer nur über den Dialog des Schalters
+    if (geraete.length) { const z = E('<section class="r-box"><h3><span>Geräte</span></h3></section>'); z.appendChild(kachelRaster(geraete.sort((x, y) => wol(y) - wol(x) || pc(y) - pc(x) || !!PS.freigabe(y) - !!PS.freigabe(x) || sortName(name)(x, y)).slice(0, 6), name)); z.lastElementChild.classList.add("mini"); rechts.appendChild(z); }
     rechts.appendChild(knopf(`Alle Geräte im Raum`, "view-grid-outline", () => PS.unterseite(`${name} · alle Geräte`, (x) => raumAlles(x, b)), "r-alles"));
     el.appendChild(g);
   }
