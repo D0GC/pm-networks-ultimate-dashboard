@@ -403,7 +403,7 @@
     const el = document.createElement("div"); el.className = "gross"; el.dataset.medien = eid; el.dataset.gross = gross ? "1" : "";
     const bild = a.entity_picture ? `style="background-image:url('${PS.esc(PS.bildUrl(a.entity_picture).replace(/&t=\d+/, ""))}')"` : "";
     el.innerHTML = `<div class="titel">${PS.icon(eid)}<span>${PS.esc(PS.name(eid))}</span><small>${PS.esc(PS.text(eid, st.s))}</small></div>
-      ${gross || a.media_title ? `<div class="medien-bild" ${bild}>${bild ? "" : PS.ic("music-note")}</div>` : ""}
+      ${gross || a.media_title || bild ? `<div class="medien-bild" ${bild}>${bild ? "" : PS.ic("music-note")}</div>` : ""}
       ${a.media_title ? `<div><b style="font-size:1.4rem">${PS.esc(a.media_title)}</b><div class="leer" style="padding:0">${PS.esc([a.media_artist, a.media_album_name].filter(Boolean).join(" · "))}</div></div>` : ""}`;
     el.appendChild(reihe(
       knopf("", "skip-previous", svc("media_player", "media_previous_track", E), "rund"),

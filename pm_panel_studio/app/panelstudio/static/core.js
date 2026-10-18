@@ -464,10 +464,15 @@
   // scheitert der Dienst oder bleibt die Bestätigung 8 s aus, kehrt sie zum echten Zustand zurück (Schütteln + Toast).
   const OPTIMISTISCH = ["light", "switch", "fan", "input_boolean", "siren", "humidifier"];
   PS.optimistischSchaltbar = (eid) => OPTIMISTISCH.includes(PS.domain(eid)) && !PS.freigabe(eid) && !PS.kritisch(eid);
+  // Rechner (Symbol Desktop/Laptop oder „PC“ im Namen): Hoch- und Herunterfahren dauert, und die Bestätigung kommt erst
+  // über den Ping-Sensor (rund 1–2 min). Bis dahin „Fährt hoch …“ bzw. „Fährt herunter …“ statt nach 8 s „reagiert nicht“.
+  PS.rechner = (eid) => PS.domain(eid) === "switch" && (/desktop|laptop|monitor/.test(String(PS.a(eid).icon || "")) || /(^|\s)PC(\s|$)/.test(PS.name(eid)));
+  const RECHNER_FRIST = 240000;
   function optimistischAnzeige(el, eid, an) {
     el.classList.toggle("an", an);
     const a = PS.a(eid) || {};
-    const txt = !an ? "Aus" : PS.domain(eid) === "light" && a.brightness != null ? `${Math.round((a.brightness / 255) * 100)} %` : "An";
+    const txt = PS.rechner(eid) ? (an ? "Fährt hoch …" : "Fährt herunter …")
+      : !an ? "Aus" : PS.domain(eid) === "light" && a.brightness != null ? `${Math.round((a.brightness / 255) * 100)} %` : "An";
     const k = el.querySelector("small"); if (k) k.textContent = txt;
   }
   function optimistischEnde(el) {
@@ -493,7 +498,7 @@
       el.classList.add("wartet");
       if (!el.querySelector(":scope > .wart-kreis")) { const k = document.createElement("span"); k.className = "wart-kreis"; el.appendChild(k); }
     }, 600);
-    o.frist = setTimeout(() => { if (el._opt === o) optimistischFehl(el, eid, `${PS.name(eid)} reagiert nicht`); }, 8000);
+    o.frist = setTimeout(() => { if (el._opt === o) optimistischFehl(el, eid, `${PS.name(eid)} reagiert nicht`); }, PS.rechner(eid) ? RECHNER_FRIST : 8000);
     const p = PS.umschalten(eid);
     if (p && p.catch) p.catch((e) => {
       if (el._opt !== o) return;

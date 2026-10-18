@@ -1,5 +1,15 @@
 # Änderungen
 
+## 2026.10.35 – 2026-10-18
+
+- Medien: Fernseher mit Bildschirmbild (Android-TV-Integration) erscheinen unter „Läuft gerade“ auch dann, wenn sie
+  nur „Bereit“ melden – der Fire TV Stick mit Fire OS 8 meldet beim Schauen kein „Spielt“. Kompakte Medienkarten
+  zeigen das Bild ebenfalls.
+- Räume, Geräte: Der Schalter zu einem Wake-on-LAN-Knopf (z. B. „Main PC“ zu „Main PC starten“) steht direkt daneben;
+  Einstellungen der Echos (Amazon Kids, Bitte nicht stören) erscheinen dort nicht mehr.
+- Rechner-Schalter: Nach dem Tippen „Fährt hoch …“ bzw. „Fährt herunter …“ bis zu 4 Minuten, statt nach 8 Sekunden
+  „reagiert nicht“ und Zurückspringen. Der Zustand kommt erst über den Ping-Sensor (rund 1–2 Minuten).
+
 ## 2026.10.34 – 2026-10-17
 
 - Meldungen: „Bestätigen“ und die Knöpfe eines Popups nehmen die Meldung jetzt sofort aus Glocke und Feed. Bisher
