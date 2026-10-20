@@ -1,1 +1,2 @@
 aiohttp==3.13.3
+aiortc==1.15.0

@@ -1,5 +1,21 @@
 # Änderungen
 
+## 2026.10.36 – 2026-10-21
+
+- Türdienst an der Haustür: Klingelt es, nimmt die App das Gespräch selbst an (eigene WebRTC-Gegenstelle über
+  PM Ring Intercom). Der Besucher hört „Guten Tag. Bitte warten Sie, Sie werden verbunden.“ (Piper, Jarvis), danach
+  die Wartemelodie „Abendglocke“. Nach 30 Sekunden ohne Annahme – sofort, wenn niemand zu Hause ist – übernimmt der
+  Anrufbeantworter: Ansage, Signalton, Aufnahme bis Stille oder 60 Sekunden. Die Aufnahme liegt unter
+  `/media/pm_panel_studio/haustuer`, die Spracherkennung schreibt sie ab, die Abschrift kommt per Push und als
+  Meldung am Panel; zusätzlich das Ereignis `pm_panel_studio_haustuer`.
+- Übernahme jederzeit: „Sprechen“ am Panel beendet die Sitzung der App sofort und verbindet das Panel; nimmt jemand
+  in der Ring-App an, beendet Ring die Sitzung der App, der Türdienst hört auf. Öffnen der Haustür beendet ihn still.
+- Auslöser ist `binary_sensor.haustur_klingelt_panel` (folgt dem ring-mqtt-Sensor `binary_sensor.haustur_ding`, rund
+  0,4 s statt 30–120 s; nicht bei bereiter Klingelöffnung).
+- Einstellungen im Editor: Türdienst an/aus, Wartezeit bis zum Anrufbeantworter, längste Nachricht, beide Ansagetexte,
+  Push-Empfänger und Spracherkennung.
+- Neu im Image: aiortc und PyAV (WebRTC, Tonumwandlung); die App bindet `/media` ein.
+
 ## 2026.10.35 – 2026-10-18
 
 - Medien: Fernseher mit Bildschirmbild (Android-TV-Integration) erscheinen unter „Läuft gerade“ auch dann, wenn sie

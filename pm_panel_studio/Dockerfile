@@ -10,7 +10,10 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1
 
 COPY requirements.txt /tmp/requirements.txt
-RUN pip install --only-binary=:all: -r /tmp/requirements.txt \
+# aiortc (WebRTC für den Türdienst) braucht google-crc32c; für musl gibt es kein fertiges Paket, die reine
+# Python-Fassung genügt (nur für SCTP-Datenkanäle, die der Türdienst nicht nutzt)
+RUN CRC32C_PURE_PYTHON=1 pip install --no-binary=google-crc32c "google-crc32c==1.9.0" \
+    && pip install --only-binary=:all: -r /tmp/requirements.txt \
     && rm -f /tmp/requirements.txt
 
 COPY app /opt/pm_panel_studio

@@ -22,8 +22,8 @@ async def _warte_auf(ws, bedingung):
 async def test_klingel_startet_haustuer_overlay(ingress, hub, fake):
     ws = await ingress.ws_connect("/api/ws")
     await _init(ws)
-    fake.set_state("binary_sensor.haustur_klingelt", "off")
-    fake.set_state("binary_sensor.haustur_klingelt", "on")
+    fake.set_state("binary_sensor.haustur_klingelt_panel", "off")
+    fake.set_state("binary_sensor.haustur_klingelt_panel", "on")
     m = await _warte_auf(ws, lambda m: m["typ"] == "ereignis" and m.get("aktiv"))
     assert m["intercom"] is True
     assert m["titel"] == "Haustür"
@@ -35,7 +35,7 @@ async def test_klingel_startet_haustuer_overlay(ingress, hub, fake):
 async def test_klingel_zaehler_steigt_bei_jedem_klingeln(ingress, hub, fake):
     ws = await ingress.ws_connect("/api/ws")
     await _init(ws)
-    ziel = "binary_sensor.haustur_klingelt"
+    ziel = "binary_sensor.haustur_klingelt_panel"
     fake.set_state(ziel, "off")
     fake.set_state(ziel, "on")
     m = await _warte_auf(ws, lambda m: m["typ"] == "ereignis" and m.get("aktiv"))
@@ -58,8 +58,8 @@ async def test_klingel_zaehler_steigt_bei_jedem_klingeln(ingress, hub, fake):
 
 
 async def test_klingel_zaehler_im_init_paket(ingress, hub, fake):
-    hub.ereignis_starten("binary_sensor.haustur_klingelt", "Haustür", intercom=True)
-    hub.ereignis_starten("binary_sensor.haustur_klingelt", "Haustür", intercom=True)
+    hub.ereignis_starten("binary_sensor.haustur_klingelt_panel", "Haustür", intercom=True)
+    hub.ereignis_starten("binary_sensor.haustur_klingelt_panel", "Haustür", intercom=True)
     ws = await ingress.ws_connect("/api/ws")
     init = await _init(ws)
     assert init["ereignis"]["aktiv"] is True and init["ereignis"]["klingel"] == 2
