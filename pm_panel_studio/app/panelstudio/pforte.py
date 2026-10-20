@@ -155,33 +155,30 @@ def wav(pcm: bytes, rate: int = RATE) -> bytes:
 
 # ------------------------------------------------------------------ Ansagen: förmlich, Gruß nach Tageszeit
 
-# Bayern und Franken: „Grüß Gott“ ist förmlich und zu jeder Tageszeit üblich, sonst richtet sich der Gruß nach der Uhr.
-# Nicht verwendet: „Servus“/„Griaß di“ (vertraulich), „Mahlzeit“ (unter Kollegen), „Gute Nacht“ (Abschied).
+# Modern und förmlich: Gruß nach Tageszeit, dazu eine Warteformel. Nicht verwendet: „Grüß Gott“ (zu altmodisch),
+# „Servus“ (vertraulich), „Mahlzeit“ (unter Kollegen), „Gute Nacht“ (Abschied).
 GRUESSE = {
-    "morgen": ("Guten Morgen.", "Einen schönen guten Morgen.", "Grüß Gott, guten Morgen."),
-    "mittag": ("Grüß Gott.", "Guten Tag.", "Einen schönen guten Tag."),
-    "nachmittag": ("Grüß Gott.", "Guten Tag.", "Einen schönen guten Tag."),
-    "abend": ("Guten Abend.", "Einen schönen guten Abend.", "Grüß Gott, guten Abend."),
-    "nacht": ("Guten Abend.", "Einen guten Abend."),
+    "morgen": ("Guten Morgen.", "Einen schönen guten Morgen."),
+    "mittag": ("Guten Tag.", "Einen schönen guten Tag.", "Guten Tag und herzlich willkommen."),
+    "nachmittag": ("Guten Tag.", "Einen schönen guten Tag.", "Guten Tag und herzlich willkommen."),
+    "abend": ("Guten Abend.", "Einen schönen guten Abend.", "Guten Abend und herzlich willkommen."),
+    "nacht": ("Guten Abend.",),
 }
 # Das Haus spricht als sein Angestellter: höflich, zurückhaltend, ohne Namen der Bewohner an der Tür
 WARTE = (
-    "Einen Augenblick bitte, Sie werden sogleich verbunden.",
-    "Bitte gedulden Sie sich einen Moment, ich verbinde Sie.",
-    "Vielen Dank für Ihr Läuten. Bitte haben Sie einen Augenblick Geduld, ich verbinde Sie.",
+    "Einen Moment bitte, Sie werden gleich verbunden.",
+    "Bitte haben Sie einen Moment Geduld, ich verbinde Sie.",
+    "Vielen Dank für Ihr Klingeln. Einen Moment bitte, ich verbinde Sie.",
     "Einen Moment bitte, ich melde Sie im Haus an.",
-    "Bitte warten Sie einen Augenblick, Sie werden verbunden.",
+    "Bitte warten Sie einen Moment, Sie werden verbunden.",
 )
 WARTE_NACHT = (
-    "Zu so später Stunde bitte ich um einen Augenblick Geduld, ich verbinde Sie.",
-    "Einen Augenblick bitte, ich melde Sie im Haus an.",
+    "Um diese Uhrzeit bitte ich um einen Moment Geduld, ich verbinde Sie.",
+    "Einen Moment bitte, ich melde Sie im Haus an.",
 )
 AB = (
-    "Bedauerlicherweise ist im Augenblick niemand zu sprechen. Bitte hinterlassen Sie nach dem Signalton eine "
-    "Nachricht, ich richte sie umgehend aus.",
-    "Leider ist gerade niemand zu erreichen. Nach dem Signalton können Sie gern eine Nachricht hinterlassen, ich gebe sie "
-    "selbstverständlich weiter.",
-    "Es tut mir leid, im Moment ist niemand verfügbar. Bitte hinterlassen Sie nach dem Signalton eine Nachricht.",
+    "Leider ist gerade niemand erreichbar. Bitte hinterlassen Sie nach dem Signalton eine Nachricht, ich gebe sie "
+    "umgehend weiter.",
 )
 
 

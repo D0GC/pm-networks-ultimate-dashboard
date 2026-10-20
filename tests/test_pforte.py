@@ -271,7 +271,7 @@ def test_tageszeit_und_gruss():
         "nacht",
     ]
     for gruesse in pf.GRUESSE.values():
-        assert not any(w in g for g in gruesse for w in ("Servus", "Mahlzeit", "Gute Nacht"))
+        assert not any(w in g for g in gruesse for w in ("Grüß Gott", "Servus", "Mahlzeit", "Gute Nacht"))
     assert all("Signalton" in t and "Nachricht" in t for t in pf.AB)  # Hinweis auf die Aufnahme bleibt
 
 
