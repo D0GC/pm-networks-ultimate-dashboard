@@ -34,7 +34,7 @@ configuration:
     description: button-Entität des Haustür-Öffners für die Gruppe Zugang (Standard button.haustur_tur_offnen). Auslösen nur nach 2 Sekunden Halten.
   intercom_ausloeser:
     name: Klingel Haustür (Intercom)
-    description: Wechselt eine dieser Entitäten auf „an“, zeigt das Panel das Overlay „Haustür“ mit Gegensprechen über PM Ring Intercom und dem Haustür-Öffner (Standard binary_sensor.haustur_klingelt).
+    description: Wechselt eine dieser Entitäten auf „an“, zeigt das Panel das Overlay „Haustür“ mit Gegensprechen über PM Ring Intercom und dem Haustür-Öffner (Standard binary_sensor.haustur_klingelt_panel, folgt dem ring-mqtt-Sensor „ding“).
   klima_praefix:
     name: Präfix PM Klima
     description: Nur Thermostate mit diesem Präfix werden gezeigt (Standard climate.pm_). Thermostate ohne Bereich werden über den Namen einem Bereich zugeordnet.

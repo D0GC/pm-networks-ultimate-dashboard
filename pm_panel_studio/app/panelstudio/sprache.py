@@ -89,6 +89,13 @@ class Sprache:
         return self.toene.get(tid)
 
     # ------------------------------------------------------------ Ansagen
+    async def tts_datei(self, text: str) -> bytes:
+        """Tondatei (MP3) für ``text`` mit Piper und der Stimme Jarvis, z. B. für die Ansagen an der Haustür."""
+        anfrage = {"engine_id": ANSAGE_ENGINE, "message": text, "language": ANSAGE_SPRACHE, "options": {"voice": ANSAGE_STIMME}}
+        res = await self.client.rest("POST", "tts_get_url", json=anfrage, timeout=90)
+        daten, _ctype = await self.client.rest_raw(_tts_pfad((res or {}).get("path") or (res or {}).get("url") or ""), timeout=60)
+        return daten
+
     async def ansage(self, daten: dict[str, Any]) -> str | None:
         text = str(daten.get("text") or daten.get("message") or "").strip()[:MAX_TEXT]
         if not text:

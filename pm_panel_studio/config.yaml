@@ -1,5 +1,5 @@
 name: PM Panel Studio
-version: "2026.10.35"
+version: "2026.10.36"
 slug: pm_panel_studio
 description: >-
   Wandpanel-Oberfläche für den Flur: rotierende Hinweiskarten mit Ringtimern, Ruhe- und Wachzustand,
@@ -33,6 +33,9 @@ ports_description:
 homeassistant: "2026.9.0"
 homeassistant_api: true
 hassio_api: false
+# Aufnahmen des Anrufbeantworters an der Haustür (Medienbrowser von Home Assistant)
+map:
+  - media:rw
 timeout: 20
 watchdog: "http://[HOST]:[PORT:8099]/api/health"
 options:
@@ -53,7 +56,7 @@ options:
   tueroeffner: button.haustur_tur_offnen
   haustueroeffner: button.haustur_tur_offnen
   intercom_ausloeser:
-    - binary_sensor.haustur_klingelt
+    - binary_sensor.haustur_klingelt_panel
   klima_praefix: climate.pm_
   klima_studio_url: http://bdf1cc64-pm-klima-studio:8099
   klima_studio_schluessel: ""

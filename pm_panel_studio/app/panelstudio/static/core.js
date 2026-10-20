@@ -70,6 +70,7 @@
       case "telefon": PS.telefon = m; PS.emit("telefon", m); break;
       case "ansage": PS.emit("ansage", m); break;
       case "assist": PS.emit("assist", m); break;
+      case "pforte": PS.emit("pforte", m); break;
       case "einstellungen":
         PS.einst = m.einstellungen || {};
         document.body.classList.toggle("ohne-animation", PS.einst.animationen === false);

@@ -93,7 +93,7 @@ class Options:
     # Haustür-Öffner für die Zugang-Gruppe, zusätzlich zum Türöffner im Overlay (dort oft das Wohnungsschloss)
     haustueroeffner: str = "button.haustur_tur_offnen"
     # Klingeln an der Ring Intercom (Integration PM Ring Intercom): Overlay „Haustür“ mit Gegensprechen und Haustür-Öffner
-    intercom_ausloeser: list[str] = field(default_factory=lambda: ["binary_sensor.haustur_klingelt"])
+    intercom_ausloeser: list[str] = field(default_factory=lambda: ["binary_sensor.haustur_klingelt_panel"])
     klima_praefix: str = "climate.pm_"
     # PM Klima Studio im Panel: interne Adresse der App und derselbe Schlüssel wie dort (panel_schluessel)
     klima_studio_url: str = "http://bdf1cc64-pm-klima-studio:8099"
@@ -247,6 +247,14 @@ class Einstellungen:
     weckwort_ruhe_von: int = 0
     weckwort_ruhe_bis: int = 0  # gleich „von“: keine Ruhezeit (Vorgabe)
     weck_stand: int = WECK_STAND  # ältere Stände übernehmen die Ruhezeit nicht (Vorgabe war 23–6 Uhr)
+    # Türdienst an der Haustür (pforte.py): Warteansage und -melodie, Anrufbeantworter mit Abschrift
+    pforte_aktiv: bool = True
+    pforte_ab_s: int = 30  # Anrufbeantworter nach so vielen Sekunden ohne Annahme (niemand zu Hause: sofort)
+    pforte_max_s: int = 60  # längste Nachricht
+    pforte_warte_text: str = "Guten Tag. Bitte warten Sie, Sie werden verbunden."
+    pforte_ab_text: str = "Leider ist gerade niemand erreichbar. Bitte hinterlassen Sie nach dem Signalton eine Nachricht."
+    pforte_push: list[str] = field(default_factory=lambda: ["notify.mobile_app_dominiks_iphone", "notify.mobile_app_iphone_gina"])
+    pforte_stt: str = "stt.home_assistant_cloud"
     material_fest: list[str] = field(default_factory=list)
     aussen_feuchte: list[str] = field(default_factory=lambda: list(STANDARD_AUSSEN_FEUCHTE))
     # Haus-Modi, die als Pillen in der Statuszeile des Flurs erscheinen, solange sie „on“ sind
@@ -281,6 +289,8 @@ class Einstellungen:
         "telefon_lautstaerke": (25, 400),
         "ansage_lautstaerke": (25, 400),
         "dock_anzahl": (3, 12),
+        "pforte_ab_s": (10, 120),
+        "pforte_max_s": (15, 180),
         "weckwort_ruhe_von": (0, 23),
         "weckwort_ruhe_bis": (0, 23),
     }
@@ -354,6 +364,21 @@ class Einstellungen:
                     abgewiesen.append(key)
                     continue
                 self.assist_pipeline = val
+            elif key in ("pforte_warte_text", "pforte_ab_text"):
+                text = re.sub(r"\s+", " ", str(val or "")).strip()[:240]
+                if not text:
+                    abgewiesen.append(key)
+                    continue
+                setattr(self, key, text)
+            elif key == "pforte_push":
+                vals = val if isinstance(val, list) else str(val or "").split(",")
+                dienste = dict.fromkeys(str(x).strip() for x in vals)
+                self.pforte_push = [v for v in dienste if re.match(r"^notify\.[a-z0-9_]+$", v)][:6]
+            elif key == "pforte_stt":
+                if not isinstance(val, str) or not re.match(r"^stt\.[a-z0-9_]+$", val):
+                    abgewiesen.append(key)
+                    continue
+                self.pforte_stt = val
             elif key == "weckwort":
                 if not isinstance(val, str) or not re.match(r"^[a-z0-9_]{1,40}$", val):
                     abgewiesen.append(key)
@@ -397,7 +422,16 @@ class Einstellungen:
             elif key in ("bereiche_reihenfolge", "bereiche_ausblenden", "start_raeume", "karten_aus"):
                 vals = val if isinstance(val, list) else []
                 setattr(self, key, [s for s in dict.fromkeys(str(v).strip() for v in vals) if re.match(r"^[a-z0-9_]{1,64}$", s)])
-            elif key in ("animationen", "ton_hoch", "ton_klingel", "gruss", "zugaenglich", "assist_aktiv", "weckwort_aktiv"):
+            elif key in (
+                "animationen",
+                "ton_hoch",
+                "ton_klingel",
+                "gruss",
+                "zugaenglich",
+                "assist_aktiv",
+                "weckwort_aktiv",
+                "pforte_aktiv",
+            ):
                 setattr(self, key, bool(val))
             else:
                 abgewiesen.append(key)

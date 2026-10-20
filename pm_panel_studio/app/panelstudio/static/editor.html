@@ -61,6 +61,13 @@
         <option value="hey_mycroft">Hey Mycroft</option><option value="hey_rhasspy">Hey Rhasspy</option><option value="alexa">Alexa</option>
       </select></label>
       <label>Weckwort ruht von <span><input id="weckwort_ruhe_von" type="number" min="0" max="23"> bis <input id="weckwort_ruhe_bis" type="number" min="0" max="23"> Uhr (gleiche Zahl: keine Ruhezeit)</span></label>
+      <label class="haken"><input id="pforte_aktiv" type="checkbox"> Türdienst: nach dem Klingeln Warteansage und Melodie, danach Anrufbeantworter mit Abschrift per Push</label>
+      <label>Anrufbeantworter nach <span><input id="pforte_ab_s" type="number" min="10" max="120"> s ohne Annahme (niemand zu Hause: sofort)</span></label>
+      <label>Längste Nachricht <span><input id="pforte_max_s" type="number" min="15" max="180"> s</span></label>
+      <label>Warteansage <input id="pforte_warte_text" type="text" maxlength="240"></label>
+      <label>Ansage Anrufbeantworter <input id="pforte_ab_text" type="text" maxlength="240"></label>
+      <label>Push an (notify-Dienste, durch Komma getrennt) <input id="pforte_push" type="text"></label>
+      <label>Spracherkennung für die Abschrift <input id="pforte_stt" type="text" pattern="stt\.[a-z0-9_]+"></label>
     </div>
 
     <h2>Schnellzugriff</h2>

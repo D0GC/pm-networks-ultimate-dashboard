@@ -32,6 +32,7 @@ from . import karten as kt
 from . import szenen as sz
 from .config import Einstellungen, EinstellungsSpeicher, Options
 from .ha_client import HAClient, HAError
+from .pforte import Pforte
 from .popups import PopupSpeicher, text_aus_inhalt, weckt
 from .sprache import Sprache
 
@@ -112,6 +113,16 @@ class Hub:
         self.speicher = speicher
         self.sprache = Sprache(client, self.senden_alle)
         self.einstellungen: Einstellungen = speicher.laden()
+        # Türdienst: Warteansage, Wartemelodie und Anrufbeantworter an der Haustür
+        self.pforte = Pforte(
+            client,
+            lambda: self.einstellungen,
+            self.jemand_zu_hause,
+            self.sprache.tts_datei,
+            lambda d: self.senden_alle({"typ": "pforte", **d}),
+            self._pforte_meldung,
+            lambda: self._lokal(datetime.now(UTC)),
+        )
         self.states: dict[str, dict[str, Any]] = {}
         self.registry: dict[str, dict[str, Any]] = {}
         self.geraete: dict[str, str] = {}  # Geräte-ID -> Name (für den Systemzustand)
@@ -225,6 +236,7 @@ class Hub:
         _LOGGER.info("Mit Home Assistant verbunden (%d Entitäten, %d Bereiche)", len(self.states), len(self.bereiche))
         self._karten_neu(senden=False)
         self.spawn(self._szenen_laden())
+        self.spawn(self._pforte_vorbereiten())
         for ws in list(self.clients):
             await self.init_senden(ws)
 
@@ -374,11 +386,39 @@ class Hub:
             self._modus_pruefen()
         if eid == "sun.sun":
             self.spawn(self.senden_alle({"typ": "modus", **self.modus_daten()}))
+        if eid == self.opts.haustueroeffner and self.pforte.laeuft and neu and (alt or {}).get("state") != neu.get("state"):
+            # Haustür geöffnet: Türdienst beendet sich still (keine leere Nachricht, kein Push)
+            self.spawn(self.pforte.uebergeben("Haustür geöffnet"))
         an = neu and neu.get("state") == "on" and (alt or {}).get("state") != "on"
         if an and eid in self.opts.intercom_ausloeser:
             self.ereignis_starten(eid, "Haustür", intercom=True)
+            if not self.gespraeche:  # spricht schon jemand am Panel, bleibt der Türdienst still
+                self.pforte.klingeln()
         elif an and eid in self.opts.ereignis_ausloeser:
             self.ereignis_starten(eid)
+
+    def jemand_zu_hause(self) -> bool:
+        return any((self.states.get(p) or {}).get("state") == "home" for p in self.opts.personen)
+
+    async def _pforte_vorbereiten(self) -> None:
+        try:
+            await self.pforte.vorbereiten()
+        except Exception as err:
+            _LOGGER.warning("Türdienst nicht vorbereitet: %s", err)
+
+    def _pforte_meldung(self, titel: str, text: str) -> None:
+        mid = self.popups._panel(
+            {
+                "tag": f"haustuer_{int(time.time())}",
+                "titel": titel,
+                "text": text,
+                "icon": "tuer",
+                "stufe": "aktiv",
+                "laufzeit_min": 240,
+            },
+            time.time(),
+        )
+        self._popups_senden(mid)
 
     async def _flush(self) -> None:
         await asyncio.sleep(FLUSH_S)
@@ -675,6 +715,7 @@ class Hub:
             raise ValueError("Gegensprechen nur über eine Panel-Verbindung")
         if not isinstance(angebot, str) or not angebot.startswith("v=0") or len(angebot) > SDP_MAX:
             raise ValueError("SDP-Angebot ungültig")
+        await self.pforte.uebergeben()  # Türdienst (Warteansage/Anrufbeantworter) gibt die Leitung ab
         kennung = secrets.token_hex(8)
         eintrag: dict[str, Any] = {"ws": ws, "sub": None, "sitzung": None}
         self.gespraeche[kennung] = eintrag

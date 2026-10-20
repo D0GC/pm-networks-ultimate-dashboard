@@ -92,6 +92,26 @@ class HAClient:
         except TimeoutError as err:
             raise HAError(f"{method} {path}: Zeitüberschreitung") from err
 
+    async def rest_post_bytes(self, path: str, daten: bytes, headers: dict[str, str], timeout: float = 30) -> Any:
+        """POST mit Rohdaten (z. B. WAV an ``/api/stt/<engine>``); Antwort als JSON, sonst Text."""
+        url = f"{self.api_url}/{path.lstrip('/')}"
+        try:
+            async with self._session.post(
+                url,
+                data=daten,
+                headers={"Authorization": f"Bearer {self._token}", **headers},
+                timeout=aiohttp.ClientTimeout(total=timeout),
+            ) as resp:
+                if resp.status >= 400:
+                    raise HAError(f"POST {path}: HTTP {resp.status} {(await resp.text())[:200]}", str(resp.status))
+                if resp.content_type == "application/json":
+                    return await resp.json()
+                return await resp.text()
+        except aiohttp.ClientError as err:
+            raise HAError(f"POST {path}: {err}") from err
+        except TimeoutError as err:
+            raise HAError(f"POST {path}: Zeitüberschreitung") from err
+
     @property
     def session(self) -> aiohttp.ClientSession:
         """Gemeinsame HTTP-Sitzung (auch für Anfragen außerhalb von Home Assistant, z. B. PM Klima Studio)."""

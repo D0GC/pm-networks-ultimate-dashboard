@@ -149,7 +149,7 @@ Optionen `hinweise_entitaet` umstellen. Einzelne Kartentypen lassen sich auch oh
 ## Gegensprechen an der Haustür
 
 Voraussetzung ist die Integration **PM Ring Intercom** (Repository `D0GC/pm-networks-ring`). Wechselt einer der
-Auslöser aus `intercom_ausloeser` (Standard `binary_sensor.haustur_klingelt`) auf „an“, zeigt das Panel das Overlay
+Auslöser aus `intercom_ausloeser` (Standard `binary_sensor.haustur_klingelt_panel`, folgt dem ring-mqtt-Sensor `binary_sensor.haustur_ding`) auf „an“, zeigt das Panel das Overlay
 „Haustür“ mit drei Knöpfen: Schließen, **Sprechen** und Tür öffnen (2 Sekunden halten, öffnet `haustueroeffner`).
 
 - *Sprechen* öffnet ein Gespräch mit der Ring Intercom. Das Mikrofon des Panels geht an die Haustür, der Ton der
@@ -162,6 +162,32 @@ Auslöser aus `intercom_ausloeser` (Standard `binary_sensor.haustur_klingelt`) a
 
 Ob Ring für die Intercom eine Live-Sitzung annimmt, zeigt der erste Versuch. Den Verlauf der Signalisierung enthält
 die Diagnose der Integration PM Ring Intercom.
+
+### Türdienst: Warteansage und Anrufbeantworter
+
+Klingelt es (Auslöser wie beim Overlay), nimmt die App das Gespräch selbst an. Sie baut dafür eine eigene Sitzung mit
+der Ring Intercom auf (WebRTC mit aiortc, Signalisierung über PM Ring Intercom wie beim Panel).
+
+1. **Warteansage:** „Guten Tag. Bitte warten Sie, Sie werden verbunden.“ in der Stimme Jarvis (Piper), danach die
+   Wartemelodie „Abendglocke“ in Schleife.
+2. **Anrufbeantworter:** nach 30 Sekunden ohne Annahme, sofort, wenn niemand aus `personen` zu Hause ist. Ansage
+   „Leider ist gerade niemand erreichbar. Bitte hinterlassen Sie nach dem Signalton eine Nachricht.“, Signalton,
+   Aufnahme. Sie endet nach 3 Sekunden Stille, nach 8 Sekunden ohne Sprache oder spätestens nach 60 Sekunden.
+3. **Auswertung:** Die Aufnahme liegt als WAV unter `/media/pm_panel_studio/haustuer` (Medienbrowser, die letzten 60
+   bleiben). Die Spracherkennung von Home Assistant (Vorgabe `stt.home_assistant_cloud`) schreibt sie ab. Die Abschrift
+   geht per Push an die eingestellten notify-Dienste und erscheint als Meldung am Panel. Ohne Nachricht kommt die Push
+   „Es hat geklingelt, eine Nachricht wurde nicht hinterlassen.“ Zusätzlich feuert das Ereignis
+   `pm_panel_studio_haustuer` (`text`, `datei`, `dauer_s`, `nachricht`).
+
+**Übernehmen:** „Sprechen“ am Panel beendet die Sitzung der App sofort, das Panel verbindet sich danach selbst (auch
+während Ansage, Melodie oder Aufnahme; eine begonnene Nachricht wird trotzdem ausgewertet). Nimmt jemand den Anruf in
+der Ring-App an, beendet Ring die Sitzung der App, und der Türdienst hört auf. Ob Ring dabei die Sitzung der App
+tatsächlich beendet oder beide parallel zulässt, zeigt der erste Versuch im Protokoll („Ring hat die Sitzung beendet“).
+Wird die Haustür geöffnet, endet der Türdienst ohne Push. Bei bereiter Klingelöffnung klingelt der Panel-Auslöser
+nicht, der Türdienst bleibt dann aus.
+
+Einstellungen im Editor unter „Türdienst“: an/aus, Wartezeit, längste Nachricht, beide Ansagetexte, Push-Empfänger
+(notify-Dienste) und Spracherkennung.
 
 ### Klingelton
 

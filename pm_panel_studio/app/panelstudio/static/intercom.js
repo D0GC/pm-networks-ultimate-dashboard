@@ -111,6 +111,21 @@
     }
   }
 
+  // Türdienst der App (Warteansage, Anrufbeantworter): Stand im Overlay, solange am Panel kein eigenes Gespräch läuft
+  const PFORTE = {
+    verbinden: "Nimmt das Gespräch an …",
+    warten: "Besucher hört die Warteansage · „Sprechen“ verbindet",
+    anrufbeantworter: "Anrufbeantworter: Ansage läuft · „Sprechen“ verbindet",
+    aufnahme: "Anrufbeantworter nimmt auf · „Sprechen“ verbindet",
+    auswerten: "Nachricht wird abgeschrieben …",
+  };
+  PS.on("pforte", (m) => {
+    if (pc) return;
+    const s = $("#intercom-status"); if (!s) return;
+    const text = m.phase === "ende" ? (m.uebernommen ? "Gespräch übernommen" : "") : PFORTE[m.phase] || "";
+    s.textContent = text; s.hidden = !text;
+  });
+
   PS.intercomBeenden = () => { if (pc) beenden(); };
   PS.on("intercom", nachricht);
 
