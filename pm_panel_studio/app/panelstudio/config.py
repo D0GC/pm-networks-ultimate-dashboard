@@ -37,6 +37,12 @@ MODULE = (
 )
 # Verstärkerlogik: Stand 2 = saubere Kette ohne Sättigung, Verstärkungen um 100 %
 TON_STAND = 2
+# Feste Ansagetexte von 2026.10.36; gespeichert gelten sie als leer (abwechselnde Formeln)
+PFORTE_ALTE_TEXTE = (
+    "Guten Tag. Bitte warten Sie, Sie werden verbunden.",
+    "Leider ist gerade niemand erreichbar. Bitte hinterlassen Sie nach dem Signalton eine Nachricht.",
+)
+
 # Weckwort: Stand 2 = Ruhezeit standardmäßig aus
 WECK_STAND = 2
 VERSTAERKUNGEN = ("intercom_lautstaerke", "ton_verstaerkung", "telefon_lautstaerke", "ansage_lautstaerke")
@@ -251,8 +257,9 @@ class Einstellungen:
     pforte_aktiv: bool = True
     pforte_ab_s: int = 30  # Anrufbeantworter nach so vielen Sekunden ohne Annahme (niemand zu Hause: sofort)
     pforte_max_s: int = 60  # längste Nachricht
-    pforte_warte_text: str = "Guten Tag. Bitte warten Sie, Sie werden verbunden."
-    pforte_ab_text: str = "Leider ist gerade niemand erreichbar. Bitte hinterlassen Sie nach dem Signalton eine Nachricht."
+    # Leer = abwechselnde förmliche Formeln, die Warteansage mit Gruß nach Tageszeit (pforte.py)
+    pforte_warte_text: str = ""
+    pforte_ab_text: str = ""
     pforte_push: list[str] = field(default_factory=lambda: ["notify.mobile_app_dominiks_iphone", "notify.mobile_app_iphone_gina"])
     pforte_stt: str = "stt.home_assistant_cloud"
     material_fest: list[str] = field(default_factory=list)
@@ -366,10 +373,8 @@ class Einstellungen:
                 self.assist_pipeline = val
             elif key in ("pforte_warte_text", "pforte_ab_text"):
                 text = re.sub(r"\s+", " ", str(val or "")).strip()[:240]
-                if not text:
-                    abgewiesen.append(key)
-                    continue
-                setattr(self, key, text)
+                # Die festen Texte von 2026.10.36 gelten als „nicht eingestellt“: dann abwechselnd mit Gruß
+                setattr(self, key, "" if text in PFORTE_ALTE_TEXTE else text)
             elif key == "pforte_push":
                 vals = val if isinstance(val, list) else str(val or "").split(",")
                 dienste = dict.fromkeys(str(x).strip() for x in vals)

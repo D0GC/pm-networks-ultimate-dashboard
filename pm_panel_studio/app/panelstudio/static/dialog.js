@@ -120,6 +120,28 @@
     h.querySelector("i").addEventListener("animationend", () => h.remove());
     dlg.before(h);
   };
+  // Nachrichten des Anrufbeantworters an der Haustür abspielen; immer nur eine, erneutes Tippen stoppt
+  let aufnahmeLaeuft = null;  // { datei, ton, knopf, timer }
+  function aufnahmeKnopf(b, an) {
+    b.classList.toggle("aktiv", an);
+    b.innerHTML = PS.ic(an ? "stop" : "play") + `<span>${an ? "Stopp" : "Anhören"}</span>`;
+  }
+  PS.aufnahmeSpielen = (datei, dauer_s, b) => {
+    const alt = aufnahmeLaeuft;
+    if (alt) { alt.ton.stoppen(); clearTimeout(alt.timer); if (alt.knopf) aufnahmeKnopf(alt.knopf, false); aufnahmeLaeuft = null; }
+    if (alt && alt.datei === datei) return;
+    const ton = PS.audio.abspielen("api/aufnahme?datei=" + encodeURIComponent(datei), "ansage");
+    const l = aufnahmeLaeuft = { datei, ton, knopf: b };
+    if (b) aufnahmeKnopf(b, true);
+    // Ende der Wiedergabe: Knopf nach der Länge der Aufnahme zurücksetzen
+    l.timer = setTimeout(() => { if (aufnahmeLaeuft === l) { aufnahmeLaeuft = null; if (b) aufnahmeKnopf(b, false); } }, (Number(dauer_s) || 60) * 1000 + 800);
+  };
+  PS.aufnahmeKnopf = (datei, dauer_s) => {
+    const b = knopf("Anhören", "play", null);
+    b.addEventListener("click", (ev) => { ev.stopPropagation(); PS.aufnahmeSpielen(datei, dauer_s, b); });
+    return b;
+  };
+
   PS.popupZeigen = (id) => {
     const m = (PS.popups || []).find((x) => x.id === id); if (!m) return;
     offenFuer = null;
@@ -138,6 +160,7 @@
     if (m.details) { const md = document.createElement("div"); md.className = "md"; md.innerHTML = PS.markdown(m.details); dlg.appendChild(md); }
     if (m.kamera) { const k = document.createElement("div"); dlg.appendChild(k); PS.kameraLive(k, m.kamera); }
     const r = reihe(); r.classList.add("m-knoepfe");
+    if (m.aufnahme) r.appendChild(PS.aufnahmeKnopf(m.aufnahme, null));
     // OK, Bestätigen und Popup-Knöpfe nehmen die Meldung sofort aus Glocke und Feed. Die Automation schließt sie zwar
     // auch, aber oft erst verzögert (Kohle: nächster Schleifendurchlauf, bis 60 s) oder gar nicht.
     const ok = () => { PS.tonStopp(); return PS.anfrage({ typ: "popup_schliessen", popup: m.id }).catch(() => {}).then(schliessen); };

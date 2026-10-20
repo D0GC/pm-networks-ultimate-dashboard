@@ -168,11 +168,14 @@ die Diagnose der Integration PM Ring Intercom.
 Klingelt es (Auslöser wie beim Overlay), nimmt die App das Gespräch selbst an. Sie baut dafür eine eigene Sitzung mit
 der Ring Intercom auf (WebRTC mit aiortc, Signalisierung über PM Ring Intercom wie beim Panel).
 
-1. **Warteansage:** „Guten Tag. Bitte warten Sie, Sie werden verbunden.“ in der Stimme Jarvis (Piper), danach die
-   Wartemelodie „Abendglocke“ in Schleife.
+1. **Warteansage:** Gruß nach Tageszeit und eine Warteformel in der Stimme Jarvis (Piper), etwa „Grüß Gott, guten
+   Morgen. Einen Augenblick bitte, Sie werden sogleich verbunden.“, danach die Wartemelodie „Abendglocke“ in Schleife.
+   Grüße: Morgen 5–10 Uhr, Mittag 11–13, Nachmittag 14–17, Abend 18–21, Nacht 22–4 Uhr („Guten Abend“). Förmlich wie
+   ein Angestellter des Hauses; kein „Servus“, kein „Mahlzeit“. Die Formeln wechseln, nie zweimal hintereinander gleich.
 2. **Anrufbeantworter:** nach 30 Sekunden ohne Annahme, sofort, wenn niemand aus `personen` zu Hause ist. Ansage
    „Leider ist gerade niemand erreichbar. Bitte hinterlassen Sie nach dem Signalton eine Nachricht.“, Signalton,
    Aufnahme. Sie endet nach 3 Sekunden Stille, nach 8 Sekunden ohne Sprache oder spätestens nach 60 Sekunden.
+   Die Ansage wechselt ebenfalls und nennt immer den Signalton und die Nachricht (Hinweis auf die Aufnahme).
 3. **Auswertung:** Die Aufnahme liegt als WAV unter `/media/pm_panel_studio/haustuer` (Medienbrowser, die letzten 60
    bleiben). Die Spracherkennung von Home Assistant (Vorgabe `stt.home_assistant_cloud`) schreibt sie ab. Die Abschrift
    geht per Push an die eingestellten notify-Dienste und erscheint als Meldung am Panel. Ohne Nachricht kommt die Push
@@ -183,10 +186,15 @@ der Ring Intercom auf (WebRTC mit aiortc, Signalisierung über PM Ring Intercom 
 während Ansage, Melodie oder Aufnahme; eine begonnene Nachricht wird trotzdem ausgewertet). Nimmt jemand den Anruf in
 der Ring-App an, beendet Ring die Sitzung der App, und der Türdienst hört auf. Ob Ring dabei die Sitzung der App
 tatsächlich beendet oder beide parallel zulässt, zeigt der erste Versuch im Protokoll („Ring hat die Sitzung beendet“).
-Wird die Haustür geöffnet, endet der Türdienst ohne Push. Bei bereiter Klingelöffnung klingelt der Panel-Auslöser
+Wird die Haustür geöffnet (`button.haustur_tur_offnen` oder `lock.haustur_lock`), endet der Türdienst sofort und ohne
+Push, auch wenn niemand das Gespräch angenommen hat. Bei bereiter Klingelöffnung klingelt der Panel-Auslöser
 nicht, der Türdienst bleibt dann aus.
 
-Einstellungen im Editor unter „Türdienst“: an/aus, Wartezeit, längste Nachricht, beide Ansagetexte, Push-Empfänger
+**Nachrichten anhören:** In der Meldung „Nachricht an der Haustür“ über „Anhören“, außerdem auf der Seite Sicherheit
+unter „Zugang“ in der Liste „Nachrichten an der Haustür“ (die letzten 10). Ältere Aufnahmen bleiben im Medienbrowser.
+
+Einstellungen im Editor unter „Türdienst“: an/aus, Wartezeit, längste Nachricht, beide Ansagetexte (leer =
+abwechselnde Formeln), Push-Empfänger
 (notify-Dienste) und Spracherkennung.
 
 ### Klingelton

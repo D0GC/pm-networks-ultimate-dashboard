@@ -141,3 +141,13 @@ async def test_ungueltiges_angebot(ingress):
     m = await _warte_auf(ws, lambda m: m["typ"] == "antwort" and m["id"] == 1)
     assert not m["ok"]
     await ws.close()
+
+
+def test_haustuer_geoeffnet_erkennt_knopf_und_schloss(hub):
+    an = {"state": "2026-10-21T10:00:00+00:00"}
+    assert hub._haustuer_geoeffnet("button.haustur_tur_offnen", {"state": "unknown"}, an)
+    assert hub._haustuer_geoeffnet("lock.haustur_lock", {"state": "locked"}, {"state": "unlocked"})
+    assert hub._haustuer_geoeffnet("lock.haustur_lock", {"state": "locked"}, {"state": "open"})
+    assert not hub._haustuer_geoeffnet("lock.haustur_lock", {"state": "unlocked"}, {"state": "locked"})
+    assert not hub._haustuer_geoeffnet("lock.haustur_lock", {"state": "locked"}, {"state": "unavailable"})
+    assert not hub._haustuer_geoeffnet("light.flur", {"state": "off"}, {"state": "on"})

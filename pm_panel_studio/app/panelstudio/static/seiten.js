@@ -122,6 +122,34 @@
     r.appendChild(alleKnopf("Alle Lampen", "licht"));
   }
 
+  // ------------------------------------------------------------ Nachrichten an der Haustür (Anrufbeantworter)
+  function nachrichtenBox() {
+    const b = box("Nachrichten an der Haustür");
+    b.classList.add("haustuer-nachrichten");
+    const liste = E('<div class="liste"><div class="leer">Lädt …</div></div>');
+    b.appendChild(liste);
+    const laden = async () => {
+      let n = [];
+      try { const r = await fetch("api/aufnahmen", { cache: "no-store" }); if (r.ok) n = await r.json(); } catch { /* leer */ }
+      b.querySelector("h3 small")?.remove();
+      if (n.length) b.querySelector("h3").insertAdjacentHTML("beforeend", `<small>${n.length === 10 ? "die letzten 10" : n.length}</small>`);
+      liste.innerHTML = n.length ? "" : '<div class="leer">Noch keine Nachrichten.</div>';
+      n.forEach((x) => {
+        const t = x.zeit ? new Date(x.zeit) : null;
+        const wann = t ? `${t.toLocaleDateString("de-DE", { weekday: "short", day: "2-digit", month: "2-digit" })} · ${t.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })}` : x.datei;
+        const z = E(`<div class="zeile">${PS.ic("message-processing-outline")}<span class="n">${PS.esc(x.text ? `„${x.text}“` : "Ohne Abschrift")}<small>${PS.esc(wann)}${x.dauer_s ? ` · ${x.dauer_s} s` : ""}</small></span></div>`);
+        z.appendChild(PS.aufnahmeKnopf(x.datei, x.dauer_s));
+        liste.appendChild(z);
+      });
+    };
+    laden();
+    nachrichtenNeu = () => { if (b.isConnected) laden(); };
+    return b;
+  }
+  // Neue Nachricht: offene Liste nachladen (ein Hörer für alle Seitenaufbauten)
+  let nachrichtenNeu = null;
+  PS.on("aufnahmen", () => { if (nachrichtenNeu) nachrichtenNeu(); });
+
   // ------------------------------------------------------------ Sicherheit
   function sicherheit(el) {
     const [l, m, r] = seite(el, "sicherheit");
@@ -129,6 +157,7 @@
     alarm.slice(0, 1).forEach((a) => l.appendChild(PS.alarmSteuerung(a)));
     const zugang = PS.zugang(alle().filter(dom("lock")));
     if (zugang.length) { const b = box("Zugang"); b.appendChild(raster(zugang)); l.appendChild(b); }
+    l.appendChild(nachrichtenBox());
     const bs = (k) => alle().filter((e) => e.startsWith("binary_sensor.") && PS.sichtbar(e) && !PS.nichtDa(e) && k.includes(PS.a(e).device_class));
     const kontakte = bs(["door", "window", "opening", "garage_door"]).sort((x, y) => (PS.s(y) === "on") - (PS.s(x) === "on") || nameSort(x, y));
     const offen = kontakte.filter((e) => PS.s(e) === "on").length;

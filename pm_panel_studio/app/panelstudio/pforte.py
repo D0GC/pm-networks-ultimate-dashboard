@@ -24,8 +24,10 @@ import contextlib
 import fractions
 import functools
 import io
+import json
 import logging
 import math
+import random
 import re
 import time
 import wave
@@ -149,6 +151,57 @@ def wav(pcm: bytes, rate: int = RATE) -> bytes:
         w.setframerate(rate)
         w.writeframes(pcm)
     return b.getvalue()
+
+
+# ------------------------------------------------------------------ Ansagen: förmlich, Gruß nach Tageszeit
+
+# Bayern und Franken: „Grüß Gott“ ist förmlich und zu jeder Tageszeit üblich, sonst richtet sich der Gruß nach der Uhr.
+# Nicht verwendet: „Servus“/„Griaß di“ (vertraulich), „Mahlzeit“ (unter Kollegen), „Gute Nacht“ (Abschied).
+GRUESSE = {
+    "morgen": ("Guten Morgen.", "Einen schönen guten Morgen.", "Grüß Gott, guten Morgen."),
+    "mittag": ("Grüß Gott.", "Guten Tag.", "Einen schönen guten Tag."),
+    "nachmittag": ("Grüß Gott.", "Guten Tag.", "Einen schönen guten Tag."),
+    "abend": ("Guten Abend.", "Einen schönen guten Abend.", "Grüß Gott, guten Abend."),
+    "nacht": ("Guten Abend.", "Einen guten Abend."),
+}
+# Das Haus spricht als sein Angestellter: höflich, zurückhaltend, ohne Namen der Bewohner an der Tür
+WARTE = (
+    "Einen Augenblick bitte, Sie werden sogleich verbunden.",
+    "Bitte gedulden Sie sich einen Moment, ich verbinde Sie.",
+    "Vielen Dank für Ihr Läuten. Bitte haben Sie einen Augenblick Geduld, ich verbinde Sie.",
+    "Einen Moment bitte, ich melde Sie im Haus an.",
+    "Bitte warten Sie einen Augenblick, Sie werden verbunden.",
+)
+WARTE_NACHT = (
+    "Zu so später Stunde bitte ich um einen Augenblick Geduld, ich verbinde Sie.",
+    "Einen Augenblick bitte, ich melde Sie im Haus an.",
+)
+AB = (
+    "Bedauerlicherweise ist im Augenblick niemand zu sprechen. Bitte hinterlassen Sie nach dem Signalton eine "
+    "Nachricht, ich richte sie umgehend aus.",
+    "Leider ist gerade niemand zu erreichen. Nach dem Signalton können Sie gern eine Nachricht hinterlassen, ich gebe sie "
+    "selbstverständlich weiter.",
+    "Es tut mir leid, im Moment ist niemand verfügbar. Bitte hinterlassen Sie nach dem Signalton eine Nachricht.",
+)
+
+
+def tageszeit(stunde: int) -> str:
+    """Morgen 5–10, Mittag 11–13, Nachmittag 14–17, Abend 18–21, Nacht 22–4 Uhr."""
+    if 5 <= stunde < 11:
+        return "morgen"
+    if 11 <= stunde < 14:
+        return "mittag"
+    if 14 <= stunde < 18:
+        return "nachmittag"
+    if 18 <= stunde < 22:
+        return "abend"
+    return "nacht"
+
+
+def waehlen(texte: tuple[str, ...], zuletzt: str | None) -> str:
+    """Zufällig, aber nicht zweimal hintereinander dasselbe."""
+    auswahl = [t for t in texte if t != zuletzt] or list(texte)
+    return random.choice(auswahl)
 
 
 # ------------------------------------------------------------------ Sprache erkennen (Anrufbeantworter)
@@ -417,7 +470,7 @@ class Pforte:
         anwesend: Callable[[], bool],
         tts: Callable[[str], Awaitable[bytes]],
         melden: Callable[[dict[str, Any]], Awaitable[None]],
-        meldung: Callable[[str, str], None],
+        meldung: Callable[[str, str, str | None], None],
         jetzt: Callable[[], datetime],
     ) -> None:
         self.client = client
@@ -430,6 +483,7 @@ class Pforte:
         self.leitung: Leitung | None = None
         self._task: asyncio.Task | None = None
         self._klaenge: dict[str, bytes] = {}
+        self._zuletzt: dict[str, str] = {}
         self.uebernommen = False
         self.verzeichnis = AUFNAHME_DIR
         self.stun: str | None = STUN
@@ -445,7 +499,12 @@ class Pforte:
             self._klaenge["melodie"] = await loop.run_in_executor(None, abendglocke)
             self._klaenge["signal"] = signalton()
         e = self.einst()
-        for text in (e.pforte_warte_text, e.pforte_ab_text):
+        texte = [e.pforte_warte_text, e.pforte_ab_text] if e.pforte_warte_text or e.pforte_ab_text else []
+        if not e.pforte_warte_text:
+            texte += [g for gs in GRUESSE.values() for g in gs] + list(WARTE) + list(WARTE_NACHT)
+        if not e.pforte_ab_text:
+            texte += list(AB)
+        for text in dict.fromkeys(t for t in texte if t):
             with contextlib.suppress(Exception):
                 await self._ansage(text)
 
@@ -456,6 +515,20 @@ class Pforte:
             pcm = await asyncio.get_running_loop().run_in_executor(None, dekodieren, daten)
             self._klaenge[schluessel] = normalisieren(pcm, 0.8)
         return self._klaenge[schluessel]
+
+    def _wahl(self, art: str, texte: tuple[str, ...]) -> str:
+        text = waehlen(texte, self._zuletzt.get(art))
+        self._zuletzt[art] = text
+        return text
+
+    async def _warteansage(self, e: Any) -> bytes:
+        """Eigener Text aus den Einstellungen, sonst Gruß nach Tageszeit und eine der Warteformeln."""
+        if e.pforte_warte_text:
+            return await self._ansage(e.pforte_warte_text)
+        zeit = tageszeit(self.jetzt().hour)
+        gruss = await self._ansage(self._wahl("gruss", GRUESSE[zeit]))
+        satz = await self._ansage(self._wahl("warte", WARTE_NACHT if zeit == "nacht" else WARTE))
+        return gruss + stille(0.25) + satz
 
     def klingeln(self) -> None:
         e = self.einst()
@@ -485,7 +558,7 @@ class Pforte:
         ab = False
         try:
             await self.melden({"phase": "verbinden"})
-            warte = await self._ansage(e.pforte_warte_text)
+            warte = await self._warteansage(e)
             if "melodie" not in self._klaenge:
                 await self.vorbereiten()
             await leitung.aufbauen()
@@ -500,7 +573,7 @@ class Pforte:
             # Anrufbeantworter
             ab = True
             leitung.spieler.leeren()
-            text = await self._ansage(e.pforte_ab_text)
+            text = await self._ansage(e.pforte_ab_text or self._wahl("ab", AB))
             leitung.spieler.spielen(stille(0.3) + text + stille(0.3) + self._klaenge["signal"])
             await self.melden({"phase": "anrufbeantworter"})
             await self._spielen_bis_leer(leitung)
@@ -560,11 +633,18 @@ class Pforte:
         uhr = zeit.strftime("%H:%M")
         datei: str | None = None
         text = ""
+        dauer = round(len(aufnahme) / 2 / RATE)
         if aufnahme:
             daten = wav(aufnahme)
             datei = self._speichern(daten, zeit)
             text = await self._abschrift(daten, e.pforte_stt)
-        dauer = round(len(aufnahme) / 2 / RATE)
+            if datei:
+                # Begleitdatei für die Liste am Panel (Zeit, Länge, Abschrift)
+                with contextlib.suppress(OSError):
+                    Path(datei).with_suffix(".json").write_text(
+                        json.dumps({"zeit": zeit.isoformat(), "dauer_s": dauer, "text": text}, ensure_ascii=False),
+                        encoding="utf-8",
+                    )
         if aufnahme:
             titel = "Nachricht an der Haustür"
             nachricht = f"{uhr} Uhr: „{text}“" if text else f"{uhr} Uhr: Nachricht ({dauer} s), Abschrift nicht möglich."
@@ -578,7 +658,7 @@ class Pforte:
                 await self.client.call_service(
                     domain, service, {"title": titel, "message": nachricht, "data": {"group": "haustuer"}}
                 )
-        self.meldung(titel, nachricht)
+        self.meldung(titel, nachricht, Path(datei).name if datei else None)
         with contextlib.suppress(HAError):
             await self.client.rest(
                 "POST",
@@ -595,9 +675,44 @@ class Pforte:
                 alte = sorted(ordner.glob("*.wav"))
                 for p in alte[:-MAX_AUFNAHMEN]:
                     p.unlink(missing_ok=True)
+                    p.with_suffix(".json").unlink(missing_ok=True)
                 return str(pfad)
             except OSError as err:
                 _LOGGER.warning("Haustür: Aufnahme nicht in %s gespeichert: %s", ordner, err)
+        return None
+
+    # ------------------------------------------------------------ Aufnahmen am Panel
+
+    def _ordner(self) -> list[Path]:
+        return [o for o in (self.verzeichnis, AUFNAHME_RESERVE) if o.is_dir()]
+
+    def aufnahmen(self, anzahl: int = 10) -> list[dict[str, Any]]:
+        """Die neuesten Nachrichten: Dateiname, Zeit, Länge und Abschrift."""
+        dateien = sorted(
+            (p for o in self._ordner() for p in o.glob("*.wav") if DATEI_RE.match(p.name)), key=lambda p: p.name, reverse=True
+        )
+        out = []
+        for p in dateien[:anzahl]:
+            info: dict[str, Any] = {}
+            with contextlib.suppress(OSError, ValueError):
+                info = json.loads(p.with_suffix(".json").read_text(encoding="utf-8"))
+            if not info.get("dauer_s"):
+                with contextlib.suppress(OSError, EOFError, wave.Error), wave.open(str(p)) as w:
+                    info["dauer_s"] = round(w.getnframes() / w.getframerate())
+            zeit = info.get("zeit")
+            if not zeit:
+                with contextlib.suppress(ValueError):
+                    zeit = datetime.strptime(p.stem, "%Y-%m-%d_%H-%M-%S").isoformat()
+            out.append({"datei": p.name, "zeit": zeit, "dauer_s": info.get("dauer_s"), "text": info.get("text") or ""})
+        return out
+
+    def aufnahme_pfad(self, name: str) -> Path | None:
+        """Pfad einer Aufnahme; nur Dateinamen, wie sie der Türdienst selbst vergibt."""
+        if not DATEI_RE.match(name or ""):
+            return None
+        for o in self._ordner():
+            if (o / name).is_file():
+                return o / name
         return None
 
     async def _abschrift(self, daten: bytes, engine: str) -> str:
@@ -619,5 +734,6 @@ class Pforte:
         return ""
 
 
+DATEI_RE = re.compile(r"^\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\.wav$")
 NOTIFY_RE = re.compile(r"^notify\.[a-z0-9_]+$")
 STT_RE = re.compile(r"^stt\.[a-z0-9_]+$")
