@@ -74,6 +74,9 @@ AUFNAHME_WURZEL = "media-source://reolink"
 AUFNAHME_TAG = "media-source://reolink/DAY|"
 AUFNAHME_DATEI = "media-source://reolink/FILE|"
 INTERCOM_DOMAIN = "pm_ring_intercom"
+# Betätigen der Haustür beendet den Türdienst (Warteansage, Anrufbeantworter)
+HAUSTUER_KNOEPFE = ("button.haustur_tur_offnen",)
+HAUSTUER_SCHLOESSER = ("lock.haustur_lock",)
 SDP_MAX = 20000
 BILD_ERLAUBT = ("/api/camera_proxy/", "/api/media_player_proxy/", "/api/image_proxy/", "/api/image/serve/")
 
@@ -386,8 +389,9 @@ class Hub:
             self._modus_pruefen()
         if eid == "sun.sun":
             self.spawn(self.senden_alle({"typ": "modus", **self.modus_daten()}))
-        if eid == self.opts.haustueroeffner and self.pforte.laeuft and neu and (alt or {}).get("state") != neu.get("state"):
-            # Haustür geöffnet: Türdienst beendet sich still (keine leere Nachricht, kein Push)
+        if self.pforte.laeuft and self._haustuer_geoeffnet(eid, alt, neu):
+            # Haustür geöffnet (Knopf oder Schloss), auch ohne angenommenes Gespräch: Melodie sofort aus,
+            # kein Anrufbeantworter, kein Push
             self.spawn(self.pforte.uebergeben("Haustür geöffnet"))
         an = neu and neu.get("state") == "on" and (alt or {}).get("state") != "on"
         if an and eid in self.opts.intercom_ausloeser:
@@ -396,6 +400,14 @@ class Hub:
                 self.pforte.klingeln()
         elif an and eid in self.opts.ereignis_ausloeser:
             self.ereignis_starten(eid)
+
+    def _haustuer_geoeffnet(self, eid: str, alt: dict[str, Any] | None, neu: dict[str, Any] | None) -> bool:
+        """Wurde die Haustür betätigt? Knopf (Zeitstempel wechselt) oder Schloss (auf/entriegelt)."""
+        if not neu or neu.get("state") in ("unknown", "unavailable") or (alt or {}).get("state") == neu.get("state"):
+            return False
+        if eid in (self.opts.haustueroeffner, *HAUSTUER_KNOEPFE):
+            return True
+        return eid in HAUSTUER_SCHLOESSER and neu.get("state") in ("unlocking", "unlocked", "opening", "open")
 
     def jemand_zu_hause(self) -> bool:
         return any((self.states.get(p) or {}).get("state") == "home" for p in self.opts.personen)
@@ -406,7 +418,7 @@ class Hub:
         except Exception as err:
             _LOGGER.warning("Türdienst nicht vorbereitet: %s", err)
 
-    def _pforte_meldung(self, titel: str, text: str) -> None:
+    def _pforte_meldung(self, titel: str, text: str, aufnahme: str | None = None) -> None:
         mid = self.popups._panel(
             {
                 "tag": f"haustuer_{int(time.time())}",
@@ -418,7 +430,10 @@ class Hub:
             },
             time.time(),
         )
+        if mid and aufnahme:
+            self.popups.meldungen[mid]["aufnahme"] = aufnahme  # Knopf „Anhören“ in der Meldung
         self._popups_senden(mid)
+        self.spawn(self.senden_alle({"typ": "aufnahmen"}))
 
     async def _flush(self) -> None:
         await asyncio.sleep(FLUSH_S)

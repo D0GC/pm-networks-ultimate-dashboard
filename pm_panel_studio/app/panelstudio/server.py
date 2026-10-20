@@ -179,6 +179,20 @@ async def ansage_ton(request: web.Request) -> web.Response:
     return web.Response(body=daten, content_type=ctype, headers={"Cache-Control": "no-store"})
 
 
+async def aufnahmen_liste(request: web.Request) -> web.Response:
+    """Die neuesten Nachrichten des Anrufbeantworters an der Haustür."""
+    return web.json_response(request.app[K_HUB].pforte.aufnahmen(10), headers={"Cache-Control": "no-store"})
+
+
+async def aufnahme_datei(request: web.Request) -> web.StreamResponse:
+    pfad = request.app[K_HUB].pforte.aufnahme_pfad(request.query.get("datei", ""))
+    if pfad is None:
+        raise web.HTTPNotFound(text="Aufnahme nicht vorhanden")
+    resp = web.FileResponse(pfad)
+    resp.content_type = "audio/wav"
+    return resp
+
+
 async def bild(request: web.Request) -> web.Response:
     """Kamerabilder und Cover über Home Assistant (die Panels kennen kein HA-Token)."""
     hub = request.app[K_HUB]
@@ -414,6 +428,8 @@ def _gemeinsam(app: web.Application) -> None:
     app.router.add_get("/api/ws", ws_handler)
     app.router.add_get("/api/bild", bild)
     app.router.add_get("/api/ansage", ansage_ton)
+    app.router.add_get("/api/aufnahmen", aufnahmen_liste)
+    app.router.add_get("/api/aufnahme", aufnahme_datei)
     app.router.add_get("/api/kamera", kamera)
     app.router.add_get("/api/hls/{pfad:.+}", hls)
     app.router.add_get("/api/video", video)

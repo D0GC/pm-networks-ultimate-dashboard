@@ -188,7 +188,7 @@ def _pforte(ring, einst, tmp_path, anwesend=True):
         lambda: anwesend,
         tts,
         melden,
-        lambda t, x: meldungen.append((t, x)),
+        lambda t, x, a=None: meldungen.append((t, x, a)),
         lambda: __import__("datetime").datetime(2026, 10, 21, 14, 5),
     )
     p.stun = None
@@ -214,8 +214,12 @@ async def test_anrufbeantworter_nimmt_nachricht_auf(tmp_path):
             {"title": "Nachricht an der Haustür", "message": "14:05 Uhr: „Paket für Meisel“", "data": {"group": "haustuer"}},
         )
     ]
-    assert meldungen and "Paket" in meldungen[0][1]
+    assert meldungen and "Paket" in meldungen[0][1] and meldungen[0][2] == "2026-10-21_14-05-00.wav"
     assert list(tmp_path.glob("*.wav"))
+    # Liste und Datei für das Panel
+    liste = p.aufnahmen()
+    assert liste[0]["datei"] == "2026-10-21_14-05-00.wav" and liste[0]["text"] == "Paket für Meisel" and liste[0]["dauer_s"] >= 1
+    assert p.aufnahme_pfad("2026-10-21_14-05-00.wav") == tmp_path / "2026-10-21_14-05-00.wav"
     assert ring.beendet and not p.uebernommen
 
 
@@ -239,3 +243,83 @@ async def test_panel_uebernimmt(tmp_path):
             break
     await p.uebergeben()
     assert not p.laeuft and p.uebernommen and ring.beendet and not ring.dienste
+
+
+def test_aufnahme_pfad_nur_eigene_dateinamen(tmp_path):
+    p = pf.Pforte(None, lambda: None, lambda: True, None, None, None, None)
+    p.verzeichnis = tmp_path
+    (tmp_path / "2026-10-21_14-05-00.wav").write_bytes(pf.wav(pf.stille(0.1)))
+    (tmp_path / "geheim.wav").write_bytes(b"x")
+    assert p.aufnahme_pfad("2026-10-21_14-05-00.wav") is not None
+    for falsch in ("geheim.wav", "../config.yaml", "2026-10-21_14-05-00.wav/..", ""):
+        assert p.aufnahme_pfad(falsch) is None
+    assert [x["datei"] for x in p.aufnahmen()] == ["2026-10-21_14-05-00.wav"]
+
+
+def test_tageszeit_und_gruss():
+    assert [pf.tageszeit(h) for h in (5, 10, 11, 13, 14, 17, 18, 21, 22, 0, 4)] == [
+        "morgen",
+        "morgen",
+        "mittag",
+        "mittag",
+        "nachmittag",
+        "nachmittag",
+        "abend",
+        "abend",
+        "nacht",
+        "nacht",
+        "nacht",
+    ]
+    for gruesse in pf.GRUESSE.values():
+        assert not any(w in g for g in gruesse for w in ("Servus", "Mahlzeit", "Gute Nacht"))
+    assert all("Signalton" in t and "Nachricht" in t for t in pf.AB)  # Hinweis auf die Aufnahme bleibt
+
+
+def test_waehlen_wiederholt_nicht():
+    for _ in range(50):
+        assert pf.waehlen(("a", "b"), "a") == "b"
+    assert pf.waehlen(("a",), "a") == "a"
+
+
+async def test_warteansage_mit_gruss_nach_tageszeit():
+    pytest.importorskip("av")
+    gesprochen = []
+
+    async def tts(text):
+        gesprochen.append(text)
+        return _ton_wav(0.2)
+
+    for stunde, gruesse in ((8, pf.GRUESSE["morgen"]), (19, pf.GRUESSE["abend"]), (23, pf.GRUESSE["nacht"])):
+        gesprochen.clear()
+        e = _einst()
+        e.pforte_warte_text = ""
+        p = pf.Pforte(
+            None,
+            lambda e=e: e,
+            lambda: True,
+            tts,
+            None,
+            None,
+            lambda s=stunde: __import__("datetime").datetime(2026, 10, 21, s, 0),
+        )
+        pcm = await p._warteansage(e)
+        assert gesprochen[0] in gruesse and gesprochen[1] in (pf.WARTE_NACHT if stunde == 23 else pf.WARTE)
+        assert len(pcm) > 2 * 16000 * 0.5
+    # Eigener Text aus den Einstellungen hat Vorrang
+    gesprochen.clear()
+    e = _einst()
+    p = pf.Pforte(None, lambda: e, lambda: True, tts, None, None, lambda: __import__("datetime").datetime(2026, 10, 21, 8))
+    await p._warteansage(e)
+    assert gesprochen == ["Bitte warten"]
+
+
+def test_alte_feste_texte_gelten_als_leer():
+    from panelstudio.config import Einstellungen
+
+    e = Einstellungen.from_dict(
+        {
+            "pforte_warte_text": "Guten Tag. Bitte warten Sie, Sie werden verbunden.",
+            "pforte_ab_text": "Bitte sprechen Sie nach dem Ton.",
+        }
+    )
+    assert e.pforte_warte_text == "" and e.pforte_ab_text == "Bitte sprechen Sie nach dem Ton."

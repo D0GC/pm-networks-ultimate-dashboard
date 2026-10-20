@@ -1,5 +1,15 @@
 # Änderungen
 
+## 2026.10.37 – 2026-10-21
+
+- Türdienst: Wird die Haustür geöffnet (`button.haustur_tur_offnen` oder `lock.haustur_lock`), endet er sofort, auch
+  ohne angenommenes Gespräch: Melodie aus, kein Anrufbeantworter, kein Push.
+- Nachrichten am Panel anhören: Die Meldung „Nachricht an der Haustür“ hat einen Knopf „Anhören“; auf der Seite
+  Sicherheit steht unter „Zugang“ die Liste „Nachrichten an der Haustür“ (die letzten 10 mit Zeit, Länge, Abschrift).
+- Förmliche, abwechselnde Ansagen: Gruß nach Tageszeit (Morgen, Mittag, Nachmittag, Abend, Nacht; „Grüß Gott“ wie in
+  Bayern und Franken üblich), dazu wechselnde Warte- und Anrufbeantworter-Formeln, nie zweimal hintereinander gleich.
+  Eigene Texte im Editor haben weiter Vorrang; die festen Texte von 2026.10.36 gelten als nicht eingestellt.
+
 ## 2026.10.36 – 2026-10-21
 
 - Türdienst an der Haustür: Klingelt es, nimmt die App das Gespräch selbst an (eigene WebRTC-Gegenstelle über
