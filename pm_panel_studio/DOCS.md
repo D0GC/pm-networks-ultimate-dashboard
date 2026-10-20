@@ -168,14 +168,15 @@ die Diagnose der Integration PM Ring Intercom.
 Klingelt es (Auslöser wie beim Overlay), nimmt die App das Gespräch selbst an. Sie baut dafür eine eigene Sitzung mit
 der Ring Intercom auf (WebRTC mit aiortc, Signalisierung über PM Ring Intercom wie beim Panel).
 
-1. **Warteansage:** Gruß nach Tageszeit und eine Warteformel in der Stimme Jarvis (Piper), etwa „Grüß Gott, guten
-   Morgen. Einen Augenblick bitte, Sie werden sogleich verbunden.“, danach die Wartemelodie „Abendglocke“ in Schleife.
-   Grüße: Morgen 5–10 Uhr, Mittag 11–13, Nachmittag 14–17, Abend 18–21, Nacht 22–4 Uhr („Guten Abend“). Förmlich wie
-   ein Angestellter des Hauses; kein „Servus“, kein „Mahlzeit“. Die Formeln wechseln, nie zweimal hintereinander gleich.
+1. **Warteansage:** Gruß nach Tageszeit und eine Warteformel in der Stimme Jarvis (Piper), etwa „Einen schönen guten
+   Morgen. Einen Moment bitte, ich melde Sie im Haus an.“, danach die Wartemelodie „Abendglocke“ in Schleife.
+   Grüße: Morgen 5–10 Uhr, Mittag 11–13, Nachmittag 14–17, Abend 18–21, Nacht 22–4 Uhr („Guten Abend“). Modern und
+   förmlich wie ein Angestellter des Hauses; kein „Grüß Gott“, kein „Servus“, kein „Mahlzeit“. Die Formeln wechseln, nie zweimal hintereinander gleich.
 2. **Anrufbeantworter:** nach 30 Sekunden ohne Annahme, sofort, wenn niemand aus `personen` zu Hause ist. Ansage
    „Leider ist gerade niemand erreichbar. Bitte hinterlassen Sie nach dem Signalton eine Nachricht.“, Signalton,
    Aufnahme. Sie endet nach 3 Sekunden Stille, nach 8 Sekunden ohne Sprache oder spätestens nach 60 Sekunden.
-   Die Ansage wechselt ebenfalls und nennt immer den Signalton und die Nachricht (Hinweis auf die Aufnahme).
+   Ansage: „Leider ist gerade niemand erreichbar. Bitte hinterlassen Sie nach dem Signalton eine Nachricht, ich gebe
+   sie umgehend weiter.“ (Hinweis auf die Aufnahme).
 3. **Auswertung:** Die Aufnahme liegt als WAV unter `/media/pm_panel_studio/haustuer` (Medienbrowser, die letzten 60
    bleiben). Die Spracherkennung von Home Assistant (Vorgabe `stt.home_assistant_cloud`) schreibt sie ab. Die Abschrift
    geht per Push an die eingestellten notify-Dienste und erscheint als Meldung am Panel. Ohne Nachricht kommt die Push

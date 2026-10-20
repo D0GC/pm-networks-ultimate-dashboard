@@ -1,5 +1,10 @@
 # Änderungen
 
+## 2026.10.38 – 2026-10-21
+
+- Türdienst: moderne Grußformeln ohne „Grüß Gott“ (Guten Morgen/Tag/Abend, „… und herzlich willkommen“), modernere
+  Warteformeln mit „Einen Moment bitte, ich melde Sie im Haus an.“; der Anrufbeantworter hat eine feste Ansage.
+
 ## 2026.10.37 – 2026-10-21
 
 - Türdienst: Wird die Haustür geöffnet (`button.haustur_tur_offnen` oder `lock.haustur_lock`), endet er sofort, auch
