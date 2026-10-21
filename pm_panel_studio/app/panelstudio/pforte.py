@@ -7,7 +7,8 @@ Integration auf wie das Panel (``pm_ring_intercom/audio/start``):
 1. Ansage „Bitte warten Sie, Sie werden verbunden“ (Piper, Stimme Jarvis), danach die Wartemelodie „Abendglocke“
    in Schleife.
 2. Nach ``pforte_ab_s`` Sekunden ohne Annahme, sofort, wenn niemand zu Hause ist: Anrufbeantworter. Ansage, Signalton,
-   Aufnahme bis Stille oder ``pforte_max_s``. Die Aufnahme liegt als WAV unter ``/media/pm_panel_studio/haustuer``,
+   Aufnahme bis Stille oder ``pforte_max_s``. Die Aufnahme liegt als WAV in ``pforte_ordner``
+   (Vorgabe ``/media/Fileshare_Media/Haustüraufnahme`` auf dem Netzlaufwerk),
    die Spracherkennung von Home Assistant schreibt sie ab, die Abschrift geht per Push und als Meldung ans Panel.
 
 Übernahme: Tippt jemand am Panel auf „Sprechen“, beendet die App ihre Sitzung sofort und das Panel verbindet sich.
@@ -29,6 +30,7 @@ import logging
 import math
 import random
 import re
+import shutil
 import time
 import wave
 from collections.abc import Awaitable, Callable
@@ -42,7 +44,8 @@ _LOGGER = logging.getLogger(__name__)
 
 RATE = 16000  # Abtastrate innen (Sprechanlage ist ohnehin schmalbandig); der Opus-Kodierer rechnet selbst um
 RAHMEN = 320  # 20 ms
-AUFNAHME_DIR = Path("/media/pm_panel_studio/haustuer")
+# Bisheriger Ort auf der lokalen Platte; bleibt Ausweichziel, wenn das Netzlaufwerk nicht eingehängt ist
+AUFNAHME_LOKAL = Path("/media/pm_panel_studio/haustuer")
 AUFNAHME_RESERVE = Path("/data/haustuer")
 MAX_AUFNAHMEN = 60
 INTERCOM_DOMAIN = "pm_ring_intercom"
@@ -325,6 +328,10 @@ class Leitung:
         self._aufnahme: bytearray | None = None
         self.stimme: Stimmerkennung | None = None
         self._leser: asyncio.Task | None = None
+        # Zeitpunkte zur Diagnose: Verbindung, erster Tonrahmen von Ring, erster hörbarer Rahmen (Leitung an der Tür offen)
+        self.t_verbunden: float | None = None
+        self.t_erster_rahmen: float | None = None
+        self.t_erster_ton: float | None = None
 
     async def aufbauen(self, frist: float = 10.0) -> None:
         from aiortc import RTCConfiguration, RTCIceServer, RTCPeerConnection
@@ -342,6 +349,7 @@ class Leitung:
         async def _zustand() -> None:
             s = self.pc.connectionState if self.pc else "closed"
             if s == "connected":
+                self.t_verbunden = time.monotonic()
                 self.verbunden.set()
             elif s in ("failed", "closed"):
                 self._beendet(f"Verbindung {s}")
@@ -428,6 +436,10 @@ class Leitung:
                 rest = pcm[n:]
                 for i in range(0, n, RAHMEN * 2):
                     teil = pcm[i : i + RAHMEN * 2]
+                    if self.t_erster_rahmen is None:
+                        self.t_erster_rahmen = time.monotonic()
+                    if self.t_erster_ton is None and pegel(teil) > 300:
+                        self.t_erster_ton = time.monotonic()
                     if self._aufnahme is not None:
                         self._aufnahme += teil
                         if self.stimme is not None:
@@ -482,7 +494,7 @@ class Pforte:
         self._klaenge: dict[str, bytes] = {}
         self._zuletzt: dict[str, str] = {}
         self.uebernommen = False
-        self.verzeichnis = AUFNAHME_DIR
+        self.verzeichnis: Path | None = None  # fest gesetzt nur in Tests; sonst aus pforte_ordner
         self.stun: str | None = STUN
 
     @property
@@ -501,6 +513,8 @@ class Pforte:
             texte += [g for gs in GRUESSE.values() for g in gs] + list(WARTE) + list(WARTE_NACHT)
         if not e.pforte_ab_text:
             texte += list(AB)
+        with contextlib.suppress(Exception):
+            await asyncio.to_thread(self.umziehen)
         for text in dict.fromkeys(t for t in texte if t):
             with contextlib.suppress(Exception):
                 await self._ansage(text)
@@ -559,8 +573,15 @@ class Pforte:
             if "melodie" not in self._klaenge:
                 await self.vorbereiten()
             await leitung.aufbauen()
-            _LOGGER.info("Haustür: Gespräch angenommen, Warteansage läuft")
-            leitung.spieler.spielen(stille(0.4) + warte + stille(0.6))
+            # Vorlauf: Ring schaltet die Sprechleitung an der Tür erst einige Sekunden nach dem Verbindungsaufbau
+            # durch (Test 21.10.: rund 2,5 s); vorher Gesprochenes hört niemand. Bis dahin läuft Stille.
+            vorlauf = float(getattr(e, "pforte_vorlauf_s", 3))
+            with contextlib.suppress(TimeoutError):
+                await asyncio.wait_for(leitung.ende.wait(), max(0.0, vorlauf - (time.monotonic() - (leitung.t_verbunden or 0))))
+            if leitung.ende.is_set():
+                return self._uebernommen_durch_ring(leitung)
+            _LOGGER.info("Haustür: Gespräch angenommen, Warteansage läuft (%s)", self._zeiten(leitung, beginn))
+            leitung.spieler.spielen(warte + stille(0.6))
             leitung.spieler.schleife(self._klaenge["melodie"])
             await self.melden({"phase": "warten"})
             # Niemand zu Hause: Anrufbeantworter gleich nach der Warteansage
@@ -603,6 +624,18 @@ class Pforte:
             self.leitung = None
             with contextlib.suppress(Exception):
                 await self.melden({"phase": "ende", "uebernommen": self.uebernommen})
+
+    @staticmethod
+    def _zeiten(leitung: Leitung, beginn: float) -> str:
+        """Diagnose: Sekunden ab Klingeln bis Verbindung, erstem Rahmen und erstem hörbaren Ton von der Tür."""
+
+        def ab(t: float | None) -> str:
+            return f"{t - beginn:.1f} s" if t else "–"
+
+        return (
+            f"verbunden {ab(leitung.t_verbunden)}, erster Rahmen {ab(leitung.t_erster_rahmen)}, "
+            f"erster Ton {ab(leitung.t_erster_ton)}, Ansage {ab(time.monotonic())}"
+        )
 
     async def _warten(self, leitung: Leitung, sek: float) -> bool:
         """Wartet ``sek`` Sekunden; True, wenn Ring die Sitzung vorher beendet (Ring-App hat angenommen)."""
@@ -664,7 +697,10 @@ class Pforte:
             )
 
     def _speichern(self, daten: bytes, zeit: datetime) -> str | None:
-        for ordner in (self.verzeichnis, AUFNAHME_RESERVE):
+        ziele = self._ziele()
+        if self.verzeichnis is None and ziele[0] == AUFNAHME_LOKAL and self.einst().pforte_ordner:
+            _LOGGER.warning("Haustür: %s nicht erreichbar, Aufnahme bleibt lokal", Path(self.einst().pforte_ordner).parent)
+        for ordner in ziele:
             try:
                 ordner.mkdir(parents=True, exist_ok=True)
                 pfad = ordner / f"{zeit:%Y-%m-%d_%H-%M-%S}.wav"
@@ -680,8 +716,46 @@ class Pforte:
 
     # ------------------------------------------------------------ Aufnahmen am Panel
 
+    def _ziele(self) -> list[Path]:
+        """Speicherorte in Reihenfolge: Netzlaufwerk, lokal, App-Daten.
+
+        Der Ordner auf dem Netzlaufwerk wird nur angelegt, wenn dessen Freigabe selbst da ist (z. B.
+        ``/media/Fileshare_Media``); sonst landete die Aufnahme unbemerkt auf der lokalen Platte unter dem Einhängepunkt.
+        """
+        if self.verzeichnis is not None:
+            return [self.verzeichnis, AUFNAHME_RESERVE]
+        haupt = Path(getattr(self.einst(), "pforte_ordner", "") or AUFNAHME_LOKAL)
+        ziele = [haupt] if haupt.parent.is_dir() else []
+        return [*dict.fromkeys([*ziele, AUFNAHME_LOKAL, AUFNAHME_RESERVE])]
+
     def _ordner(self) -> list[Path]:
-        return [o for o in (self.verzeichnis, AUFNAHME_RESERVE) if o.is_dir()]
+        return [o for o in self._ziele() if o.is_dir()]
+
+    def umziehen(self) -> int:
+        """Ältere Aufnahmen aus den lokalen Ordnern auf das Netzlaufwerk verschieben (entlastet die lokale Platte)."""
+        ziel = self._ziele()[0]
+        if ziel in (AUFNAHME_LOKAL, AUFNAHME_RESERVE):
+            return 0
+        n = 0
+        for alt in (AUFNAHME_LOKAL, AUFNAHME_RESERVE):
+            if not alt.is_dir():
+                continue
+            for p in sorted(alt.glob("*.wav")):
+                if not DATEI_RE.match(p.name):
+                    continue
+                try:
+                    ziel.mkdir(parents=True, exist_ok=True)
+                    for q in (p, p.with_suffix(".json")):
+                        if q.is_file():
+                            shutil.copyfile(q, ziel / q.name)
+                            q.unlink()
+                    n += 1
+                except OSError as err:
+                    _LOGGER.warning("Haustür: Umzug von %s nach %s gescheitert: %s", p.name, ziel, err)
+                    return n
+        if n:
+            _LOGGER.info("Haustür: %d Aufnahmen nach %s verschoben", n, ziel)
+        return n
 
     def aufnahmen(self, anzahl: int = 10) -> list[dict[str, Any]]:
         """Die neuesten Nachrichten: Dateiname, Zeit, Länge und Abschrift."""

@@ -167,8 +167,10 @@ def _einst(ab_s=1, max_s=8):
         pforte_max_s=max_s,
         pforte_warte_text="Bitte warten",
         pforte_ab_text="Nachricht bitte",
+        pforte_vorlauf_s=0,
         pforte_push=["notify.test"],
         pforte_stt="stt.test",
+        pforte_ordner="",
     )
 
 
@@ -323,3 +325,54 @@ def test_alte_feste_texte_gelten_als_leer():
         }
     )
     assert e.pforte_warte_text == "" and e.pforte_ab_text == "Bitte sprechen Sie nach dem Ton."
+
+
+async def test_vorlauf_vor_der_begruessung(tmp_path):
+    pytest.importorskip("aiortc")
+    ring = Ring(Besucher(ab_s=99, dauer_s=1), schliessen_nach=4.0)
+    e = _einst(ab_s=30)
+    e.pforte_vorlauf_s = 2
+    p, _m, phasen = _pforte(ring, e, tmp_path)
+    t0 = asyncio.get_running_loop().time()
+    p.klingeln()
+    while "warten" not in phasen:  # noqa: ASYNC110
+        await asyncio.sleep(0.05)
+    assert asyncio.get_running_loop().time() - t0 >= 2.0  # Begrüßung erst nach dem Vorlauf
+    await asyncio.wait_for(p._task, 10)
+
+
+def test_ablage_auf_netzlaufwerk_und_umzug(tmp_path, monkeypatch):
+    lokal, reserve = tmp_path / "lokal", tmp_path / "reserve"
+    monkeypatch.setattr(pf, "AUFNAHME_LOKAL", lokal)
+    monkeypatch.setattr(pf, "AUFNAHME_RESERVE", reserve)
+    lokal.mkdir()
+    (lokal / "2026-10-20_10-00-00.wav").write_bytes(_ton_wav(0.1))
+    (lokal / "2026-10-20_10-00-00.json").write_text("{}")
+    e = _einst()
+    p = pf.Pforte(None, lambda: e, lambda: True, None, None, lambda *a: None, None)
+    p.verzeichnis = None
+    # Freigabe nicht eingehängt: kein Ordner unter dem Einhängepunkt, Ablage bleibt lokal
+    e.pforte_ordner = str(tmp_path / "Fileshare_Media" / "Haustüraufnahme")
+    assert p._ziele()[0] == lokal
+    assert p.umziehen() == 0
+    assert not (tmp_path / "Fileshare_Media").exists()
+    # Freigabe da: Ordner wird angelegt, alte Aufnahmen ziehen um und bleiben abspielbar
+    (tmp_path / "Fileshare_Media").mkdir()
+    ziel = tmp_path / "Fileshare_Media" / "Haustüraufnahme"
+    assert p._ziele()[0] == ziel
+    assert p.umziehen() == 1
+    assert (ziel / "2026-10-20_10-00-00.wav").is_file() and (ziel / "2026-10-20_10-00-00.json").is_file()
+    assert not list(lokal.iterdir())
+    assert p.aufnahme_pfad("2026-10-20_10-00-00.wav") == ziel / "2026-10-20_10-00-00.wav"
+
+
+def test_ordner_einstellung():
+    from panelstudio.config import Einstellungen
+
+    e = Einstellungen()
+    assert e.pforte_ordner == "/media/Fileshare_Media/Haustüraufnahme"
+    assert e.aktualisieren({"pforte_ordner": "/data/x"}) == ["pforte_ordner"]
+    assert e.aktualisieren({"pforte_ordner": "/media/../data"}) == ["pforte_ordner"]
+    assert e.pforte_ordner == "/media/Fileshare_Media/Haustüraufnahme"
+    e.aktualisieren({"pforte_ordner": "/media/NAS/Tür/"})
+    assert e.pforte_ordner == "/media/NAS/Tür"

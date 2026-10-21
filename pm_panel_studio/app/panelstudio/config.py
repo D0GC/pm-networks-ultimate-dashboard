@@ -257,11 +257,14 @@ class Einstellungen:
     pforte_aktiv: bool = True
     pforte_ab_s: int = 30  # Anrufbeantworter nach so vielen Sekunden ohne Annahme (niemand zu Hause: sofort)
     pforte_max_s: int = 60  # längste Nachricht
+    pforte_vorlauf_s: int = 3  # Stille nach dem Verbindungsaufbau, bis Ring die Sprechleitung an der Tür durchschaltet
     # Leer = abwechselnde förmliche Formeln, die Warteansage mit Gruß nach Tageszeit (pforte.py)
     pforte_warte_text: str = ""
     pforte_ab_text: str = ""
     pforte_push: list[str] = field(default_factory=lambda: ["notify.mobile_app_dominiks_iphone", "notify.mobile_app_iphone_gina"])
     pforte_stt: str = "stt.home_assistant_cloud"
+    # Ablage der Nachrichten; Netzlaufwerk „Fileshare_Media“ (HA-Speicher, Verwendung Medien) unter /media
+    pforte_ordner: str = "/media/Fileshare_Media/Haustüraufnahme"
     material_fest: list[str] = field(default_factory=list)
     aussen_feuchte: list[str] = field(default_factory=lambda: list(STANDARD_AUSSEN_FEUCHTE))
     # Haus-Modi, die als Pillen in der Statuszeile des Flurs erscheinen, solange sie „on“ sind
@@ -298,6 +301,7 @@ class Einstellungen:
         "dock_anzahl": (3, 12),
         "pforte_ab_s": (10, 120),
         "pforte_max_s": (15, 180),
+        "pforte_vorlauf_s": (0, 8),
         "weckwort_ruhe_von": (0, 23),
         "weckwort_ruhe_bis": (0, 23),
     }
@@ -379,6 +383,13 @@ class Einstellungen:
                 vals = val if isinstance(val, list) else str(val or "").split(",")
                 dienste = dict.fromkeys(str(x).strip() for x in vals)
                 self.pforte_push = [v for v in dienste if re.match(r"^notify\.[a-z0-9_]+$", v)][:6]
+            elif key == "pforte_ordner":
+                pfad = str(val or "").strip().rstrip("/")
+                # nur unter /media (dort hängen die Netzlaufwerke), ohne „..“
+                if pfad and (not re.match(r"^/media/[^/].*$", pfad) or ".." in pfad.split("/") or len(pfad) > 200):
+                    abgewiesen.append(key)
+                    continue
+                self.pforte_ordner = pfad
             elif key == "pforte_stt":
                 if not isinstance(val, str) or not re.match(r"^stt\.[a-z0-9_]+$", val):
                     abgewiesen.append(key)
