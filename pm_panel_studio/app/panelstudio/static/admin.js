@@ -75,19 +75,22 @@
     if (!t || t === window || !t.hassConnection) return null;
     return (await t.hassConnection).conn;
   };
-  // Seitenleiste von Home Assistant im eingebetteten Rahmen ausblenden (gleiche Herkunft; offene Shadow-DOMs)
+  // Seitenleiste von Home Assistant im eingebetteten Rahmen: Modus „immer ausblenden“ (wie im Profil), dann entfällt auch
+  // der freigehaltene Platz. Home Assistant speichert die Wahl im Browser; der alte Wert wird sofort wiederhergestellt,
+  // damit Home Assistant im normalen Browserfenster unverändert bleibt.
   function seitenleisteAus(frame) {
     let n = 0;
     const t = setInterval(() => {
-      if (++n > 80 || !frame.isConnected) { clearInterval(t); return; }
+      if (++n > 120 || !frame.isConnected) { clearInterval(t); return; }
       try {
-        const d = frame.contentDocument;
-        const main = d && d.querySelector("home-assistant") && d.querySelector("home-assistant").shadowRoot && d.querySelector("home-assistant").shadowRoot.querySelector("home-assistant-main");
-        const sr = main && main.shadowRoot; if (!sr || !sr.querySelector("ha-drawer, ha-sidebar")) return;
-        if (!sr.querySelector("style[data-pm]")) {
-          const st = d.createElement("style"); st.dataset.pm = "1";
-          st.textContent = "ha-sidebar{display:none!important}ha-drawer{--mdc-drawer-width:0px!important}";
-          sr.appendChild(st);
+        const w = frame.contentWindow, d = frame.contentDocument;
+        const ha = d && d.querySelector("home-assistant");
+        if (!ha || !ha.hass) return;
+        if (ha.hass.dockedSidebar !== "always_hidden") {
+          let alt = null;
+          try { alt = w.localStorage.getItem("dockedSidebar"); } catch { /* ohne Speicher */ }
+          ha.dispatchEvent(new w.CustomEvent("hass-dock-sidebar", { detail: { dock: "always_hidden" }, bubbles: true, composed: true }));
+          try { if (alt === null) w.localStorage.removeItem("dockedSidebar"); else w.localStorage.setItem("dockedSidebar", alt); } catch { /* egal */ }
         }
         clearInterval(t);
       } catch { clearInterval(t); }

@@ -1,5 +1,11 @@
 # Änderungen
 
+## 2026.10.46 – 2026-10-21
+
+- Admin-Ansicht und eigene App: Eingebettete Seiten von Home Assistant (Einstellungen, Karte, Energie …) laufen im
+  Modus „Seitenleiste immer ausblenden“; der leere Streifen, wo sonst die Seitenleiste steht, entfällt. Home Assistant
+  im normalen Browserfenster bleibt unverändert.
+
 ## 2026.10.45 – 2026-10-21
 
 - Eigene App: Ingress-Sitzung über die WebSocket-Verbindung wie im Frontend von Home Assistant; der REST-Weg ergab
