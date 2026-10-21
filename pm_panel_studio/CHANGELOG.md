@@ -1,5 +1,15 @@
 # Änderungen
 
+## 2026.10.52 – 2026-10-21
+
+- Admin-Ansicht, Startseite: kein ständiges Neuzeichnen mehr. Räume, Aufmerksamkeit, Sicherheit, Hinweise und
+  Pakete werden nur neu aufgebaut, wenn sich ihr sichtbarer Inhalt ändert; Energie führt Werte und Balken an Ort
+  und Stelle nach. Vorher bauten sich diese Blöcke bei jeder Sensoränderung im Sekundentakt neu auf.
+- Laufschrift ruhiger: steht zunächst, gleitet sanft bis zum Ende, hält, blendet aus und am Anfang wieder ein; die
+  Namen laufen versetzt. Schon ein Pixel Überlänge löst sie aus (vorher fehlte z. B. das „r“ bei „Schlafzimmer“).
+  Behoben: Die Thermostat-Namen wurden endlos neu eingepackt.
+- Klima-Block: in schmaler Breite steht der Raumname in einer eigenen Zeile.
+
 ## 2026.10.51 – 2026-10-21
 
 - Admin-Ansicht: Klima Studio läuft über seinen eigenen Ingress-Zugang (der Weg über die App funktioniert nur am
