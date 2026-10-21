@@ -1,4 +1,4 @@
-/* PM Dashboard als eigene App: Startseite unter /local/pm-dashboard/ (von PM Panel Studio dorthin kopiert).
+/* PM Dashboard als eigene App: Startseite unter /local/pm-dashboard/index.html (von PM Panel Studio dorthin kopiert).
    Meldet sich wie das Frontend von Home Assistant an (dieselben gespeicherten Anmeldedaten „hassTokens“, sonst
    Anmeldung über /auth/authorize), hält die Ingress-Sitzung offen und zeigt die Admin-Ansicht im Vollbild.
    Die Admin-Ansicht erreicht über window.hassConnection dieselbe Verbindung wie in der Seitenleiste. */

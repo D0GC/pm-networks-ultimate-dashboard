@@ -505,7 +505,7 @@ async def run(port: int, panel_port: int) -> None:
         _LOGGER.info("PM Panel Studio %s: Ingress-Port %d, Panel-Port %d", __version__, port, panel_port)
         try:
             if await asyncio.to_thread(eigene_app.installieren):
-                _LOGGER.info("Eigene App bereit: /local/pm-dashboard/")
+                _LOGGER.info("Eigene App bereit: /local/pm-dashboard/index.html")
         except OSError as err:
             _LOGGER.warning("Eigene App nicht abgelegt: %s", err)
         hub.start()

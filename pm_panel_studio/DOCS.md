@@ -39,7 +39,7 @@ in Home Assistant (Seitenleiste, Benachrichtigungen und Einstellungen bleiben er
 - **Home Assistant:** Einstellungen, Karte, Energie und Music Assistant öffnen sich als Seiten im Dashboard, ohne
   die Seitenleiste von Home Assistant.
 
-**Als eigene App:** `http://<Home-Assistant>:8123/local/pm-dashboard/` (bzw. die externe Adresse) zeigt das Dashboard
+**Als eigene App:** `http://<Home-Assistant>:8123/local/pm-dashboard/index.html` (bzw. die externe Adresse) zeigt das Dashboard
 im Vollbild ohne Oberfläche von Home Assistant. Die App legt diese Startseite beim Start im Ordner `www` ab. Die
 Anmeldung läuft über das Konto von Home Assistant; wer im selben Browser schon angemeldet ist („Angemeldet bleiben“),
 landet direkt im Dashboard. Über HTTPS (z. B. Home Assistant Cloud) lässt sich die Seite im Browser als App

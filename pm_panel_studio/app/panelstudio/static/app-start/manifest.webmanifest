@@ -2,7 +2,7 @@
   "name": "PM Dashboard",
   "short_name": "PM Dashboard",
   "description": "Admin-Ansicht von PM Panel Studio für Home Assistant",
-  "start_url": "./",
+  "start_url": "index.html",
   "scope": "./",
   "display": "standalone",
   "background_color": "#0F0C2A",
