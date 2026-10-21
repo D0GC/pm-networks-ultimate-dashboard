@@ -465,16 +465,18 @@
     b.el.querySelector(".r-box") ? b.el.querySelector(".r-box").replaceWith(inhalt) : b.el.prepend(inhalt);
     b.sig = b.def.signatur ? b.def.signatur() : null;
   }
-  // Spalten nach Fensterbreite: 12, 6 (Breiten halbiert) oder 1; die Höhe bleibt
+  // Breites Fenster: 12 Spalten mit den gezogenen Größen. Schmal oder hochkant: halbe oder volle Breite (ab 6 Spalten
+  // voll), ganz schmal eine Spalte; die Höhe richtet sich dann nach dem Inhalt
   let spalten = 12;
   function spannen() {
     const raster = $("#as-raster"), breit = raster.clientWidth;
-    spalten = breit < 640 ? 1 : breit < 1050 ? 6 : 12;
+    spalten = breit < 560 ? 1 : breit < 1100 ? 2 : 12;
     raster.style.setProperty("--spalten", spalten);
+    raster.classList.toggle("frei", spalten !== 12);
     raster.querySelectorAll(".as-block").forEach((el) => {
       const w = +el.dataset.w, h = +el.dataset.h;
-      el.style.gridColumn = `span ${spalten === 12 ? w : spalten === 6 ? Math.max(1, Math.round(w / 2)) : 1}`;
-      el.style.gridRow = `span ${h}`;
+      el.style.gridColumn = `span ${spalten === 12 ? w : spalten === 2 ? (w >= 6 ? 2 : 1) : 1}`;
+      el.style.gridRow = spalten === 12 ? `span ${h}` : "auto";
     });
   }
   new ResizeObserver(() => spannen()).observe($("#as-raster"));
@@ -516,7 +518,7 @@
     const zeigen = () => { masse.textContent = `${el.dataset.w} × ${el.dataset.h}`; };
     zeigen();
     g.addEventListener("pointerdown", (ev) => {
-      if (spalten === 1) return;
+      if (spalten !== 12) { PS.toast("Größen lassen sich im breiten Fenster ziehen."); return; }
       ev.preventDefault(); g.setPointerCapture(ev.pointerId); el.classList.add("zieht");
       const raster = $("#as-raster"), st = getComputedStyle(raster);
       const luecke = parseFloat(st.columnGap) || 0, zeile = parseFloat(st.gridAutoRows) || 40;
