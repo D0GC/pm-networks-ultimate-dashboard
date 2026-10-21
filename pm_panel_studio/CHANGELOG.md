@@ -1,5 +1,11 @@
 # Änderungen
 
+## 2026.10.49 – 2026-10-21
+
+- Admin-Ansicht: Eingebettete Seiten von Home Assistant mit eigenem Zurück-Pfeil (Editoren, Verlauf von
+  Automationen, Geräteseiten) ohne zusätzliche Kopfzeile; der Pfeil von Home Assistant führt zurück ins Dashboard.
+  Seiten ohne eigenen Pfeil (z. B. Verlauf einer Entität) behalten die Kopfzeile mit Zurück.
+
 ## 2026.10.48 – 2026-10-21
 
 - Admin-Ansicht: Seiten von Home Assistant, die aus einer Seite des Dashboards geöffnet werden (Editor und Verlauf
