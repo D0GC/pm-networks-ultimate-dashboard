@@ -1,6 +1,6 @@
 /* PM Panel Studio – Admin-Ansicht am PC: Modulleiste links, Kopfzeile oben, Inhalt im Raster. Gleiche Twilight-Optik
    wie das Wandpanel, kleinere rem-Basis für Maus und großes Fenster; kein Ruhezustand, keine Sheet-Animation. */
-html.admin{font-size:clamp(10px,min(.74vw,1.5vh),15px)}
+html.admin{font-size:clamp(11px,min(.74vw,1.5vh),15px)}
 body.admin{--rail:7.4rem;--kopf:6rem;-webkit-user-select:text;user-select:text}
 body.admin .dimmer,body.admin .gruss,body.admin .spalte,body.admin .mitte{display:none}
 
@@ -301,3 +301,22 @@ body.admin .dock > button{flex:none}
 /* Eingebettete Seite von Home Assistant mit eigenem Zurück-Pfeil: keine zweite Kopfzeile */
 body.admin .sheet:has(.ha-rahmen.eigener-kopf){--kopf-h:0px}
 body.admin .sheet:has(.ha-rahmen.eigener-kopf) .sheet-kopf{display:none}
+
+/* Schmales Fenster oder Hochformat: Blöcke halb oder voll breit, Höhe nach Inhalt (mit Obergrenze) */
+.as-raster.frei{grid-auto-rows:auto}
+.as-raster.frei > .as-block > .r-box{height:auto;max-height:42rem}
+.as-raster.frei .as-griff,.as-raster.frei .as-masse{display:none}
+@media (max-width:1000px){
+  body.admin{--rail:6.4rem}
+  .admin-kopf{gap:1rem;padding:0 1.2rem}
+  body.admin .datum,.ak-suche span,.ak-suche kbd{display:none}
+  .ak-suche{min-width:0}
+  body.admin .wetter small{display:none}
+  .admin-start{padding:1.4rem 1.2rem 2.4rem}
+  body.admin .sheet-inhalt{padding-left:1.2rem;padding-right:1.2rem}
+  body.admin .dock .dock-name{font-size:.8rem}
+}
+@media (max-width:620px){
+  body.admin .personen,body.admin .status-zeile{display:none}
+  .as-kopf h1{font-size:1.8rem}
+}

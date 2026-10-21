@@ -1,5 +1,12 @@
 # Änderungen
 
+## 2026.10.50 – 2026-10-21
+
+- Admin-Ansicht passt sich dem Fenster an: unter rund 1100 Pixel Breite (schmales Fenster, Hochformat) stehen die
+  Blöcke halb oder voll breit nebeneinander, ihre Höhe richtet sich nach dem Inhalt; sehr schmal eine Spalte. Die
+  gezogenen Größen gelten im breiten Fenster. Kopfzeile und Ränder werden schmaler, Datum und Statuspillen weichen
+  bei Platzmangel, die Mindestschrift ist etwas größer.
+
 ## 2026.10.49 – 2026-10-21
 
 - Admin-Ansicht: Eingebettete Seiten von Home Assistant mit eigenem Zurück-Pfeil (Editoren, Verlauf von
