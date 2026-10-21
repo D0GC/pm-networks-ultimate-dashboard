@@ -1,5 +1,19 @@
 # Änderungen
 
+## 2026.10.47 – 2026-10-21
+
+- Admin-Ansicht: Schnellsuche wie in Home Assistant. Strg+K oder „e“ sucht über Seiten des Dashboards, Seiten von
+  Home Assistant, Bereiche, Geräte, Automationen, Skripte und alle Entitäten; „c“ (oder „>“ vor dem Suchbegriff)
+  zeigt Befehle: Automationen, Skripte, Szenen, Vorlagen und Gruppen neu laden, alle YAML neu laden, Home Assistant
+  neu starten (mit zweitem Enter zur Bestätigung). Der Suchknopf in der Kopfzeile öffnet sie ebenfalls.
+- Neue Seite „Automationen“: nach Kategorien gruppiert mit Labels, Suche, Filter aktiv/deaktiviert; je Automation
+  ein- und ausschalten, jetzt ausführen, Verlauf der Ausführungen, bearbeiten (Editor von Home Assistant im
+  Dashboard), „Neue Automation“.
+- Neue Seite „Entitäten und Geräte“: Entitäten suchen und nach Domäne oder Status filtern, ausblenden oder
+  einblenden, deaktivieren oder aktivieren, zum Gerät springen; Geräte suchen, deaktivieren, öffnen.
+- Entitäten-Dialog in der Admin-Ansicht: Zeile „Verwaltung“ mit Ausblenden, Deaktivieren, Gerät, Verlauf und bei
+  Automationen und Skripten „Bearbeiten“.
+
 ## 2026.10.46 – 2026-10-21
 
 - Admin-Ansicht und eigene App: Eingebettete Seiten von Home Assistant (Einstellungen, Karte, Energie …) laufen im
