@@ -115,5 +115,6 @@ def test_eigene_app_ablegen(tmp_path):
     assert eigene_app.installieren(ziel, "1150666e_pm_panel_studio")
     js = (ziel / "launcher.js").read_text(encoding="utf-8")
     assert 'const SLUG = "1150666e_pm_panel_studio";' in js and "__SLUG__" not in js
+    assert "__VERSION__" not in (ziel / "index.html").read_text(encoding="utf-8")
     assert {p.name for p in ziel.iterdir()} == {"index.html", "launcher.js", "manifest.webmanifest", "icon.svg"}
     assert eigene_app.installieren(ziel, "1150666e_pm_panel_studio")  # zweiter Lauf ändert nichts

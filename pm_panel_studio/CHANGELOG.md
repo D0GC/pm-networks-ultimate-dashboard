@@ -1,5 +1,11 @@
 # Änderungen
 
+## 2026.10.45 – 2026-10-21
+
+- Eigene App: Ingress-Sitzung über die WebSocket-Verbindung wie im Frontend von Home Assistant; der REST-Weg ergab
+  „Ingress-Sitzung nicht erhalten (HTTP 401)“. Die Startseite lädt ihr Skript mit Versionsnummer, damit der Browser
+  nach einem Update nicht die alte Fassung verwendet.
+
 ## 2026.10.44 – 2026-10-21
 
 - Eigene App: Adresse ist `/local/pm-dashboard/index.html` (Home Assistant liefert unter `/local/` keine

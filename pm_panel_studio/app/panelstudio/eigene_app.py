@@ -10,6 +10,8 @@ import os
 import shutil
 from pathlib import Path
 
+from . import __version__
+
 _LOGGER = logging.getLogger(__name__)
 
 QUELLE = Path(__file__).parent / "static" / "app-start"
@@ -30,7 +32,7 @@ def installieren(ziel: Path = ZIEL, slug: str | None = None) -> bool:
     ziel.mkdir(parents=True, exist_ok=True)
     slug = slug if slug is not None else eigener_slug()
     for name in ("index.html", "launcher.js", "manifest.webmanifest"):
-        text = (QUELLE / name).read_text(encoding="utf-8").replace("__SLUG__", slug)
+        text = (QUELLE / name).read_text(encoding="utf-8").replace("__SLUG__", slug).replace("__VERSION__", __version__)
         datei = ziel / name
         if not datei.exists() or datei.read_text(encoding="utf-8") != text:
             datei.write_text(text, encoding="utf-8")
