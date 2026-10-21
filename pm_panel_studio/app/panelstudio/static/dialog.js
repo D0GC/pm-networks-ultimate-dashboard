@@ -264,6 +264,7 @@
     dlg.querySelector(".zu").addEventListener("click", schliessen);
     const box = document.createElement("div"); box.style.cssText = "display:flex;flex-direction:column;gap:1.1rem";
     dlg.appendChild(box);
+    PS.emit("dialog_entitaet", { eid, dlg });  // Admin-Ansicht hängt danach ihre Verwaltung an
     const E = { entity_id: eid };
     const unterstuetzt = (bit) => ((a.supported_features || 0) & bit) !== 0;
 

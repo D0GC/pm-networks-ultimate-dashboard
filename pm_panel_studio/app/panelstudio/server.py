@@ -127,7 +127,7 @@ def admin_html() -> str:
     html = html.replace('<html lang="de">', '<html lang="de" class="admin">', 1)
     html = html.replace("<title>PM Panel Flur</title>", "<title>PM Dashboard</title>", 1)
     html = html.replace("</head>", '<link rel="stylesheet" href="static/admin.css">\n</head>', 1)
-    skripte = '<script src="static/admin.js"></script>\n<script src="static/admin-dateien.js"></script>\n'
+    skripte = '<script src="static/admin.js"></script>\n<script src="static/admin-dateien.js"></script>\n<script src="static/admin-verwaltung.js"></script>\n'
     return html.replace("</body>", skripte + "</body>", 1)
 
 

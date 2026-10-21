@@ -75,6 +75,7 @@
     if (!t || t === window || !t.hassConnection) return null;
     return (await t.hassConnection).conn;
   };
+  PS.admin.verbindung = haVerbindung;
   // Seitenleiste von Home Assistant im eingebetteten Rahmen: Modus „immer ausblenden“ (wie im Profil), dann entfällt auch
   // der freigehaltene Platz. Home Assistant speichert die Wahl im Browser; der alte Wert wird sofort wiederhergestellt,
   // damit Home Assistant im normalen Browserfenster unverändert bleibt.

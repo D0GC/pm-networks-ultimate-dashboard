@@ -36,6 +36,13 @@ in Home Assistant (Seitenleiste, Benachrichtigungen und Einstellungen bleiben er
 - **Terminal:** die App „Advanced SSH & Web Terminal“ (oder „Terminal & SSH“) über Ingress eingebettet; sie muss
   installiert und gestartet sein.
 
+- **Schnellsuche:** Strg+K oder „e“ durchsucht Seiten, Bereiche, Geräte, Automationen, Skripte und Entitäten; „c“
+  (oder „>“ im Suchfeld) zeigt Befehle wie „Automationen neu laden“ oder „Home Assistant neu starten“.
+- **Automationen:** nach Kategorien gruppiert, ein- und ausschalten, ausführen, Verlauf, bearbeiten im Editor von
+  Home Assistant.
+- **Entitäten und Geräte:** ausblenden, deaktivieren und wieder aktivieren; der Detaildialog jeder Entität hat
+  dafür ebenfalls eine Zeile „Verwaltung“. Diese Funktionen nutzen die Verbindung des angemeldeten Benutzers und
+  stehen in der Seitenleiste und in der eigenen App bereit.
 - **Home Assistant:** Einstellungen, Karte, Energie und Music Assistant öffnen sich als Seiten im Dashboard, ohne
   die Seitenleiste von Home Assistant.
 

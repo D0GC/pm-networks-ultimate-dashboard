@@ -241,3 +241,59 @@ body.admin .dock button.ha-modul:not(.ha-modul ~ .ha-modul){margin-top:.8rem;pos
 body.admin .dock button.ha-modul:not(.ha-modul ~ .ha-modul)::before{content:"";position:absolute;left:25%;right:25%;top:-.5rem;height:1px;background:var(--linie-stark)}
 .admin-rahmen.ha-rahmen{background:#111}
 body.admin .dock > button{flex:none}
+
+/* Schnellsuche (Strg+K, „c“ für Befehle, „e“ für alles) */
+.qs-grund{position:fixed;inset:0;z-index:80;background:rgba(5,4,15,.55);display:flex;justify-content:center;align-items:flex-start;padding:9vh 1.6rem 0}
+.qs{width:min(62rem,100%);max-height:72vh;display:flex;flex-direction:column;border-radius:1.4rem;background:var(--glas-fest);border:1px solid var(--linie-stark);
+  box-shadow:0 2.4rem 5rem -1.6rem rgba(0,0,0,.8);overflow:hidden}
+.qs-feld{display:flex;align-items:center;gap:.8rem;padding:1rem 1.2rem;border-bottom:1px solid var(--linie)}
+.qs-feld .mdi{font-size:1.6rem;color:var(--leise)}
+.qs-feld input{flex:1;min-width:0;font:inherit;font-size:1.3rem;color:var(--cloud);background:none;border:0;outline:0}
+.qs-feld kbd,.qs-fuss span{font:500 .85rem ui-monospace,Consolas,monospace;color:var(--leise)}
+.qs-feld kbd{border:1px solid var(--linie-stark);border-radius:.3rem;padding:.05rem .4rem}
+.qs-liste{overflow-y:auto;padding:.4rem;scrollbar-width:thin;scrollbar-color:var(--violet) transparent}
+.qs-z{display:grid;grid-template-columns:2rem minmax(0,1fr) auto auto;gap:.8rem;align-items:center;padding:.6rem .8rem;border-radius:.8rem;cursor:pointer}
+.qs-z.an{background:rgba(176,127,208,.2)}
+.qs-z.scharf{background:rgba(239,106,122,.2)}
+.qs-z > .mdi{font-size:1.4rem;color:var(--lavender);text-align:center}
+.qs-z .t{min-width:0;display:flex;flex-direction:column}
+.qs-z .t b{font-weight:600;font-size:1.1rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.qs-z .t small{color:var(--leise);font-size:.9rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.qs-z .r{color:var(--lavender);font-size:.95rem;white-space:nowrap;max-width:14rem;overflow:hidden;text-overflow:ellipsis}
+.qs-z em{font-style:normal;font-size:.8rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--akzent);white-space:nowrap}
+.qs-fuss{display:flex;gap:1.4rem;padding:.6rem 1.2rem;border-top:1px solid var(--linie)}
+
+/* Verwaltung: Automationen, Entitäten, Geräte */
+.vw-kopf{display:flex;align-items:center;gap:.8rem;flex-wrap:wrap;margin-bottom:1.2rem}
+.vw-kopf > input.feld{flex:1;min-width:16rem}
+.vw-kopf select.feld{min-width:12rem}
+.vw-filter{flex-wrap:wrap}
+.vw-gruppen{display:flex;flex-direction:column;gap:1.2rem}
+.vw-z{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;gap:1rem;align-items:center;padding:.7rem .4rem;border-top:1px solid var(--linie);cursor:pointer}
+.vw-z:hover{background:rgba(255,255,255,.03)}
+.vw-z.aus .t b{color:var(--leise)}
+.vw-z .t{min-width:0;display:flex;flex-direction:column}
+.vw-z .t b{font-weight:600;font-size:1.1rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.vw-z .t small{color:var(--leise);font-size:.92rem}
+.vw-labels{display:flex;gap:.3rem;flex-wrap:wrap;justify-content:flex-end}
+.vw-labels i,.vw-status i{font-style:normal;font-size:.85rem;padding:.12rem .55rem;border-radius:.45rem;background:rgba(197,192,211,.1);color:var(--lavender);white-space:nowrap}
+.vw-status i.ok{background:rgba(95,211,160,.12);color:var(--gut)}
+.vw-status i.vers{background:rgba(240,180,76,.13);color:var(--warn)}
+.vw-status i.aus{background:rgba(239,106,122,.15);color:var(--krit)}
+.vw-akt{display:flex;gap:.3rem;justify-content:flex-end;white-space:nowrap}
+.vw-akt .knopf.rund{width:2.4rem;height:2.4rem;padding:0}
+.knopf.gefahr-leise .mdi{color:var(--krit)}
+.vw-schalter{all:unset;cursor:pointer;width:3rem;height:1.7rem;border-radius:99px;background:rgba(197,192,211,.2);position:relative;transition:background .2s;flex:none}
+.vw-schalter i{position:absolute;left:.2rem;top:.2rem;width:1.3rem;height:1.3rem;border-radius:50%;background:var(--cloud);transition:transform .2s var(--ease)}
+.vw-schalter.an{background:var(--purple)}
+.vw-schalter.an i{transform:translateX(1.3rem)}
+.vw-schalter:focus-visible{outline:2px solid var(--cloud);outline-offset:2px}
+.vw-tabelle{border-radius:var(--r-aussen);background:var(--flaeche);border:1px solid var(--linie);padding:.6rem 1rem}
+.vw-name{display:flex;align-items:center;gap:.7rem;min-width:0}
+.vw-name .mdi{font-size:1.4rem;color:var(--lavender);flex:none}
+.vw-name > span{display:flex;flex-direction:column;min-width:0}
+.vw-name b{font-weight:600;overflow-wrap:anywhere}
+.vw-name small{color:var(--leise);font-size:.88rem;font-family:ui-monospace,Consolas,monospace;overflow-wrap:anywhere}
+.vw-tabelle td:nth-child(2),.vw-tabelle td:nth-child(3){color:var(--lavender);white-space:nowrap}
+.vw-dialog{margin-top:1.2rem;padding-top:1rem;border-top:1px solid var(--linie);display:flex;flex-direction:column;gap:.6rem}
+.vw-dialog small{font-size:.85rem;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--akzent)}
