@@ -469,6 +469,41 @@ class Leitung:
 # ------------------------------------------------------------------ Ablauf
 
 
+# ------------------------------------------------------------ Ablage
+# <Ordner>/<Tag>/wav/<Tag>_<Uhrzeit>.wav und <Ordner>/<Tag>/json/<Tag>_<Uhrzeit>.json; Dateien aus Versionen bis
+# 2026.10.39 liegen flach in <Ordner> und werden beim Start einsortiert.
+
+
+def _wav_pfad(ordner: Path, name: str) -> Path:
+    return ordner / name[:10] / "wav" / name
+
+
+def _json_pfad(wav_pfad: Path) -> Path:
+    if wav_pfad.parent.name == "wav":
+        return wav_pfad.parent.parent / "json" / f"{wav_pfad.stem}.json"
+    return wav_pfad.with_suffix(".json")
+
+
+def _alle(ordner: Path) -> list[Path]:
+    """Alle Aufnahmen eines Ordners, älteste zuerst (Tagesordner und flach abgelegte)."""
+    dateien = [*ordner.glob("*/wav/*.wav"), *ordner.glob("*.wav")]
+    return sorted((p for p in dateien if DATEI_RE.match(p.name)), key=lambda p: p.name)
+
+
+def _aufraeumen(ordner: Path) -> None:
+    """Leere ``wav``/``json``- und Tagesordner entfernen."""
+    if ordner.name in ("wav", "json"):
+        for leer in (ordner.parent / "wav", ordner.parent / "json", ordner.parent):
+            with contextlib.suppress(OSError):
+                leer.rmdir()
+
+
+def _loeschen(wav_pfad: Path) -> None:
+    wav_pfad.unlink(missing_ok=True)
+    _json_pfad(wav_pfad).unlink(missing_ok=True)
+    _aufraeumen(wav_pfad.parent)
+
+
 class Pforte:
     """Türdienst. ``einst`` liefert die aktuellen Einstellungen, ``anwesend`` ob jemand zu Hause ist."""
 
@@ -671,7 +706,9 @@ class Pforte:
             if datei:
                 # Begleitdatei für die Liste am Panel (Zeit, Länge, Abschrift)
                 with contextlib.suppress(OSError):
-                    Path(datei).with_suffix(".json").write_text(
+                    begleit = _json_pfad(Path(datei))
+                    begleit.parent.mkdir(parents=True, exist_ok=True)
+                    begleit.write_text(
                         json.dumps({"zeit": zeit.isoformat(), "dauer_s": dauer, "text": text}, ensure_ascii=False),
                         encoding="utf-8",
                     )
@@ -702,13 +739,11 @@ class Pforte:
             _LOGGER.warning("Haustür: %s nicht erreichbar, Aufnahme bleibt lokal", Path(self.einst().pforte_ordner).parent)
         for ordner in ziele:
             try:
-                ordner.mkdir(parents=True, exist_ok=True)
-                pfad = ordner / f"{zeit:%Y-%m-%d_%H-%M-%S}.wav"
+                pfad = _wav_pfad(ordner, f"{zeit:%Y-%m-%d_%H-%M-%S}.wav")
+                pfad.parent.mkdir(parents=True, exist_ok=True)
                 pfad.write_bytes(daten)
-                alte = sorted(ordner.glob("*.wav"))
-                for p in alte[:-MAX_AUFNAHMEN]:
-                    p.unlink(missing_ok=True)
-                    p.with_suffix(".json").unlink(missing_ok=True)
+                for p in _alle(ordner)[:-MAX_AUFNAHMEN]:
+                    _loeschen(p)
                 return str(pfad)
             except OSError as err:
                 _LOGGER.warning("Haustür: Aufnahme nicht in %s gespeichert: %s", ordner, err)
@@ -732,41 +767,44 @@ class Pforte:
         return [o for o in self._ziele() if o.is_dir()]
 
     def umziehen(self) -> int:
-        """Ältere Aufnahmen aus den lokalen Ordnern auf das Netzlaufwerk verschieben (entlastet die lokale Platte)."""
+        """Aufnahmen in die Ablage nach Tagen bringen (``2026-10-21/wav``, ``2026-10-21/json``).
+
+        Zieht ältere Aufnahmen aus den lokalen Ordnern auf das Netzlaufwerk (entlastet die lokale Platte) und sortiert
+        flach abgelegte Dateien aus früheren Versionen ein.
+        """
         ziel = self._ziele()[0]
-        if ziel in (AUFNAHME_LOKAL, AUFNAHME_RESERVE):
-            return 0
+        quellen = [ziel] if ziel in (AUFNAHME_LOKAL, AUFNAHME_RESERVE) else [AUFNAHME_LOKAL, AUFNAHME_RESERVE, ziel]
         n = 0
-        for alt in (AUFNAHME_LOKAL, AUFNAHME_RESERVE):
+        for alt in quellen:
             if not alt.is_dir():
                 continue
-            for p in sorted(alt.glob("*.wav")):
-                if not DATEI_RE.match(p.name):
+            for p in _alle(alt):
+                neu = _wav_pfad(ziel, p.name)
+                if p == neu:
                     continue
                 try:
-                    ziel.mkdir(parents=True, exist_ok=True)
-                    for q in (p, p.with_suffix(".json")):
+                    for q, z in ((p, neu), (_json_pfad(p), _json_pfad(neu))):
                         if q.is_file():
-                            shutil.copyfile(q, ziel / q.name)
+                            z.parent.mkdir(parents=True, exist_ok=True)
+                            shutil.copyfile(q, z)
                             q.unlink()
+                    _aufraeumen(p.parent)
                     n += 1
                 except OSError as err:
                     _LOGGER.warning("Haustür: Umzug von %s nach %s gescheitert: %s", p.name, ziel, err)
                     return n
         if n:
-            _LOGGER.info("Haustür: %d Aufnahmen nach %s verschoben", n, ziel)
+            _LOGGER.info("Haustür: %d Aufnahmen nach %s einsortiert", n, ziel)
         return n
 
     def aufnahmen(self, anzahl: int = 10) -> list[dict[str, Any]]:
         """Die neuesten Nachrichten: Dateiname, Zeit, Länge und Abschrift."""
-        dateien = sorted(
-            (p for o in self._ordner() for p in o.glob("*.wav") if DATEI_RE.match(p.name)), key=lambda p: p.name, reverse=True
-        )
+        dateien = sorted((p for o in self._ordner() for p in _alle(o)), key=lambda p: p.name, reverse=True)
         out = []
         for p in dateien[:anzahl]:
             info: dict[str, Any] = {}
             with contextlib.suppress(OSError, ValueError):
-                info = json.loads(p.with_suffix(".json").read_text(encoding="utf-8"))
+                info = json.loads(_json_pfad(p).read_text(encoding="utf-8"))
             if not info.get("dauer_s"):
                 with contextlib.suppress(OSError, EOFError, wave.Error), wave.open(str(p)) as w:
                     info["dauer_s"] = round(w.getnframes() / w.getframerate())
@@ -782,8 +820,9 @@ class Pforte:
         if not DATEI_RE.match(name or ""):
             return None
         for o in self._ordner():
-            if (o / name).is_file():
-                return o / name
+            for p in (_wav_pfad(o, name), o / name):
+                if p.is_file():
+                    return p
         return None
 
     async def _abschrift(self, daten: bytes, engine: str) -> str:

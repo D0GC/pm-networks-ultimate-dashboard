@@ -1,5 +1,11 @@
 # Änderungen
 
+## 2026.10.40 – 2026-10-21
+
+- Türdienst: Ablage nach Tagen, je Tag ein Ordner mit `wav` und `json` getrennt
+  (`Haustüraufnahme/2026-10-21/wav/…`, `…/json/…`). Vorhandene Aufnahmen werden beim Start einsortiert, leere
+  Ordner beim Aufräumen der ältesten Nachrichten entfernt.
+
 ## 2026.10.39 – 2026-10-21
 
 - Türdienst: Vorlauf vor der Begrüßung (Vorgabe 3 s, im Editor einstellbar). Ring schaltet die Leitung an der Tür erst

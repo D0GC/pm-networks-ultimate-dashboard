@@ -182,8 +182,10 @@ der Ring Intercom auf (WebRTC mit aiortc, Signalisierung über PM Ring Intercom 
    sie umgehend weiter.“ (Hinweis auf die Aufnahme).
 3. **Auswertung:** Die Aufnahme liegt als WAV im Ordner `pforte_ordner`, Vorgabe
    `/media/Fileshare_Media/Haustüraufnahme` (Netzlaufwerk „Fileshare_Media“, in Home Assistant als Speicher mit
-   Verwendung „Medien“ eingebunden; die letzten 60 bleiben). Ist die Freigabe nicht eingehängt, bleibt die Aufnahme
-   lokal unter `/media/pm_panel_studio/haustuer`; ältere lokale Aufnahmen zieht die App beim Start auf das Netzlaufwerk um. Die Spracherkennung von Home Assistant (Vorgabe `stt.home_assistant_cloud`) schreibt sie ab. Die Abschrift
+   Verwendung „Medien“ eingebunden; die letzten 60 bleiben). Je Tag ein Ordner, darin getrennt `wav` und `json`:
+   `Haustüraufnahme/2026-10-21/wav/2026-10-21_11-57-17.wav` und `…/2026-10-21/json/2026-10-21_11-57-17.json`
+   (Zeit, Länge, Abschrift). Ist die Freigabe nicht eingehängt, bleibt die Aufnahme
+   lokal unter `/media/pm_panel_studio/haustuer`; ältere lokale oder flach abgelegte Aufnahmen sortiert die App beim Start ein. Die Spracherkennung von Home Assistant (Vorgabe `stt.home_assistant_cloud`) schreibt sie ab. Die Abschrift
    geht per Push an die eingestellten notify-Dienste und erscheint als Meldung am Panel. Ohne Nachricht kommt die Push
    „Es hat geklingelt, eine Nachricht wurde nicht hinterlassen.“ Zusätzlich feuert das Ereignis
    `pm_panel_studio_haustuer` (`text`, `datei`, `dauer_s`, `nachricht`).
