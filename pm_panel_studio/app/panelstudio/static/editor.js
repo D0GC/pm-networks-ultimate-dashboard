@@ -5,7 +5,7 @@
   const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   const MODULE = { raeume: "Räume", klima: "Klima", studio: "Klima Studio", licht: "Licht", sicherheit: "Sicherheit", medien: "Medien", musik: "Music Assistant", haushalt: "Haushaltsgeräte", listen: "Listen", energie: "Energie", shisha: "Shisha", wartung: "Wartung", suche: "Suche" };
   const KARTEN = { meldung: "Panel-Meldungen", eil: "Eilmeldung", warnung: "Warnung", termin: "Termin", stundenplan: "Stundenplan", arbeit: "Fahrten", wetter: "Wetter", muell: "Müll", fertig: "Gerät fertig", offen: "Offen", lueften: "Lüften", pollen: "Pollen", eigen: "Eigener Hinweis", dusche: "Duschmodus", spa: "Spa", kohle: "Kohle", waesche: "Waschmaschine", spueler: "Spülmaschine", robo: "Roborock", musik: "Musik", heimweg: "Heimweg", pakete: "Pakete", verpasst: "Verpasster Anruf" };
-  const ZAHLEN = ["verweildauer_s", "ruhe_nach_s", "bedienung_zurueck_s", "ruhe_helligkeit", "nacht_helligkeit", "ereignis_dauer_s", "ton_lautstaerke", "klingel_lautstaerke", "intercom_lautstaerke", "ton_verstaerkung", "telefon_lautstaerke", "ansage_lautstaerke", "dock_anzahl", "weckwort_ruhe_von", "weckwort_ruhe_bis", "pforte_ab_s", "pforte_max_s"];
+  const ZAHLEN = ["verweildauer_s", "ruhe_nach_s", "bedienung_zurueck_s", "ruhe_helligkeit", "nacht_helligkeit", "ereignis_dauer_s", "ton_lautstaerke", "klingel_lautstaerke", "intercom_lautstaerke", "ton_verstaerkung", "telefon_lautstaerke", "ansage_lautstaerke", "dock_anzahl", "weckwort_ruhe_von", "weckwort_ruhe_bis", "pforte_ab_s", "pforte_max_s", "pforte_vorlauf_s"];
   let daten = null, bereiche = [], ws = null, wsId = 1, moduleReihe = [];
 
   async function laden(nurStatus = false) {
@@ -47,7 +47,7 @@
     $("#weckwort_aktiv").checked = e.weckwort_aktiv !== false;
     $("#weckwort").value = e.weckwort || "hey_jarvis";
     $("#pforte_aktiv").checked = e.pforte_aktiv !== false;
-    ["pforte_warte_text", "pforte_ab_text", "pforte_stt"].forEach((k) => { $("#" + k).value = e[k] || ""; });
+    ["pforte_warte_text", "pforte_ab_text", "pforte_stt", "pforte_ordner"].forEach((k) => { $("#" + k).value = e[k] || ""; });
     $("#pforte_push").value = (e.pforte_push || []).join(", ");
     pipelinesLaden(e.assist_pipeline || "");
     $("#schnellzugriff").value = (e.schnellzugriff || []).join("\n");
@@ -97,7 +97,7 @@
     neu.weckwort_aktiv = $("#weckwort_aktiv").checked;
     neu.weckwort = $("#weckwort").value;
     neu.pforte_aktiv = $("#pforte_aktiv").checked;
-    ["pforte_warte_text", "pforte_ab_text", "pforte_stt"].forEach((k) => { neu[k] = $("#" + k).value.trim(); });
+    ["pforte_warte_text", "pforte_ab_text", "pforte_stt", "pforte_ordner"].forEach((k) => { neu[k] = $("#" + k).value.trim(); });
     neu.pforte_push = $("#pforte_push").value.split(",").map((x) => x.trim()).filter(Boolean);
     neu.assist_pipeline = $("#assist_pipeline").value;
     neu.schnellzugriff = $("#schnellzugriff").value.split(/\s+/).map((s) => s.trim()).filter(Boolean);

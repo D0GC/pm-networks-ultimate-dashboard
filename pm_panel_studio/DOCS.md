@@ -168,6 +168,9 @@ die Diagnose der Integration PM Ring Intercom.
 Klingelt es (Auslöser wie beim Overlay), nimmt die App das Gespräch selbst an. Sie baut dafür eine eigene Sitzung mit
 der Ring Intercom auf (WebRTC mit aiortc, Signalisierung über PM Ring Intercom wie beim Panel).
 
+0. **Vorlauf:** Ring schaltet die Sprechleitung an der Tür erst einige Sekunden nach dem Verbindungsaufbau durch.
+   Bis dahin läuft Stille (`pforte_vorlauf_s`, Vorgabe 3 s), damit die Begrüßung vollständig ankommt. Das Protokoll
+   nennt bei jedem Klingeln die gemessenen Zeiten („verbunden …, erster Ton …“), danach lässt sich der Wert anpassen.
 1. **Warteansage:** Gruß nach Tageszeit und eine Warteformel in der Stimme Jarvis (Piper), etwa „Einen schönen guten
    Morgen. Einen Moment bitte, ich melde Sie im Haus an.“, danach die Wartemelodie „Abendglocke“ in Schleife.
    Grüße: Morgen 5–10 Uhr, Mittag 11–13, Nachmittag 14–17, Abend 18–21, Nacht 22–4 Uhr („Guten Abend“). Modern und
@@ -177,8 +180,10 @@ der Ring Intercom auf (WebRTC mit aiortc, Signalisierung über PM Ring Intercom 
    Aufnahme. Sie endet nach 3 Sekunden Stille, nach 8 Sekunden ohne Sprache oder spätestens nach 60 Sekunden.
    Ansage: „Leider ist gerade niemand erreichbar. Bitte hinterlassen Sie nach dem Signalton eine Nachricht, ich gebe
    sie umgehend weiter.“ (Hinweis auf die Aufnahme).
-3. **Auswertung:** Die Aufnahme liegt als WAV unter `/media/pm_panel_studio/haustuer` (Medienbrowser, die letzten 60
-   bleiben). Die Spracherkennung von Home Assistant (Vorgabe `stt.home_assistant_cloud`) schreibt sie ab. Die Abschrift
+3. **Auswertung:** Die Aufnahme liegt als WAV im Ordner `pforte_ordner`, Vorgabe
+   `/media/Fileshare_Media/Haustüraufnahme` (Netzlaufwerk „Fileshare_Media“, in Home Assistant als Speicher mit
+   Verwendung „Medien“ eingebunden; die letzten 60 bleiben). Ist die Freigabe nicht eingehängt, bleibt die Aufnahme
+   lokal unter `/media/pm_panel_studio/haustuer`; ältere lokale Aufnahmen zieht die App beim Start auf das Netzlaufwerk um. Die Spracherkennung von Home Assistant (Vorgabe `stt.home_assistant_cloud`) schreibt sie ab. Die Abschrift
    geht per Push an die eingestellten notify-Dienste und erscheint als Meldung am Panel. Ohne Nachricht kommt die Push
    „Es hat geklingelt, eine Nachricht wurde nicht hinterlassen.“ Zusätzlich feuert das Ereignis
    `pm_panel_studio_haustuer` (`text`, `datei`, `dauer_s`, `nachricht`).

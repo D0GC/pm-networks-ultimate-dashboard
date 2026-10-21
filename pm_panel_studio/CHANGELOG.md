@@ -1,5 +1,14 @@
 # Änderungen
 
+## 2026.10.39 – 2026-10-21
+
+- Türdienst: Vorlauf vor der Begrüßung (Vorgabe 3 s, im Editor einstellbar). Ring schaltet die Leitung an der Tür erst
+  nach dem Verbindungsaufbau durch; bisher ging der Anfang der Begrüßung verloren. Das Protokoll nennt die gemessenen
+  Zeiten bis zur Verbindung und zum ersten Ton von der Tür.
+- Türdienst: Nachrichten liegen jetzt auf dem Netzlaufwerk unter `/media/Fileshare_Media/Haustüraufnahme`
+  (`pforte_ordner`, im Editor einstellbar). Ohne eingehängte Freigabe bleibt es beim lokalen Ordner; vorhandene lokale
+  Aufnahmen werden beim Start verschoben.
+
 ## 2026.10.38 – 2026-10-21
 
 - Türdienst: moderne Grußformeln ohne „Grüß Gott“ (Guten Morgen/Tag/Abend, „… und herzlich willkommen“), modernere
