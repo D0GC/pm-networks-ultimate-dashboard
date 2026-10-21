@@ -217,6 +217,28 @@ STANDARD_AUSSEN_FEUCHTE = ["sensor.wetter_outdoor_module_luftfeuchtigkeit", "sen
 STANDARD_STUNDENPLAN = ["calendar.universitat"]
 
 
+# Blöcke der Admin-Startseite mit ihrer Standardbreite in Spalten (die Oberfläche kennt dieselben Schlüssel)
+ADMIN_BLOECKE = {
+    "aufmerksamkeit": 3,
+    "hinweise": 1,
+    "tueren": 1,
+    "klima": 1,
+    "raeume": 2,
+    "schnellzugriff": 1,
+    "energie": 1,
+    "pakete": 1,
+    "medien": 1,
+    "termine": 1,
+    "einkauf": 1,
+    "angebote": 1,
+    "sicherheit": 1,
+}
+ADMIN_START = [
+    f"{b}:{ADMIN_BLOECKE[b]}"
+    for b in ("aufmerksamkeit", "hinweise", "tueren", "klima", "raeume", "schnellzugriff", "energie", "pakete", "medien")
+]
+
+
 @dataclass
 class Einstellungen:
     """Im Editor einstellbar, wirkt sofort auf alle verbundenen Panels."""
@@ -234,6 +256,8 @@ class Einstellungen:
     bereiche_ausblenden: list[str] = field(default_factory=list)
     start_raeume: list[str] = field(default_factory=lambda: ["wohnzimmer", "badezimmer", "schlafzimmer"])
     karten_aus: list[str] = field(default_factory=list)  # Kartenschlüssel, die der Flur nicht zeigt
+    # Startseite der Admin-Ansicht am PC: Blöcke in Reihenfolge, „block:breite“ (1–3 Spalten); fehlende sind aus
+    admin_start: list[str] = field(default_factory=lambda: list(ADMIN_START))
     # Stundenpläne (Kalender): keine „Als Nächstes“-Karten, nicht in der Abendvorschau, dafür morgens eine Tageskarte
     stundenplan_kalender: list[str] = field(default_factory=lambda: list(STANDARD_STUNDENPLAN))
     dock_anzahl: int = 6  # so viele Module stehen direkt im Dock, die übrigen hinter „Mehr“
@@ -435,6 +459,16 @@ class Einstellungen:
             elif key == "module":
                 vals = val if isinstance(val, list) else []
                 self.module = [m for m in dict.fromkeys(str(v) for v in vals) if m in MODULE and m != "start"]
+            elif key == "admin_start":
+                vals = val if isinstance(val, list) else []
+                gesehen: set[str] = set()
+                bloecke = []
+                for v in vals:
+                    m = re.match(r"^([a-z_]{2,32})(?::([1-3]))?$", str(v).strip())
+                    if m and m.group(1) in ADMIN_BLOECKE and m.group(1) not in gesehen:
+                        gesehen.add(m.group(1))
+                        bloecke.append(f"{m.group(1)}:{m.group(2) or ADMIN_BLOECKE[m.group(1)]}")
+                self.admin_start = bloecke
             elif key in ("bereiche_reihenfolge", "bereiche_ausblenden", "start_raeume", "karten_aus"):
                 vals = val if isinstance(val, list) else []
                 setattr(self, key, [s for s in dict.fromkeys(str(v).strip() for v in vals) if re.match(r"^[a-z0-9_]{1,64}$", s)])

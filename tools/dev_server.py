@@ -1,6 +1,6 @@
 """Vorschau ohne Home Assistant: startet das Test-HA (tests/fake_ha.py) und PM Panel Studio lokal.
 
-python tools/dev_server.py            Ingress/Editor http://127.0.0.1:8099/, Panel http://127.0.0.1:8099/panel
+python tools/dev_server.py            Admin http://127.0.0.1:8099/, Editor …/editor, Panel …/panel
 """
 
 from __future__ import annotations

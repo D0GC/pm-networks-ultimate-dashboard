@@ -121,6 +121,19 @@ async def seite_editor(_request: web.Request) -> web.FileResponse:
     return _html("editor.html")
 
 
+def admin_html() -> str:
+    """Admin-Ansicht für den PC: dieselbe Seite wie das Wandpanel, mit eigenem Layout und den Admin-Seiten."""
+    html = (STATIC_DIR / "index.html").read_text(encoding="utf-8")
+    html = html.replace('<html lang="de">', '<html lang="de" class="admin">', 1)
+    html = html.replace("<title>PM Panel Flur</title>", "<title>PM Dashboard</title>", 1)
+    html = html.replace("</head>", '<link rel="stylesheet" href="static/admin.css">\n</head>', 1)
+    return html.replace("</body>", '<script src="static/admin.js"></script>\n</body>', 1)
+
+
+async def seite_admin(_request: web.Request) -> web.Response:
+    return web.Response(text=admin_html(), content_type="text/html", headers={"Cache-Control": "no-cache"})
+
+
 async def ws_handler(request: web.Request) -> web.WebSocketResponse:
     hub = request.app[K_HUB]
     ws = web.WebSocketResponse(heartbeat=25, max_msg_size=1024 * 1024)
@@ -143,7 +156,8 @@ async def ws_handler(request: web.Request) -> web.WebSocketResponse:
             if not isinstance(data, dict):
                 continue
             if data.get("typ") == "beruehrt":
-                hub.beruehrt()
+                if ws["rolle"] == "panel":  # Klicks am PC wecken das Wandpanel nicht
+                    hub.beruehrt()
                 continue
             hub.spawn(_anfrage(hub, ws, data))
     finally:
@@ -181,7 +195,11 @@ async def ansage_ton(request: web.Request) -> web.Response:
 
 async def aufnahmen_liste(request: web.Request) -> web.Response:
     """Die neuesten Nachrichten des Anrufbeantworters an der Haustür."""
-    return web.json_response(request.app[K_HUB].pforte.aufnahmen(10), headers={"Cache-Control": "no-store"})
+    try:
+        anzahl = max(1, min(60, int(request.query.get("anzahl", "10"))))
+    except ValueError:
+        anzahl = 10
+    return web.json_response(request.app[K_HUB].pforte.aufnahmen(anzahl), headers={"Cache-Control": "no-store"})
 
 
 async def aufnahme_datei(request: web.Request) -> web.StreamResponse:
@@ -443,7 +461,8 @@ def create_ingress_app(hub: Hub, token: list[str], networks: list[Any] | None = 
     app[K_HUB] = hub
     app[K_TOKEN] = token
     app[K_ROLLE] = "ingress"
-    app.router.add_get("/", seite_editor)
+    app.router.add_get("/", seite_admin)
+    app.router.add_get("/editor", seite_editor)
     app.router.add_get("/panel", seite_panel)
     app.router.add_get("/api/einstellungen", einstellungen_get)
     app.router.add_get("/api/assist_pipelines", assist_pipelines)
