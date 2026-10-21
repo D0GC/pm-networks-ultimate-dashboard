@@ -1,5 +1,5 @@
 """Startseite für das PM Dashboard als eigene App: legt sie unter ``/homeassistant/www/pm-dashboard`` ab, Home Assistant
-liefert sie dann als ``/local/pm-dashboard/`` aus (gleiche Herkunft wie das Frontend, daher Anmeldung und Ingress
+liefert sie dann als ``/local/pm-dashboard/index.html`` aus (gleiche Herkunft wie das Frontend, daher Anmeldung und Ingress
 wie dort). Die Seite enthält keine Geheimnisse; die Anmeldedaten bleiben im Browser.
 """
 

@@ -659,7 +659,7 @@
         info.innerHTML = `<dt>Home Assistant</dt><dd>${d.verbunden ? "verbunden" : "getrennt"}</dd><dt>Offene Verbindungen</dt><dd>${PS.esc(d.panels)} (Wandpanels und diese Ansicht)</dd><dt>Panel-Port</dt><dd>${PS.esc(d.port)}</dd>`;
       } catch { info.innerHTML = "<dt>Status</dt><dd>nicht abrufbar</dd>"; }
       b2.appendChild(E('<div class="reihe"></div>')).append(
-        knopf("Als eigene App öffnen", "open-in-new", () => window.open("/local/pm-dashboard/", "_blank", "noopener"), "primaer"),
+        knopf("Als eigene App öffnen", "open-in-new", () => window.open("/local/pm-dashboard/index.html", "_blank", "noopener"), "primaer"),
         knopf("Panel-Vorschau", "tablet", () => window.open("panel", "_blank", "noopener")),
       );
       const b3 = block("Meldungen", `${(PS.popups || []).length} offen`);

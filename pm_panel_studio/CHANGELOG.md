@@ -1,5 +1,10 @@
 # Änderungen
 
+## 2026.10.44 – 2026-10-21
+
+- Eigene App: Adresse ist `/local/pm-dashboard/index.html` (Home Assistant liefert unter `/local/` keine
+  Ordneransicht, `/local/pm-dashboard/` ergab „403: Forbidden“). Link in „System“ und Startadresse der App angepasst.
+
 ## 2026.10.43 – 2026-10-21
 
 - Neu: PM Dashboard als eigene App unter `http://<Home-Assistant>/local/pm-dashboard/` (die App legt die Startseite
