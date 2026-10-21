@@ -43,6 +43,11 @@ in Home Assistant (Seitenleiste, Benachrichtigungen und Einstellungen bleiben er
 - **Entitäten und Geräte:** ausblenden, deaktivieren und wieder aktivieren; der Detaildialog jeder Entität hat
   dafür ebenfalls eine Zeile „Verwaltung“. Diese Funktionen nutzen die Verbindung des angemeldeten Benutzers und
   stehen in der Seitenleiste und in der eigenen App bereit.
+- **Netzwerk:** Internet (Latenz, Ping, Download, Upload, Durchsatz, Speedtest starten), Clients und alle
+  UniFi-Geräte mit Zustand, Auslastung, Temperatur und Updates. Dafür in den App-Optionen „UniFi: API-Schlüssel“
+  eintragen (UniFi Network → Einstellungen → Control Plane → Integrationen → API-Schlüssel erstellen) oder Benutzer und
+  Kennwort eines lokalen Kontos; die Adresse ist mit `https://192.168.3.1` vorbelegt. Ohne Zugang zeigt die Seite die
+  Daten der UniFi-Integration von Home Assistant.
 - **Home Assistant:** Einstellungen, Karte, Energie und Music Assistant öffnen sich als Seiten im Dashboard, ohne
   die Seitenleiste von Home Assistant.
 

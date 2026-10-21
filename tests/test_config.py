@@ -161,3 +161,21 @@ def test_admin_startseite():
     assert e.admin_start == ["klima:5:3", "raeume:6:7", "termine:8:6", "pakete:12:24"]
     e.aktualisieren({"admin_start": []})
     assert e.admin_start == []
+
+
+def test_neuer_admin_block_wird_einmalig_angehaengt():
+    from panelstudio.config import Einstellungen
+
+    e = Einstellungen.from_dict({"admin_start": ["klima:4:5"]})
+    assert e.admin_start == ["klima:4:5", "netzwerk:4:6"] and "netzwerk" in e.admin_bekannt
+    # Wer den Block danach entfernt, bekommt ihn nicht wieder
+    e2 = Einstellungen.from_dict({"admin_start": ["klima:4:5"], "admin_bekannt": e.admin_bekannt})
+    assert e2.admin_start == ["klima:4:5"]
+
+
+def test_unifi_optionen_bleiben_privat():
+    from panelstudio.config import Options
+
+    o = Options.from_dict({"unifi_api_schluessel": "geheim", "unifi_adresse": "https://192.168.3.1"})
+    p = o.public()
+    assert p["unifi"] is True and "unifi_api_schluessel" not in p and "unifi_kennwort" not in p

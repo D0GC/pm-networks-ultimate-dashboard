@@ -337,7 +337,7 @@ body.admin .dock .zaehler{top:.15rem;right:.35rem}
   body.admin .raum-ansicht:not(.zwei) > .r-spalte:nth-child(2){grid-column:1/-1;order:-1}
   body.admin .r-thermos{grid-template-columns:repeat(auto-fill,minmax(27rem,1fr))}
 }
-@media (max-width:820px){
+@media (max-width:620px){
   body.admin .raum-ansicht,body.admin .raum-ansicht.breit-mitte,body.admin .raum-ansicht.zwei{grid-template-columns:minmax(0,1fr)}
   body.admin .r-thermos{grid-template-columns:minmax(0,1fr)}
 }
@@ -363,3 +363,33 @@ body.admin .gross .titel > span{flex:0 1 auto}
 @media (prefers-reduced-motion:reduce){.lauftext > .lauf-innen{animation:none}.lauftext{-webkit-mask-image:none;mask-image:none;text-overflow:ellipsis}}
 body.admin .raster.mini{grid-template-columns:repeat(auto-fill,minmax(11rem,1fr))}
 body.admin .r-box h3{gap:.6rem;flex-wrap:wrap}
+
+/* Netzwerk (Block und Seite) */
+.nz-status{display:flex;align-items:center;gap:.6rem;font-size:1.15rem}
+.nz-status .mdi{font-size:1.6rem}
+.nz-status.ok .mdi{color:var(--gut)}
+.nz-status.krit .mdi,.nz-status.krit b{color:var(--krit)}
+.nz-status span{margin-left:auto;color:var(--lavender)}
+.nz-werte{display:grid;grid-template-columns:repeat(auto-fit,minmax(7rem,1fr));gap:.6rem}
+.nz-werte > div{display:flex;flex-direction:column;gap:.2rem;padding:.7rem .8rem;border-radius:.9rem;background:var(--flaeche-tief);border:1px solid var(--linie);min-width:0}
+.nz-werte small{color:var(--leise);font-size:.9rem}
+.nz-werte b{font-size:1.6rem;font-weight:600;white-space:nowrap}
+.nz-werte.nz-gross b{font-size:2rem}
+.nz-werte b i{font-style:normal;font-size:.95rem;color:var(--leise);font-weight:500;margin-left:.3rem}
+.nz-zeile{display:flex;align-items:center;gap:.5rem;font-size:1rem;color:var(--lavender)}
+.nz-zeile .mdi{font-size:1.2rem}
+.nz-zeile.krit{color:var(--krit)}.nz-zeile.warn{color:var(--warn)}.nz-zeile.info{color:var(--info)}
+.nz-geraete td.warn{color:var(--warn)}.nz-geraete td.krit{color:var(--krit)}
+.nz-geraete td{white-space:nowrap}
+
+/* Mauerwerk: feine Rasterzeilen, die Spannweite je Block setzt admin.js nach dessen Höhe */
+.as-raster.mauer,.as-seitenraster.mauer{grid-auto-rows:6px;align-items:start}
+.as-seitenraster.mauer > .as-block > .r-box{height:auto}
+/* Modulseiten in zwei schmalen Spalten: Thermostate und Kacheln passen sich der Spalte an */
+@media (max-width:1000px){
+  body.admin .r-thermos{grid-template-columns:minmax(0,1fr)}
+  body.admin .gross.kompakt .thermo .ring{width:6rem;height:6rem}
+  body.admin .thermo .soll{gap:.5rem}
+  body.admin .thermo .soll b{font-size:1.8rem;min-width:5rem}
+  body.admin .r-box{padding:1rem}
+}

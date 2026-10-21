@@ -1,0 +1,183 @@
+"""Netzwerkstatus direkt vom UniFi-Gateway (UniFi OS, z. B. Cloud Gateway oder UDM).
+
+Die UniFi-Integration von Home Assistant liefert Gerätezustände und Clients, aber weder Latenz noch Speedtest oder
+WAN-Durchsatz. Diese stehen im Gesundheitsbericht des Controllers (``stat/health``: Subsysteme wan, www, lan, wlan);
+die Geräte in ``stat/device``. Anmeldung mit API-Schlüssel (``X-API-Key``) oder Benutzer und Kennwort
+(``/api/auth/login``, Cookie und CSRF-Kopfzeile). Das Gateway hat ein selbst signiertes Zertifikat; geprüft wird
+deshalb nur bei dieser einen, fest eingestellten Adresse nicht.
+
+Abgefragt wird nur auf Anfrage der Admin-Ansicht, höchstens alle 10 Sekunden (Zwischenspeicher).
+"""
+
+from __future__ import annotations
+
+import asyncio
+import logging
+import time
+from typing import Any
+
+import aiohttp
+
+_LOGGER = logging.getLogger(__name__)
+
+FRISCH_S = 10
+TYPEN = {"ugw": "gateway", "udm": "gateway", "uxg": "gateway", "usw": "switch", "uap": "ap"}
+
+
+class UnifiFehler(Exception):
+    pass
+
+
+def _zahl(v: Any) -> float | None:
+    try:
+        return None if v is None or v == "" else float(v)
+    except (TypeError, ValueError):
+        return None
+
+
+def geraet(d: dict[str, Any]) -> dict[str, Any]:
+    """Ein Gerät aus ``stat/device`` auf das, was die Oberfläche zeigt."""
+    stats = d.get("system-stats") or {}
+    temps = [t.get("value") for t in d.get("temperatures") or [] if isinstance(t, dict) and t.get("value") is not None]
+    temp = max(temps) if temps else d.get("general_temperature")
+    ports = [p for p in d.get("port_table") or [] if isinstance(p, dict)]
+    return {
+        "name": d.get("name") or d.get("model") or d.get("mac"),
+        "typ": TYPEN.get(str(d.get("type")), "sonst"),
+        "modell": d.get("model_name") or d.get("model"),
+        "online": d.get("state") == 1,
+        "zustand": d.get("state"),
+        "cpu": _zahl(stats.get("cpu")),
+        "ram": _zahl(stats.get("mem")),
+        "temp": _zahl(temp),
+        "uptime": _zahl(d.get("uptime")),
+        "clients": d.get("num_sta") if d.get("num_sta") is not None else d.get("user-num_sta"),
+        "update": bool(d.get("upgradable")),
+        "version": d.get("version"),
+        "ip": d.get("ip"),
+        "ports": len(ports) or None,
+        "ports_aktiv": sum(1 for p in ports if p.get("up")) if ports else None,
+    }
+
+
+def auswerten(health: list[dict[str, Any]], geraete: list[dict[str, Any]]) -> dict[str, Any]:
+    sub = {h.get("subsystem"): h for h in health if isinstance(h, dict)}
+    wan, www, lan, wlan = (sub.get(k) or {} for k in ("wan", "www", "lan", "wlan"))
+    gw_stats = wan.get("gw_system-stats") or {}
+    lastrun = _zahl(www.get("speedtest_lastrun"))
+    return {
+        "internet": {
+            "status": www.get("status") or wan.get("status"),
+            "wan_status": wan.get("status"),
+            "isp": wan.get("isp_name")
+            or ((wan.get("isp_info") or {}).get("name") if isinstance(wan.get("isp_info"), dict) else None),
+            "wan_ip": wan.get("wan_ip"),
+            "latenz_ms": _zahl(www.get("latency")),
+            "ping_ms": _zahl(www.get("speedtest_ping")),
+            "down_mbit": _zahl(www.get("xput_down")),
+            "up_mbit": _zahl(www.get("xput_up")),
+            "speedtest_zeit": int(lastrun) if lastrun else None,
+            "speedtest_status": www.get("speedtest_status"),
+            "rx_bps": _zahl(wan.get("rx_bytes-r")),
+            "tx_bps": _zahl(wan.get("tx_bytes-r")),
+            "uptime": _zahl(www.get("uptime")) or _zahl(gw_stats.get("uptime")),
+            "ausfaelle": _zahl(www.get("drops")),
+        },
+        "clients": {
+            "lan": lan.get("num_user"),
+            "wlan": wlan.get("num_user"),
+            "gast": (lan.get("num_guest") or 0) + (wlan.get("num_guest") or 0) if (lan or wlan) else None,
+        },
+        "geraete": sorted(
+            (geraet(d) for d in geraete if isinstance(d, dict)),
+            key=lambda g: (["gateway", "switch", "ap", "sonst"].index(g["typ"]), str(g["name"])),
+        ),
+    }
+
+
+class Unifi:
+    def __init__(
+        self,
+        session: aiohttp.ClientSession,
+        adresse: str,
+        schluessel: str = "",
+        benutzer: str = "",
+        kennwort: str = "",
+        site: str = "default",
+    ) -> None:
+        self.session = session
+        self.adresse = adresse.rstrip("/")
+        self.schluessel, self.benutzer, self.kennwort, self.site = schluessel, benutzer, kennwort, site or "default"
+        self._csrf: str | None = None
+        self._angemeldet = False
+        self._stand: dict[str, Any] | None = None
+        self._zeit = 0.0
+        self._sperre = asyncio.Lock()
+
+    @property
+    def eingerichtet(self) -> bool:
+        return bool(self.adresse and (self.schluessel or (self.benutzer and self.kennwort)))
+
+    def _koepfe(self) -> dict[str, str]:
+        k = {"Accept": "application/json"}
+        if self.schluessel:
+            k["X-API-Key"] = self.schluessel
+        elif self._csrf:
+            k["X-CSRF-Token"] = self._csrf
+        return k
+
+    async def _anmelden(self) -> None:
+        async with self.session.post(
+            f"{self.adresse}/api/auth/login",
+            json={"username": self.benutzer, "password": self.kennwort, "remember": True},
+            ssl=False,
+            timeout=aiohttp.ClientTimeout(total=15),
+        ) as r:
+            if r.status != 200:
+                raise UnifiFehler(f"Anmeldung am Gateway abgelehnt (HTTP {r.status})")
+            self._csrf = r.headers.get("X-CSRF-Token") or r.headers.get("x-updated-csrf-token")
+            self._angemeldet = True
+
+    async def _api(
+        self, methode: str, pfad: str, daten: dict[str, Any] | None = None, wieder: bool = True
+    ) -> list[dict[str, Any]]:
+        if not self.schluessel and not self._angemeldet:
+            await self._anmelden()
+        url = f"{self.adresse}/proxy/network/api/s/{self.site}/{pfad}"
+        async with self.session.request(
+            methode, url, json=daten, headers=self._koepfe(), ssl=False, timeout=aiohttp.ClientTimeout(total=15)
+        ) as r:
+            if r.status == 401 and not self.schluessel and wieder:
+                self._angemeldet = False
+                return await self._api(methode, pfad, daten, wieder=False)
+            if r.status in (401, 403):
+                raise UnifiFehler("Gateway verweigert den Zugriff: API-Schlüssel oder Benutzer prüfen")
+            if r.status != 200:
+                raise UnifiFehler(f"Gateway antwortet mit HTTP {r.status}")
+            if neu := r.headers.get("x-updated-csrf-token"):
+                self._csrf = neu
+            return (await r.json(content_type=None)).get("data") or []
+
+    async def stand(self, neu: bool = False) -> dict[str, Any]:
+        if not self.eingerichtet:
+            return {"quelle": None, "fehler": None}
+        async with self._sperre:
+            if self._stand and not neu and time.monotonic() - self._zeit < FRISCH_S:
+                return self._stand
+            try:
+                health, geraete = await asyncio.gather(self._api("GET", "stat/health"), self._api("GET", "stat/device"))
+                stand = {"quelle": "unifi", "fehler": None, "zeit": int(time.time()), **auswerten(health, geraete)}
+            except (aiohttp.ClientError, TimeoutError, UnifiFehler, ValueError) as err:
+                _LOGGER.warning("UniFi: %s", err)
+                stand = {
+                    **(self._stand or {}),
+                    "quelle": "unifi" if self._stand else None,
+                    "fehler": str(err) or type(err).__name__,
+                }
+            self._stand, self._zeit = stand, time.monotonic()
+            return stand
+
+    async def speedtest(self) -> None:
+        """Speedtest am Gateway starten; das Ergebnis erscheint nach etwa einer Minute im Gesundheitsbericht."""
+        await self._api("POST", "cmd/devmgr", {"cmd": "speedtest"})
+        self._zeit = 0.0

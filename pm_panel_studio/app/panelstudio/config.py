@@ -76,6 +76,11 @@ TEXT_OPTIONEN = (
     "telefon_externe_adresse",
     "fritz_benutzer",
     "fritz_passwort",
+    "unifi_adresse",
+    "unifi_api_schluessel",
+    "unifi_benutzer",
+    "unifi_kennwort",
+    "unifi_site",
 )
 
 
@@ -111,6 +116,13 @@ class Options:
     telefon_externe_adresse: str = ""  # Adresse des Home-Assistant-Hosts im LAN; leer = automatisch
     fritz_benutzer: str = ""
     fritz_passwort: str = ""
+    # Netzwerkseite: UniFi-Gateway (UniFi OS) direkt, mit API-Schlüssel oder Benutzer und Kennwort; leer = nur die Daten
+    # der UniFi-Integration von Home Assistant
+    unifi_adresse: str = "https://192.168.3.1"
+    unifi_api_schluessel: str = ""
+    unifi_benutzer: str = ""
+    unifi_kennwort: str = ""
+    unifi_site: str = "default"
     log_level: str = "info"
 
     @classmethod
@@ -159,6 +171,7 @@ class Options:
             d.pop(k, None)
         d["klima_studio"] = self.klima_studio
         d["telefon"] = self.telefon
+        d["unifi"] = bool(self.unifi_adresse and (self.unifi_api_schluessel or (self.unifi_benutzer and self.unifi_kennwort)))
         return d
 
 
@@ -233,10 +246,24 @@ ADMIN_BLOECKE: dict[str, tuple[int, int]] = {
     "einkauf": (4, 6),
     "angebote": (4, 6),
     "sicherheit": (4, 6),
+    "netzwerk": (4, 6),
 }
+# Blöcke, die nach 2026.10.52 hinzukamen: in gespeicherten Startseiten einmalig ergänzen
+ADMIN_NACHTRAG = {"netzwerk": "netzwerk:4:6"}
 ADMIN_START = [
     f"{b}:{ADMIN_BLOECKE[b][0]}:{ADMIN_BLOECKE[b][1]}"
-    for b in ("aufmerksamkeit", "hinweise", "klima", "tueren", "raeume", "schnellzugriff", "energie", "pakete", "medien")
+    for b in (
+        "aufmerksamkeit",
+        "hinweise",
+        "klima",
+        "tueren",
+        "raeume",
+        "netzwerk",
+        "schnellzugriff",
+        "energie",
+        "pakete",
+        "medien",
+    )
 ]
 
 
@@ -259,6 +286,7 @@ class Einstellungen:
     karten_aus: list[str] = field(default_factory=list)  # Kartenschlüssel, die der Flur nicht zeigt
     # Startseite der Admin-Ansicht am PC: Blöcke in Reihenfolge, „block:breite“ (1–3 Spalten); fehlende sind aus
     admin_start: list[str] = field(default_factory=lambda: list(ADMIN_START))
+    admin_bekannt: list[str] = field(default_factory=lambda: list(ADMIN_BLOECKE))
     # Stundenpläne (Kalender): keine „Als Nächstes“-Karten, nicht in der Abendvorschau, dafür morgens eine Tageskarte
     stundenplan_kalender: list[str] = field(default_factory=lambda: list(STANDARD_STUNDENPLAN))
     dock_anzahl: int = 6  # so viele Module stehen direkt im Dock, die übrigen hinter „Mehr“
@@ -352,6 +380,13 @@ class Einstellungen:
                     pos = e.module.index("suche") if "suche" in e.module else len(e.module)
                     e.module.insert(pos, m)
         e.module_bekannt = list(MODULE)
+        # Neue Blöcke der Admin-Startseite einmalig anhängen (Netzwerk, …)
+        if isinstance(raw.get("admin_start"), list):
+            bekannt = raw.get("admin_bekannt") if isinstance(raw.get("admin_bekannt"), list) else []
+            for b, eintrag in ADMIN_NACHTRAG.items():
+                if b not in bekannt and not any(x.startswith(b + ":") for x in e.admin_start):
+                    e.admin_start.append(eintrag)
+        e.admin_bekannt = list(ADMIN_BLOECKE)
         return e
 
     def aktualisieren(self, raw: dict[str, Any]) -> list[str]:
@@ -455,7 +490,7 @@ class Einstellungen:
                 setattr(self, key, [e for e in _entities(val) if e.startswith("scene.")][:60])
             elif key == "schnellzugriff":
                 self.schnellzugriff = _entities(val)[:8]
-            elif key in ("module_bekannt", "ton_stand", "weck_stand"):
+            elif key in ("module_bekannt", "ton_stand", "weck_stand", "admin_bekannt"):
                 pass  # wird beim Laden gesetzt
             elif key == "module":
                 vals = val if isinstance(val, list) else []
