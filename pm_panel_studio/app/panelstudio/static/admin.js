@@ -67,7 +67,11 @@
     return z;
   };
   // Seite von Home Assistant im Dashboard öffnen (eingebettet, ohne die Seitenleiste von Home Assistant)
-  function haOeffnen(pfad) { PS.oeffnen("ha_seite", pfad); }
+  // Aus einer offenen Seite heraus (z. B. „Automationen“) als Unterseite mit Zurück-Knopf, sonst als eigene Seite
+  function haOeffnen(pfad, titel) {
+    if (document.body.classList.contains("offen")) PS.unterseite(titel || "Home Assistant", (el) => haRahmen(el, pfad, titel, true));
+    else PS.oeffnen("ha_seite", pfad);
+  }
   PS.haOeffnen = haOeffnen;
   // Verbindung zu Home Assistant: in der Seitenleiste die des Frontends, als eigene App die der Startseite
   const haVerbindung = async () => {
@@ -97,12 +101,25 @@
       } catch { clearInterval(t); }
     }, 250);
   }
-  function haRahmen(el, pfad, titel) {
+  // Übersichten von Home Assistant, zu denen dessen Zurück-Pfeil aus Editoren und Detailseiten springt
+  const HA_UEBERSICHTEN = ["/config/automation/dashboard", "/config/script/dashboard", "/config/scene/dashboard", "/config/devices/dashboard", "/config/entities"];
+  function haRahmen(el, pfad, titel, unterseite) {
     el.classList.add("rahmen-seite");
     const f = E(`<iframe class="admin-rahmen ha-rahmen" title="${PS.esc(titel || "Home Assistant")}"></iframe>`);
     f.addEventListener("load", () => seitenleisteAus(f));
     f.src = pfad;
     el.appendChild(f);
+    if (!unterseite) return;
+    // Zurück-Pfeil von Home Assistant: statt dessen Übersicht wieder die Seite des Dashboards zeigen, von der man kam
+    const start = pfad.split("?")[0];
+    const t = setInterval(() => {
+      if (!f.isConnected) { clearInterval(t); return; }
+      let p = "";
+      try { p = f.contentWindow.location.pathname; } catch { return; }
+      if (p && p !== start && HA_UEBERSICHTEN.some((u) => p.startsWith(u)) && !HA_UEBERSICHTEN.some((u) => start.startsWith(u))) {
+        clearInterval(t); PS.zurueck();
+      }
+    }, 300);
   }
   // App über Ingress einbetten (erste gestartete aus der Liste der Kennungen oder mit passender Endung)
   async function appAdresse(slugs, endung) {
