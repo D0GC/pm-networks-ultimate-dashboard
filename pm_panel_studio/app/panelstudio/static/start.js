@@ -713,6 +713,7 @@
     if (r && !r.intern && r.quelle.isConnected && stapel.length === r.tiefe && document.body.classList.contains("offen") && animiert()) rueckUebergang(r, schliessenDirekt);
     else schliessenDirekt();
   };
+  PS.zurueck = () => zurueck();
   function zurueck() {
     if (stapel.length < 2) return PS.schliessen();
     const r = rueck;

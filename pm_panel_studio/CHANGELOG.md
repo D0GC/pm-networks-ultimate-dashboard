@@ -1,5 +1,12 @@
 # Änderungen
 
+## 2026.10.48 – 2026-10-21
+
+- Admin-Ansicht: Seiten von Home Assistant, die aus einer Seite des Dashboards geöffnet werden (Editor und Verlauf
+  einer Automation, Skript, Gerät, Verlauf einer Entität), erscheinen als Unterseite mit Zurück-Knopf und Titel.
+  Der Zurück-Pfeil von Home Assistant im Editor führt jetzt ebenfalls zurück auf die Seite des Dashboards statt in
+  die Übersicht von Home Assistant.
+
 ## 2026.10.47 – 2026-10-21
 
 - Admin-Ansicht: Schnellsuche wie in Home Assistant. Strg+K oder „e“ sucht über Seiten des Dashboards, Seiten von

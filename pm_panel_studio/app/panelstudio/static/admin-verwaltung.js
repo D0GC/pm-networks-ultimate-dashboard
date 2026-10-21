@@ -87,9 +87,9 @@
       const d = PS.domain(e);
       if (d === "automation") {
         const id = automationId(e);
-        l.push({ art: "Automation", icon: "robot", n: PS.name(e), u: e, tun: () => (id ? PS.haOeffnen(`/config/automation/edit/${id}`) : PS.mehrInfos(e)) });
+        l.push({ art: "Automation", icon: "robot", n: PS.name(e), u: e, tun: () => (id ? PS.haOeffnen(`/config/automation/edit/${id}`, PS.name(e)) : PS.mehrInfos(e)) });
       } else if (d === "script") {
-        l.push({ art: "Skript", icon: "script-text-outline", n: PS.name(e), u: e, tun: () => PS.haOeffnen(`/config/script/edit/${e.split(".")[1]}`) });
+        l.push({ art: "Skript", icon: "script-text-outline", n: PS.name(e), u: e, tun: () => PS.haOeffnen(`/config/script/edit/${e.split(".")[1]}`, PS.name(e)) });
       } else {
         l.push({ art: "Entität", icon: PS.iconName(e), n: PS.name(e), u: e, rechts: PS.text(e), tun: () => PS.mehrInfos(e) });
       }
@@ -164,7 +164,7 @@
       el.classList.add("admin-seite");
       const kopf = E(`<div class="vw-kopf"><input class="feld" id="au-suche" type="search" placeholder="Automation suchen" autocomplete="off">
         <div class="tabs vw-filter"><button data-f="alle" class="aktiv">Alle</button><button data-f="an">Aktiv</button><button data-f="aus">Deaktiviert</button></div></div>`);
-      kopf.appendChild(knopf("Neue Automation", "plus", () => PS.haOeffnen("/config/automation/edit/new"), "primaer"));
+      kopf.appendChild(knopf("Neue Automation", "plus", () => PS.haOeffnen("/config/automation/edit/new", "Neue Automation"), "primaer"));
       const liste = E('<div class="vw-gruppen"><div class="leer">Wird geladen …</div></div>');
       el.append(kopf, liste);
       let r = null;
@@ -199,11 +199,11 @@
         const akt = z.querySelector(".vw-akt");
         akt.append(
           knopf("", "play", (ev) => { ev.stopPropagation(); PS.dienst("automation", "trigger", { entity_id: x.e }).then(() => PS.toast(`${x.n} ausgeführt`)); }, "rund"),
-          knopf("", "timeline-text-outline", (ev) => { ev.stopPropagation(); if (id) PS.haOeffnen(`/config/automation/trace/${id}`); }, "rund"),
-          knopf("", "pencil-outline", (ev) => { ev.stopPropagation(); if (id) PS.haOeffnen(`/config/automation/edit/${id}`); }, "rund"),
+          knopf("", "timeline-text-outline", (ev) => { ev.stopPropagation(); if (id) PS.haOeffnen(`/config/automation/trace/${id}`, `${x.n} · Verlauf`); }, "rund"),
+          knopf("", "pencil-outline", (ev) => { ev.stopPropagation(); if (id) PS.haOeffnen(`/config/automation/edit/${id}`, x.n); }, "rund"),
         );
         akt.children[0].title = "Jetzt ausführen"; akt.children[1].title = "Verlauf der Ausführungen"; akt.children[2].title = "Im Editor von Home Assistant bearbeiten";
-        z.addEventListener("click", () => (id ? PS.haOeffnen(`/config/automation/edit/${id}`) : PS.mehrInfos(x.e)));
+        z.addEventListener("click", () => (id ? PS.haOeffnen(`/config/automation/edit/${id}`, x.n) : PS.mehrInfos(x.e)));
         return z;
       };
       kopf.querySelector("input").addEventListener("input", zeichnen);
@@ -270,7 +270,7 @@
       }, "rund" + (aus ? "" : " gefahr-leise"));
       ka.title = aus ? "Aktivieren" : "Deaktivieren";
       akt.append(kv, ka);
-      if (ger) { const kg = knopf("", "devices", () => PS.haOeffnen(`/config/devices/device/${ger.id}`), "rund"); kg.title = `Gerät: ${geraetName(ger)}`; akt.appendChild(kg); }
+      if (ger) { const kg = knopf("", "devices", () => PS.haOeffnen(`/config/devices/device/${ger.id}`, geraetName(ger)), "rund"); kg.title = `Gerät: ${geraetName(ger)}`; akt.appendChild(kg); }
       if (PS.z[eid]) { const ki = knopf("", "information-outline", () => PS.mehrInfos(eid), "rund"); ki.title = "Details"; akt.appendChild(ki); }
       return tr;
     };
@@ -309,9 +309,9 @@
           d.disabled_by = aus ? null : "user"; zeichnen();
         }, "rund" + (aus ? "" : " gefahr-leise"));
         ka.title = aus ? "Aktivieren" : "Deaktivieren";
-        const ko = knopf("", "open-in-app", () => PS.haOeffnen(`/config/devices/device/${d.id}`), "rund"); ko.title = "In Home Assistant öffnen";
+        const ko = knopf("", "open-in-app", () => PS.haOeffnen(`/config/devices/device/${d.id}`, n), "rund"); ko.title = "In Home Assistant öffnen";
         tr.querySelector(".vw-akt").append(ka, ko);
-        tr.addEventListener("click", (ev) => { if (!ev.target.closest(".vw-akt")) PS.haOeffnen(`/config/devices/device/${d.id}`); });
+        tr.addEventListener("click", (ev) => { if (!ev.target.closest(".vw-akt")) PS.haOeffnen(`/config/devices/device/${d.id}`, n); });
         tb.appendChild(tr);
       });
       if (!treffer.length) tb.innerHTML = '<tr><td colspan="5" class="leer">Kein Gerät passt.</td></tr>';
@@ -341,15 +341,15 @@
       const leiste = E('<div class="vw-dialog"><small>Verwaltung</small><div class="reihe"></div></div>');
       const reihe = leiste.querySelector(".reihe");
       if (d === "automation" && PS.a(eid).id) {
-        reihe.append(knopf("Bearbeiten", "pencil-outline", () => { PS.dialogSchliessen(); PS.haOeffnen(`/config/automation/edit/${PS.a(eid).id}`); }),
-          knopf("Verlauf", "timeline-text-outline", () => { PS.dialogSchliessen(); PS.haOeffnen(`/config/automation/trace/${PS.a(eid).id}`); }));
+        reihe.append(knopf("Bearbeiten", "pencil-outline", () => { PS.dialogSchliessen(); PS.haOeffnen(`/config/automation/edit/${PS.a(eid).id}`, PS.name(eid)); }),
+          knopf("Verlauf", "timeline-text-outline", () => { PS.dialogSchliessen(); PS.haOeffnen(`/config/automation/trace/${PS.a(eid).id}`, `${PS.name(eid)} · Verlauf`); }));
       }
-      if (d === "script") reihe.append(knopf("Bearbeiten", "pencil-outline", () => { PS.dialogSchliessen(); PS.haOeffnen(`/config/script/edit/${eid.split(".")[1]}`); }));
-      if (r.d) reihe.append(knopf("Gerät", "devices", () => { PS.dialogSchliessen(); PS.haOeffnen(`/config/devices/device/${r.d}`); }));
+      if (d === "script") reihe.append(knopf("Bearbeiten", "pencil-outline", () => { PS.dialogSchliessen(); PS.haOeffnen(`/config/script/edit/${eid.split(".")[1]}`, PS.name(eid)); }));
+      if (r.d) reihe.append(knopf("Gerät", "devices", () => { PS.dialogSchliessen(); PS.haOeffnen(`/config/devices/device/${r.d}`, PS.geraete[r.d] || "Gerät"); }));
       reihe.append(
         knopf(r.h ? "Einblenden" : "Ausblenden", r.h ? "eye-outline" : "eye-off-outline", () => entitaetSetzen(eid, { hidden_by: r.h ? null : "user" }, r.h ? "Wieder sichtbar" : "Ausgeblendet").then(() => PS.dialogSchliessen()).catch(() => {})),
         knopf("Deaktivieren", "power-off", () => entitaetSetzen(eid, { disabled_by: "user" }, "Deaktiviert").then(() => PS.dialogSchliessen()).catch(() => {}), "gefahr-leise"),
-        knopf("Verlauf", "chart-box-outline", () => { PS.dialogSchliessen(); PS.haOeffnen(`/history?entity_id=${encodeURIComponent(eid)}`); }),
+        knopf("Verlauf", "chart-box-outline", () => { PS.dialogSchliessen(); PS.haOeffnen(`/history?entity_id=${encodeURIComponent(eid)}`, `${PS.name(eid)} · Verlauf`); }),
       );
       dlg.appendChild(leiste);
     });
