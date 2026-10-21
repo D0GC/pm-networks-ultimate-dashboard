@@ -217,11 +217,11 @@ async def test_anrufbeantworter_nimmt_nachricht_auf(tmp_path):
         )
     ]
     assert meldungen and "Paket" in meldungen[0][1] and meldungen[0][2] == "2026-10-21_14-05-00.wav"
-    assert list(tmp_path.glob("*.wav"))
+    assert list(tmp_path.glob("2026-10-21/wav/*.wav")) and list(tmp_path.glob("2026-10-21/json/*.json"))
     # Liste und Datei für das Panel
     liste = p.aufnahmen()
     assert liste[0]["datei"] == "2026-10-21_14-05-00.wav" and liste[0]["text"] == "Paket für Meisel" and liste[0]["dauer_s"] >= 1
-    assert p.aufnahme_pfad("2026-10-21_14-05-00.wav") == tmp_path / "2026-10-21_14-05-00.wav"
+    assert p.aufnahme_pfad("2026-10-21_14-05-00.wav") == tmp_path / "2026-10-21" / "wav" / "2026-10-21_14-05-00.wav"
     assert ring.beendet and not p.uebernommen
 
 
@@ -354,16 +354,35 @@ def test_ablage_auf_netzlaufwerk_und_umzug(tmp_path, monkeypatch):
     # Freigabe nicht eingehängt: kein Ordner unter dem Einhängepunkt, Ablage bleibt lokal
     e.pforte_ordner = str(tmp_path / "Fileshare_Media" / "Haustüraufnahme")
     assert p._ziele()[0] == lokal
-    assert p.umziehen() == 0
+    assert p.umziehen() == 1  # nur lokal in den Tagesordner einsortiert
+    assert (lokal / "2026-10-20" / "wav" / "2026-10-20_10-00-00.wav").is_file()
     assert not (tmp_path / "Fileshare_Media").exists()
     # Freigabe da: Ordner wird angelegt, alte Aufnahmen ziehen um und bleiben abspielbar
     (tmp_path / "Fileshare_Media").mkdir()
     ziel = tmp_path / "Fileshare_Media" / "Haustüraufnahme"
     assert p._ziele()[0] == ziel
     assert p.umziehen() == 1
-    assert (ziel / "2026-10-20_10-00-00.wav").is_file() and (ziel / "2026-10-20_10-00-00.json").is_file()
+    assert (ziel / "2026-10-20" / "wav" / "2026-10-20_10-00-00.wav").is_file()
+    assert (ziel / "2026-10-20" / "json" / "2026-10-20_10-00-00.json").is_file()
     assert not list(lokal.iterdir())
-    assert p.aufnahme_pfad("2026-10-20_10-00-00.wav") == ziel / "2026-10-20_10-00-00.wav"
+    assert p.aufnahme_pfad("2026-10-20_10-00-00.wav") == ziel / "2026-10-20" / "wav" / "2026-10-20_10-00-00.wav"
+    # flach abgelegte Datei im Zielordner (bis 2026.10.39) wird einsortiert, ein zweiter Lauf ändert nichts
+    (ziel / "2026-10-21_09-00-00.wav").write_bytes(_ton_wav(0.1))
+    assert p.umziehen() == 1 and p.umziehen() == 0
+    assert (ziel / "2026-10-21" / "wav" / "2026-10-21_09-00-00.wav").is_file()
+
+
+def test_ablage_haelt_hoechstens_max_aufnahmen(tmp_path, monkeypatch):
+    monkeypatch.setattr(pf, "MAX_AUFNAHMEN", 2)
+    e = _einst()
+    p = pf.Pforte(None, lambda: e, lambda: True, None, None, lambda *a: None, None)
+    p.verzeichnis = tmp_path
+    from datetime import datetime
+
+    for tag in (19, 20, 21):
+        p._speichern(_ton_wav(0.1), datetime(2026, 10, tag, 8))
+    assert [x["datei"] for x in p.aufnahmen()] == ["2026-10-21_08-00-00.wav", "2026-10-20_08-00-00.wav"]
+    assert not (tmp_path / "2026-10-19").exists()  # leerer Tagesordner entfernt
 
 
 def test_ordner_einstellung():
