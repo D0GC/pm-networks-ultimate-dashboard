@@ -155,9 +155,9 @@ def test_admin_startseite():
     from panelstudio.config import ADMIN_START, Einstellungen
 
     e = Einstellungen()
-    assert e.admin_start == ADMIN_START and e.admin_start[0] == "aufmerksamkeit:3"
-    # unbekannte Blöcke und Doppelte fallen weg, fehlende Breite kommt aus der Vorgabe
-    assert e.aktualisieren({"admin_start": ["klima:2", "klima:1", "gibtsnicht", "raeume", "termine:9"]}) == []
-    assert e.admin_start == ["klima:2", "raeume:2"]
+    assert e.admin_start == ADMIN_START and e.admin_start[0] == "aufmerksamkeit:12:2"
+    # unbekannte Blöcke und Doppelte fallen weg; fehlende Größe aus der Vorgabe; altes Format „block:spalten“ (1–3)
+    assert e.aktualisieren({"admin_start": ["klima:5:3", "klima:1", "gibtsnicht", "raeume", "termine:2", "pakete:40:99"]}) == []
+    assert e.admin_start == ["klima:5:3", "raeume:6:7", "termine:8:6", "pakete:12:24"]
     e.aktualisieren({"admin_start": []})
     assert e.admin_start == []

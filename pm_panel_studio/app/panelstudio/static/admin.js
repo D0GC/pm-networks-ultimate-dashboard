@@ -83,6 +83,44 @@
     ["Sicherungen", "backup-restore", "/config/backup"], ["Einstellungen", "cog-outline", "/config/dashboard"],
   ];
 
+  // Thermostat als eine Zeile: Name (öffnet alle Einstellungen), Ist, Zustand, Soll mit − und +
+  function thermoZeile(eid) {
+    const a = PS.a(eid), pm = eid.startsWith("climate.pm_");
+    const lo = a.min_temp ?? 5, hi = a.max_temp ?? 30, schritt = a.target_temp_step || 0.5;
+    const z = E(`<div class="as-thermo" data-klima="${PS.esc(eid)}">
+      <button type="button" class="n">${PS.icon(eid)}<span>${PS.esc(PS.kurzname(eid).replace(/^PM\s+/, ""))}</span></button>
+      <span class="ist tabular"></span><span class="zst"></span>
+      <span class="soll"><button type="button" class="knopf rund" aria-label="Kälter">${PS.ic("minus")}</button><b class="tabular"></b><button type="button" class="knopf rund" aria-label="Wärmer">${PS.ic("plus")}</button></span></div>`);
+    let wunsch = a.temperature, timer = null;
+    const zeigen = () => {
+      const n = PS.a(eid);
+      z.querySelector(".ist").textContent = n.current_temperature != null ? PS.zahl(n.current_temperature, 1) + "°" : "–";
+      const heizt = n.hvac_action === "heating";
+      z.classList.toggle("heizt", heizt);
+      z.querySelector(".zst").textContent = heizt ? "heizt" : PS.s(eid) === "off" ? "aus" : n.preset_mode || "bereit";
+      if (!timer) wunsch = n.temperature;
+      z.querySelector(".soll b").textContent = wunsch != null ? PS.zahl(wunsch, 1) + "°" : "–";
+    };
+    const aendern = (d) => {
+      if (wunsch == null) return;
+      wunsch = Math.max(lo, Math.min(hi, Math.round((wunsch + d) / schritt) * schritt));
+      z.querySelector(".soll b").textContent = PS.zahl(wunsch, 1) + "°";
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        timer = null;
+        if (pm) PS.dienst("pm_heizung", "set_overlay", { entity_id: eid, temperatur: wunsch, dauer: 120 }).then(() => PS.toast(`${PS.zahl(wunsch, 1)}° für 2 Stunden`));
+        else PS.dienst("climate", "set_temperature", { entity_id: eid, temperature: wunsch });
+      }, 1200);
+    };
+    const [minus, plus] = z.querySelectorAll(".soll .knopf");
+    minus.addEventListener("click", () => aendern(-schritt));
+    plus.addEventListener("click", () => aendern(schritt));
+    z.querySelector(".n").addEventListener("click", () => PS.mehrInfos(eid));
+    z.aktualisieren = zeigen;
+    zeigen();
+    return z;
+  }
+
   // ------------------------------------------------------------ Blöcke der Startseite
   // relevant(ids): bei welchen Zustandsänderungen der Block neu gezeichnet wird (Kacheln aktualisieren sich selbst)
   const B = {
@@ -159,11 +197,11 @@
         const thermo = alle().filter((e) => PS.domain(e) === "climate" && PS.sichtbar(e) && !PS.nichtDa(e)).sort(nameSort);
         if (PS.z["sensor.pm_klima_empfehlung"]) b.appendChild(E(`<div class="r-text">${PS.esc(PS.text("sensor.pm_klima_empfehlung"))}</div>`));
         if (!thermo.length) { b.appendChild(leer("Keine Thermostate gefunden.")); return; }
-        const g = E('<div class="r-thermos"></div>');
-        thermo.forEach((t) => { const c = PS.klimaSteuerung(t); c.classList.add("kompakt"); g.appendChild(c); });
+        const g = E('<div class="as-thermos"></div>');
+        thermo.forEach((t) => g.appendChild(thermoZeile(t)));
         b.appendChild(g);
       },
-      // Thermostate aktualisieren sich an Ort und Stelle (siehe unten), laufende Eingaben bleiben
+      // Zeilen aktualisieren sich an Ort und Stelle (siehe unten), laufende Eingaben bleiben
       relevant: () => false,
     },
     raeume: {
@@ -263,7 +301,10 @@
       relevant: (ids) => [...ids].some((e) => e.startsWith("binary_sensor.") || e.startsWith("alarm_control_panel.")),
     },
   };
-  const STANDARD = ["aufmerksamkeit:3", "hinweise:1", "tueren:1", "klima:1", "raeume:2", "schnellzugriff:1", "energie:1", "pakete:1", "medien:1"];
+  // Größe je Block: Breite in 12 Spalten, Höhe in Rasterzeilen (wie ADMIN_BLOECKE in config.py)
+  const GROESSE = { aufmerksamkeit: [12, 2], hinweise: [4, 8], tueren: [4, 8], klima: [4, 5], raeume: [6, 7], schnellzugriff: [3, 7], energie: [3, 7],
+    pakete: [4, 5], medien: [4, 5], termine: [4, 6], einkauf: [4, 6], angebote: [4, 6], sicherheit: [4, 6] };
+  const STANDARD = ["aufmerksamkeit", "hinweise", "klima", "tueren", "raeume", "schnellzugriff", "energie", "pakete", "medien"].map((id) => `${id}:${GROESSE[id].join(":")}`);
 
   // Lage für „Aufmerksamkeit“ und die Zeile unter dem Gruß
   function lage() {
@@ -294,8 +335,13 @@
   let gedrueckt = 0;          // letzte Bedienung in einem Block: so lange nicht neu zeichnen
   const anordnung = () => {
     const roh = anpassen || (Array.isArray(PS.einst.admin_start) ? PS.einst.admin_start : STANDARD);
-    return roh.map((x) => { const [id, br] = String(x).split(":"); return { id, breite: Math.max(1, Math.min(3, +br || 1)) }; }).filter((x) => B[x.id]);
+    return roh.map((x) => {
+      const [id, w, h] = String(x).split(":");
+      const g = GROESSE[id] || [4, 6];
+      return { id, w: Math.max(2, Math.min(12, +w || g[0])), h: Math.max(2, Math.min(24, +h || g[1])) };
+    }).filter((x) => B[x.id]);
   };
+  const eintrag = (x) => `${x.id}:${x.w}:${x.h}`;
   function blockZeichnen(id) {
     const b = bloecke.get(id); if (!b) return;
     const inhalt = box(b.def.titel, " ");
@@ -305,37 +351,80 @@
     b.el.querySelector(".r-box") ? b.el.querySelector(".r-box").replaceWith(inhalt) : b.el.prepend(inhalt);
     b.sig = b.def.signatur ? b.def.signatur() : null;
   }
+  // Spalten nach Fensterbreite: 12, 6 (Breiten halbiert) oder 1; die Höhe bleibt
+  let spalten = 12;
+  function spannen() {
+    const raster = $("#as-raster"), breit = raster.clientWidth;
+    spalten = breit < 640 ? 1 : breit < 1050 ? 6 : 12;
+    raster.style.setProperty("--spalten", spalten);
+    raster.querySelectorAll(".as-block").forEach((el) => {
+      const w = +el.dataset.w, h = +el.dataset.h;
+      el.style.gridColumn = `span ${spalten === 12 ? w : spalten === 6 ? Math.max(1, Math.round(w / 2)) : 1}`;
+      el.style.gridRow = `span ${h}`;
+    });
+  }
+  new ResizeObserver(() => spannen()).observe($("#as-raster"));
   function startZeichnen() {
     const raster = $("#as-raster");
     raster.querySelectorAll("img").forEach(PS.kameraStoppen);
     raster.innerHTML = ""; bloecke.clear();
     const liste = anordnung();
-    liste.forEach(({ id, breite }, i) => {
-      const el = E(`<div class="as-block" data-id="${id}" style="--breite:${breite}"></div>`);
-      bloecke.set(id, { el, def: B[id] });
+    liste.forEach((x, i) => {
+      const el = E(`<div class="as-block" data-id="${x.id}" data-w="${x.w}" data-h="${x.h}"></div>`);
+      bloecke.set(x.id, { el, def: B[x.id] });
       raster.appendChild(el);
-      blockZeichnen(id);
-      if (anpassen) el.appendChild(werkzeugBlock(id, breite, i, liste.length));
+      blockZeichnen(x.id);
+      if (anpassen) { el.appendChild(werkzeugBlock(x.id, i, liste.length)); el.appendChild(griff(el, x.id)); }
     });
     if (!liste.length) raster.appendChild(leer("Die Startseite ist leer. Über „Anpassen“ Blöcke hinzufügen."));
-    vorrat(); werkzeug(); grussZeigen();
+    spannen(); vorrat(); werkzeug(); grussZeigen();
   }
-  function werkzeugBlock(id, breite, i, n) {
+  function werkzeugBlock(id, i, n) {
     const w = E(`<div class="as-werkzeug">
       <button type="button" data-a="hoch" title="Nach vorn"${i === 0 ? " disabled" : ""}>${PS.ic("arrow-left")}</button>
       <button type="button" data-a="runter" title="Nach hinten"${i === n - 1 ? " disabled" : ""}>${PS.ic("arrow-right")}</button>
-      <span class="breiten">${[1, 2, 3].map((x) => `<button type="button" data-b="${x}" class="${x === breite ? "aktiv" : ""}" title="${x} Spalte${x > 1 ? "n" : ""}">${x}</button>`).join("")}</span>
       <button type="button" data-a="weg" title="Ausblenden">${PS.ic("eye-off-outline")}</button></div>`);
     w.addEventListener("click", (ev) => {
       const t = ev.target.closest("button"); if (!t) return;
       const l = anpassen, j = l.findIndex((x) => x.startsWith(id + ":"));
-      if (t.dataset.b) l[j] = `${id}:${t.dataset.b}`;
-      else if (t.dataset.a === "hoch" && j > 0) [l[j - 1], l[j]] = [l[j], l[j - 1]];
+      if (t.dataset.a === "hoch" && j > 0) [l[j - 1], l[j]] = [l[j], l[j - 1]];
       else if (t.dataset.a === "runter" && j < l.length - 1) [l[j + 1], l[j]] = [l[j], l[j + 1]];
       else if (t.dataset.a === "weg") l.splice(j, 1);
       startZeichnen();
     });
     return w;
+  }
+  // Ziehgriff unten rechts: Breite und Höhe rasten im Raster ein, der Inhalt passt sich beim Ziehen an
+  function griff(el, id) {
+    const g = E(`<button type="button" class="as-griff" title="Größe ziehen" aria-label="Größe ändern">${PS.ic("resize-bottom-right")}</button>`);
+    const masse = E('<span class="as-masse tabular" aria-live="polite"></span>');
+    el.appendChild(masse);
+    const zeigen = () => { masse.textContent = `${el.dataset.w} × ${el.dataset.h}`; };
+    zeigen();
+    g.addEventListener("pointerdown", (ev) => {
+      if (spalten === 1) return;
+      ev.preventDefault(); g.setPointerCapture(ev.pointerId); el.classList.add("zieht");
+      const raster = $("#as-raster"), st = getComputedStyle(raster);
+      const luecke = parseFloat(st.columnGap) || 0, zeile = parseFloat(st.gridAutoRows) || 40;
+      const spalteB = (raster.clientWidth - luecke * (spalten - 1)) / spalten;
+      const r0 = el.getBoundingClientRect();
+      const bewegen = (e) => {
+        let w = Math.round((e.clientX - r0.left + luecke) / (spalteB + luecke));
+        const h = Math.max(2, Math.min(24, Math.round((e.clientY - r0.top + luecke) / (zeile + luecke))));
+        w = Math.max(1, Math.min(spalten, w));
+        el.dataset.w = String(Math.max(2, spalten === 6 ? w * 2 : w)); el.dataset.h = String(h);
+        zeigen(); spannen();
+      };
+      const ende = () => {
+        g.removeEventListener("pointermove", bewegen); el.classList.remove("zieht");
+        const l = anpassen, j = l.findIndex((x) => x.startsWith(id + ":"));
+        if (j >= 0) l[j] = eintrag({ id, w: +el.dataset.w, h: +el.dataset.h });
+      };
+      g.addEventListener("pointermove", bewegen);
+      g.addEventListener("pointerup", ende, { once: true });
+      g.addEventListener("pointercancel", ende, { once: true });
+    });
+    return g;
   }
   function vorrat() {
     const v = $("#as-vorrat");
@@ -346,7 +435,7 @@
     const r = E('<div class="as-chips"></div>');
     fehlt.forEach((id) => {
       const c = E(`<button type="button" class="as-chip info">${PS.ic("plus")}<span>${PS.esc(B[id].titel)}</span></button>`);
-      c.addEventListener("click", () => { anpassen.push(`${id}:1`); startZeichnen(); });
+      c.addEventListener("click", () => { anpassen.push(`${id}:${(GROESSE[id] || [4, 6]).join(":")}`); startZeichnen(); });
       r.appendChild(c);
     });
     v.appendChild(r);
@@ -354,7 +443,7 @@
   function werkzeug() {
     const w = $("#as-werkzeug"); w.innerHTML = "";
     document.body.classList.toggle("anpassen", !!anpassen);
-    if (!anpassen) { w.appendChild(knopf("Anpassen", "view-dashboard-edit-outline", () => { anpassen = anordnung().map((x) => `${x.id}:${x.breite}`); startZeichnen(); })); return; }
+    if (!anpassen) { w.appendChild(knopf("Anpassen", "view-dashboard-edit-outline", () => { anpassen = anordnung().map(eintrag); startZeichnen(); })); return; }
     w.append(
       knopf("Standard", "restore", () => { anpassen = [...STANDARD]; startZeichnen(); }),
       knopf("Abbrechen", "close", () => { anpassen = null; startZeichnen(); }),
@@ -427,7 +516,7 @@
     titel: "Türdienst", kurz: "Tür", icon: "doorbell",
     async render(el) {
       el.classList.add("admin-seite");
-      const g = E('<div class="as-raster"></div>'); el.appendChild(g);
+      const g = E('<div class="as-seitenraster"></div>'); el.appendChild(g);
       const b1 = box("Nachrichten", "Anrufbeantworter"); const w1 = E('<div class="as-block" style="--breite:2"></div>'); w1.appendChild(b1); g.appendChild(w1);
       const e = PS.einst;
       const b2 = box("Einstellungen", "Türdienst"); const w2 = E('<div class="as-block" style="--breite:1"></div>'); w2.appendChild(b2); g.appendChild(w2);
@@ -465,7 +554,7 @@
     zaehler: () => PS.systemzustand().weg.length,
     async render(el) {
       el.classList.add("admin-seite");
-      const g = E('<div class="as-raster"></div>'); el.appendChild(g);
+      const g = E('<div class="as-seitenraster"></div>'); el.appendChild(g);
       const block = (titel, klein, breite = 1) => { const b = box(titel, klein); const w = E(`<div class="as-block" style="--breite:${breite}"></div>`); w.appendChild(b); g.appendChild(w); return b; };
       const { weg, gesamt } = PS.systemzustand();
       const b1 = block("Systemzustand", `${gesamt - weg.length} von ${gesamt} Geräten erreichbar`);

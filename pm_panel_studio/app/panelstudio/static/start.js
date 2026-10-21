@@ -738,6 +738,7 @@
   PS.neuZeichnen = () => { if (stapel.length) { const y = $("#sheet-inhalt").scrollTop; zeichnen(true); $("#sheet-inhalt").scrollTop = y; } };
   // Modulband im Seitenkopf, auf allen Modulseiten gleich (Seiten mit eigenen Reitern ersetzen es über PS.tabs)
   function modulBand(aktiv) {
+    if (PS.admin) { $("#sheet-tabs").innerHTML = ""; return; }  // am PC steht die Modulleiste daneben
     const mods = (PS.einst.module || []).filter((m) => PS.modulDa(m) && m !== "suche");
     PS.tabs(mods.map((m) => [m, PS.module[m].kurz || PS.module[m].titel]), aktiv, (k) => PS.oeffnen(k));
   }

@@ -19,6 +19,7 @@ Eine Karte ist ein Dict:
 from __future__ import annotations
 
 import ast
+import html
 import json
 import logging
 import math
@@ -452,6 +453,36 @@ def akt_musik(states: States, jetzt: datetime, player: list[str]) -> list[dict]:
         if len(out) >= MAX_MUSIK:
             break
     return out
+
+
+EIL_SENSOR = "sensor.tagesschau_eilmeldung"
+
+
+def eil_text(daten: Any, grenze: int = 6000) -> str:
+    """Artikeltext aus der Tagesschau-API (``content``: Absätze ``text``, Zwischentitel ``headline``) als Markdown."""
+    teile: list[str] = []
+    for c in (daten or {}).get("content") or [] if isinstance(daten, dict) else []:
+        if not isinstance(c, dict) or c.get("type") not in ("text", "headline"):
+            continue
+        t = html.unescape(re.sub(r"<[^>]+>", "", str(c.get("value") or ""))).strip()
+        t = re.sub(r"\s+", " ", t)
+        if not t:
+            continue
+        teile.append(f"**{t}**" if c.get("type") == "headline" else t)
+        if sum(len(x) for x in teile) > grenze:
+            break
+    return "\n\n".join(teile)
+
+
+def eil_anreichern(karte: dict, states: States) -> None:
+    """Die Hinweisvorlage kürzt die Eilmeldung für die kleinen Panels auf 34 Zeichen; hier die volle Schlagzeile."""
+    st = states.get(EIL_SENSOR) or {}
+    titel = str(st.get("state") or "").strip()
+    if titel and titel not in INAKTIV:
+        karte["hinweis"] = titel
+    link = str((st.get("attributes") or {}).get("link") or "").strip()
+    if link:
+        karte["link"] = "https://www.tagesschau.de" + link if link.startswith("/") else link
 
 
 def parse_hinweise(zeilen: Any) -> list[dict]:

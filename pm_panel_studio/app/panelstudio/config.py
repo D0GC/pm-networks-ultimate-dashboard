@@ -217,25 +217,26 @@ STANDARD_AUSSEN_FEUCHTE = ["sensor.wetter_outdoor_module_luftfeuchtigkeit", "sen
 STANDARD_STUNDENPLAN = ["calendar.universitat"]
 
 
-# Blöcke der Admin-Startseite mit ihrer Standardbreite in Spalten (die Oberfläche kennt dieselben Schlüssel)
-ADMIN_BLOECKE = {
-    "aufmerksamkeit": 3,
-    "hinweise": 1,
-    "tueren": 1,
-    "klima": 1,
-    "raeume": 2,
-    "schnellzugriff": 1,
-    "energie": 1,
-    "pakete": 1,
-    "medien": 1,
-    "termine": 1,
-    "einkauf": 1,
-    "angebote": 1,
-    "sicherheit": 1,
+# Blöcke der Admin-Startseite mit Standardgröße (Breite in 12 Spalten, Höhe in Rasterzeilen); die Oberfläche kennt
+# dieselben Schlüssel. Gespeichert als „block:breite:höhe“, Reihenfolge = Anordnung.
+ADMIN_BLOECKE: dict[str, tuple[int, int]] = {
+    "aufmerksamkeit": (12, 2),
+    "hinweise": (4, 8),
+    "tueren": (4, 8),
+    "klima": (4, 5),
+    "raeume": (6, 7),
+    "schnellzugriff": (3, 7),
+    "energie": (3, 7),
+    "pakete": (4, 5),
+    "medien": (4, 5),
+    "termine": (4, 6),
+    "einkauf": (4, 6),
+    "angebote": (4, 6),
+    "sicherheit": (4, 6),
 }
 ADMIN_START = [
-    f"{b}:{ADMIN_BLOECKE[b]}"
-    for b in ("aufmerksamkeit", "hinweise", "tueren", "klima", "raeume", "schnellzugriff", "energie", "pakete", "medien")
+    f"{b}:{ADMIN_BLOECKE[b][0]}:{ADMIN_BLOECKE[b][1]}"
+    for b in ("aufmerksamkeit", "hinweise", "klima", "tueren", "raeume", "schnellzugriff", "energie", "pakete", "medien")
 ]
 
 
@@ -464,10 +465,16 @@ class Einstellungen:
                 gesehen: set[str] = set()
                 bloecke = []
                 for v in vals:
-                    m = re.match(r"^([a-z_]{2,32})(?::([1-3]))?$", str(v).strip())
-                    if m and m.group(1) in ADMIN_BLOECKE and m.group(1) not in gesehen:
-                        gesehen.add(m.group(1))
-                        bloecke.append(f"{m.group(1)}:{m.group(2) or ADMIN_BLOECKE[m.group(1)]}")
+                    m = re.match(r"^([a-z_]{2,32})(?::(\d{1,2}))?(?::(\d{1,2}))?$", str(v).strip())
+                    if not m or m.group(1) not in ADMIN_BLOECKE or m.group(1) in gesehen:
+                        continue
+                    gesehen.add(m.group(1))
+                    breite, hoehe = ADMIN_BLOECKE[m.group(1)]
+                    if m.group(2) and m.group(3):
+                        breite, hoehe = int(m.group(2)), int(m.group(3))
+                    elif m.group(2):
+                        breite = int(m.group(2)) * 4  # Format von 2026.10.41: Breite in drei Spalten
+                    bloecke.append(f"{m.group(1)}:{max(2, min(12, breite))}:{max(2, min(24, hoehe))}")
                 self.admin_start = bloecke
             elif key in ("bereiche_reihenfolge", "bereiche_ausblenden", "start_raeume", "karten_aus"):
                 vals = val if isinstance(val, list) else []

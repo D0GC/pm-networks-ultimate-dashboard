@@ -192,11 +192,11 @@
     dlg.innerHTML = `<div class="meldung-ansicht" style="--farbe:var(--krit)">
       <button class="zu" aria-label="Schließen">${PS.ic("close")}</button>
       <div class="m-icon">${PS.ic("alert-outline")}</div>
-      <h2>${PS.esc(k.titel || "Eilmeldung")}</h2>
-      ${k.wert ? `<p class="m-text">${PS.esc(k.wert)}</p>` : ""}
-      <div class="m-wann">Eilmeldung</div></div>`;
+      <h2>${PS.esc(k.hinweis || k.titel || "Eilmeldung")}</h2>
+      <div class="m-wann">${PS.esc(["Eilmeldung", k.titel].filter(Boolean).join(" · "))}</div></div>`;
     dlg.querySelector(".zu").addEventListener("click", schliessen);
-    if (k.hinweis) { const md = document.createElement("div"); md.className = "md eil-text"; md.innerHTML = PS.markdown(k.hinweis); dlg.appendChild(md); }
+    // Ganze Meldung: Artikeltext der Tagesschau (lädt die App nach); bis dahin nur die Schlagzeile
+    if (k.text) { const md = document.createElement("div"); md.className = "md eil-text"; md.innerHTML = PS.markdown(k.text); dlg.appendChild(md); }
     const r = reihe(); r.classList.add("m-knoepfe"); r.appendChild(knopf("OK", "check", schliessen, "primaer")); dlg.appendChild(r);
     dlg.classList.remove("meldung-hoch", "meldung-normal"); void dlg.offsetWidth; dlg.classList.add("meldung-normal");
     $("#dialog-grund").classList.add("offen");
@@ -205,7 +205,10 @@
   // Eilmeldung weg (Hinweiszeile entfernt): offenen Dialog schließen
   PS.on("karten", () => {
     const dlg = $("#dialog");
-    if (dlg.dataset.popup === "eil" && $("#dialog-grund").classList.contains("offen") && !(PS.karten || []).some((x) => x.schluessel === "eil")) schliessen();
+    if (dlg.dataset.popup !== "eil" || !$("#dialog-grund").classList.contains("offen")) return;
+    const k = (PS.karten || []).find((x) => x.schluessel === "eil");
+    if (!k) schliessen();
+    else if (k.text && !dlg.querySelector(".eil-text")) PS.eilZeigen(k);  // Artikeltext ist nachgeladen
   });
   PS.on("popups", () => {
     const dlg = $("#dialog"), id = dlg.dataset.popup;

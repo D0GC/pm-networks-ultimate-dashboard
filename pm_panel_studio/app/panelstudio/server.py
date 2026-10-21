@@ -20,7 +20,7 @@ from typing import Any
 import aiohttp
 from aiohttp import web
 
-from . import __version__
+from . import __version__, dateien
 from .config import DATA_DIR, EinstellungsSpeicher, Options
 from .ha_client import HAClient, HAError
 from .hub import BILD_ERLAUBT, Hub
@@ -127,7 +127,8 @@ def admin_html() -> str:
     html = html.replace('<html lang="de">', '<html lang="de" class="admin">', 1)
     html = html.replace("<title>PM Panel Flur</title>", "<title>PM Dashboard</title>", 1)
     html = html.replace("</head>", '<link rel="stylesheet" href="static/admin.css">\n</head>', 1)
-    return html.replace("</body>", '<script src="static/admin.js"></script>\n</body>', 1)
+    skripte = '<script src="static/admin.js"></script>\n<script src="static/admin-dateien.js"></script>\n'
+    return html.replace("</body>", skripte + "</body>", 1)
 
 
 async def seite_admin(_request: web.Request) -> web.Response:
@@ -468,6 +469,8 @@ def create_ingress_app(hub: Hub, token: list[str], networks: list[Any] | None = 
     app.router.add_get("/api/assist_pipelines", assist_pipelines)
     app.router.add_post("/api/einstellungen", einstellungen_post)
     app.router.add_post("/api/token", token_neu)
+    # Dateimanager nur über Ingress und nur für Administratoren, nie über den Panel-Port
+    dateien.routen(app, dateien.AdminPruefung(lambda: hub.client.ws_command({"type": "config/auth/list"})))
     _gemeinsam(app)
     return app
 
