@@ -1,5 +1,17 @@
 # Änderungen
 
+## 2026.10.43 – 2026-10-21
+
+- Neu: PM Dashboard als eigene App unter `http://<Home-Assistant>/local/pm-dashboard/` (die App legt die Startseite
+  beim Start dort ab). Vollbild ohne Oberfläche von Home Assistant, als App installierbar (bei HTTPS), Anmeldung mit
+  dem Konto von Home Assistant (dieselbe Anmeldung wie im Browser), hält den Ingress-Zugang selbst offen. Nur für
+  Administratoren. In der Seite „System“: „Als eigene App öffnen“.
+- Admin-Ansicht: Einstellungen, Karte und Energie von Home Assistant sowie Music Assistant als eigene Seiten in der
+  Modulleiste, eingebettet ohne die Seitenleiste von Home Assistant; auch die Sprünge aus „System“ öffnen jetzt im
+  Dashboard. Das Terminal nutzt denselben Weg und läuft auch in der eigenen App.
+- Admin-Ansicht, Räume: neue Raumkacheln (Startseite und Seite „Räume“) mit Temperatur, Feuchte, Zuständen
+  (offen, heizt, Medien, Bewegung) und einem Schalter für alle Lichter des Raums; Namen werden nicht mehr abgeschnitten.
+
 ## 2026.10.42 – 2026-10-21
 
 - Admin-Ansicht, Startseite: Raster aus 12 Spalten; im Modus „Anpassen“ lässt sich jeder Block am Griff unten rechts

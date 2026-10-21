@@ -104,3 +104,16 @@ async def test_hochladen_herunterladen_umbenennen_loeschen(dm):
     assert (await dm.post("/api/dateien/aktion", json={"art": "loeschen", "pfad": "config"}, headers=AKTION)).status == 400
     assert (await dm.post("/api/dateien/aktion", json={"art": "loeschen", "pfad": "config/pakete"}, headers=AKTION)).status == 200
     assert not (dm.basis / "config" / "pakete").exists()
+
+
+def test_eigene_app_ablegen(tmp_path):
+    from panelstudio import eigene_app
+
+    assert eigene_app.installieren(tmp_path / "fehlt" / "www" / "pm-dashboard", "x") is False
+    (tmp_path / "homeassistant").mkdir()
+    ziel = tmp_path / "homeassistant" / "www" / "pm-dashboard"
+    assert eigene_app.installieren(ziel, "1150666e_pm_panel_studio")
+    js = (ziel / "launcher.js").read_text(encoding="utf-8")
+    assert 'const SLUG = "1150666e_pm_panel_studio";' in js and "__SLUG__" not in js
+    assert {p.name for p in ziel.iterdir()} == {"index.html", "launcher.js", "manifest.webmanifest", "icon.svg"}
+    assert eigene_app.installieren(ziel, "1150666e_pm_panel_studio")  # zweiter Lauf ändert nichts

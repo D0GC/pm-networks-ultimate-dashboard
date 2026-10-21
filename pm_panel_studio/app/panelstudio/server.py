@@ -20,7 +20,7 @@ from typing import Any
 import aiohttp
 from aiohttp import web
 
-from . import __version__, dateien
+from . import __version__, dateien, eigene_app
 from .config import DATA_DIR, EinstellungsSpeicher, Options
 from .ha_client import HAClient, HAError
 from .hub import BILD_ERLAUBT, Hub
@@ -503,6 +503,11 @@ async def run(port: int, panel_port: int) -> None:
             await web.TCPSite(runner, "0.0.0.0", p).start()  # noqa: S104 (Container)
             runners.append(runner)
         _LOGGER.info("PM Panel Studio %s: Ingress-Port %d, Panel-Port %d", __version__, port, panel_port)
+        try:
+            if await asyncio.to_thread(eigene_app.installieren):
+                _LOGGER.info("Eigene App bereit: /local/pm-dashboard/")
+        except OSError as err:
+            _LOGGER.warning("Eigene App nicht abgelegt: %s", err)
         hub.start()
         try:
             await asyncio.Event().wait()
