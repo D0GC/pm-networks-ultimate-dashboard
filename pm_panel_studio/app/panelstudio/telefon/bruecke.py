@@ -58,7 +58,7 @@ class TonBruecke:
         loop = asyncio.get_running_loop()
         start = loop.time()
         n = 0
-        while True:
+        while not self._geschlossen:  # zusätzlich zu cancel(): endet auch, falls ein Abbruch verloren geht
             n += 1
             verzug = start + n * TAKT - loop.time()
             if verzug > 0:
@@ -69,7 +69,10 @@ class TonBruecke:
                 rahmen = self._puffer.popleft()
                 self._rtp.senden(bytes(RAHMEN_BYTES) if self.stumm else rahmen)
             try:
-                await asyncio.wait_for(self._senden(self._rtp.lesen()), SENDE_TIMEOUT_S)
+                # asyncio.timeout statt wait_for: wait_for verschluckt unter Python 3.11 ein cancel(), wenn der Rückruf
+                # im selben Schritt fertig wird; der Takt liefe dann weiter und schliessen() wartete endlos.
+                async with asyncio.timeout(SENDE_TIMEOUT_S):
+                    await self._senden(self._rtp.lesen())
                 self.rahmen_ausgang += 1
             except asyncio.CancelledError:
                 raise
