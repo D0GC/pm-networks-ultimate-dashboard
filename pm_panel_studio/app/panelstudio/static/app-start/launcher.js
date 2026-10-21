@@ -77,10 +77,13 @@
 
   // ------------------------------------------------------------ Ingress-Sitzung (wie das Frontend: Cookie, jede Minute bestätigen)
   const keks = () => (document.cookie.match(/(?:^|;\s*)ingress_session=([^;]+)/) || [])[1];
+  // Über die WebSocket-Verbindung wie das Frontend; die REST-Pfade /api/hassio/ingress/* sind gesperrt (HTTP 401)
   async function sitzungNeu() {
-    const r = await fetch("/api/hassio/ingress/session", { method: "POST", headers: { Authorization: "Bearer " + await zugang() } });
-    if (!r.ok) throw new Error(`Ingress-Sitzung nicht erhalten (HTTP ${r.status})`);
-    const s = (await r.json()).data.session;
+    let r;
+    try { r = await conn.sendMessagePromise({ type: "supervisor/api", endpoint: "/ingress/session", method: "post" }); }
+    catch (e) { throw Object.assign(new Error(`Ingress-Sitzung nicht erhalten: ${e.message}`), { code: e.code }); }
+    const s = (r && (r.session || (r.data && r.data.session))) || "";
+    if (!s) throw new Error("Ingress-Sitzung nicht erhalten (leere Antwort).");
     document.cookie = `ingress_session=${s};path=/api/hassio_ingress/;SameSite=Strict${location.protocol === "https:" ? ";Secure" : ""}`;
     return s;
   }
@@ -88,10 +91,8 @@
     const s = keks();
     if (s) {
       try {
-        const r = await fetch("/api/hassio/ingress/validate_session", {
-          method: "POST", headers: { Authorization: "Bearer " + await zugang(), "Content-Type": "application/json" }, body: JSON.stringify({ session: s }),
-        });
-        if (r.ok) return;
+        await conn.sendMessagePromise({ type: "supervisor/api", endpoint: "/ingress/validate_session", method: "post", data: { session: s } });
+        return;
       } catch { /* neu anlegen */ }
     }
     await sitzungNeu();
