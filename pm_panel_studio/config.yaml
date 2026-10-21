@@ -1,5 +1,5 @@
 name: PM Panel Studio
-version: "2026.10.41"
+version: "2026.10.42"
 slug: pm_panel_studio
 description: >-
   Wandpanel-Oberfläche für den Flur: rotierende Hinweiskarten mit Ringtimern, Ruhe- und Wachzustand,
@@ -33,9 +33,20 @@ ports_description:
 homeassistant: "2026.9.0"
 homeassistant_api: true
 hassio_api: false
-# Aufnahmen des Anrufbeantworters an der Haustür (Medienbrowser von Home Assistant)
+# Ordner für den Dateimanager der Admin-Ansicht (nur Administratoren) und die Aufnahmen des Anrufbeantworters
 map:
-  - media:rw
+  - type: media
+    read_only: false
+  - type: homeassistant_config
+    read_only: false
+  - type: share
+    read_only: false
+  - type: all_addon_configs
+    read_only: false
+  - type: ssl
+    read_only: false
+  - type: backup
+    read_only: false
 timeout: 20
 watchdog: "http://[HOST]:[PORT:8099]/api/health"
 options:

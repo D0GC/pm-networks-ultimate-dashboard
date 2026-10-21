@@ -48,14 +48,18 @@ body.admin.offen .admin-start{visibility:hidden}
 .as-kopf{display:flex;align-items:flex-end;justify-content:space-between;gap:1.5rem;flex-wrap:wrap;margin-bottom:1.6rem}
 .as-kopf h1{margin:0;font-size:2.2rem;font-weight:600;letter-spacing:-.01em}
 .as-kopf p{margin:.3rem 0 0;color:var(--leise);font-size:1.15rem}
-.as-raster{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1.4rem;align-items:start}
-.as-block{grid-column:span var(--breite,1);position:relative;min-width:0}
-.as-block > .r-box{height:100%}
+/* Raster der Startseite: 12 Spalten (6 bzw. 1 bei schmalem Fenster, setzt admin.js), Zeilen zu 3,4rem; Blöcke
+   füllen Lücken auf (dense). Jeder Block ist ein Container: der Inhalt richtet sich nach seiner eigenen Breite. */
+.as-raster{--spalten:12;display:grid;grid-template-columns:repeat(var(--spalten),minmax(0,1fr));grid-auto-rows:3.4rem;grid-auto-flow:row dense;gap:1.2rem}
+.as-block{position:relative;min-width:0;min-height:0;container:blk / inline-size}
+.as-block > .r-box{height:100%;box-sizing:border-box;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:var(--violet) transparent;gap:.8rem}
+.as-seitenraster{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1.4rem;align-items:start}
+.as-seitenraster > .as-block{grid-column:span var(--breite,1);container:none}
 .as-block .r-box h3{justify-content:flex-start;gap:.6rem}
 .as-block .r-box h3 small{margin-left:auto}
 .as-block .r-box h3 .mdi{font-size:1.3rem}
-@media (max-width:1180px){.as-raster{grid-template-columns:repeat(2,minmax(0,1fr))}.as-block{grid-column:span min(var(--breite,1),2)}}
-@media (max-width:760px){.as-raster{grid-template-columns:minmax(0,1fr)}.as-block{grid-column:span 1}}
+@media (max-width:1180px){.as-seitenraster{grid-template-columns:repeat(2,minmax(0,1fr))}.as-seitenraster > .as-block{grid-column:span min(var(--breite,1),2)}}
+@media (max-width:760px){.as-seitenraster{grid-template-columns:minmax(0,1fr)}.as-seitenraster > .as-block{grid-column:span 1}}
 
 .as-nominal{display:flex;align-items:center;gap:1rem;color:var(--gut)}
 .as-nominal .mdi{font-size:2.6rem}
@@ -82,7 +86,9 @@ body.admin.offen .admin-start{visibility:hidden}
 .as-karte .t b{font-size:1.15rem;font-weight:600}
 .as-karte .t span{color:var(--leise);font-size:1rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
-.as-raeume{display:grid;grid-template-columns:repeat(auto-fill,minmax(13rem,1fr));gap:.8rem}
+.as-raeume{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.8rem}
+@container blk (min-width:64rem){.as-raeume{grid-template-columns:repeat(auto-fill,minmax(13rem,1fr))}}
+@container blk (max-width:20rem){.as-raeume{grid-template-columns:minmax(0,1fr)}}
 .as-raum{all:unset;cursor:pointer;display:grid;grid-template-columns:auto 1fr;grid-template-areas:"i n" "w w" "c c";gap:.3rem .6rem;align-items:center;
   padding:1rem;border-radius:1rem;background:var(--flaeche-tief);border:1px solid var(--linie)}
 .as-raum:hover{border-color:var(--linie-stark)}
@@ -101,20 +107,44 @@ body.admin.offen .admin-start{visibility:hidden}
 .as-kamera{cursor:pointer}
 .as-kamera img{width:100%;height:100%;object-fit:cover;display:block}
 .as-kamera span{position:absolute;left:.8rem;top:.6rem;font-size:.95rem;font-weight:600;background:rgba(0,0,0,.45);padding:.2rem .6rem;border-radius:.4rem}
-.as-block .r-thermos{grid-template-columns:minmax(0,1fr)}
-.as-block[style*="--breite:2"] .r-thermos,.as-block[style*="--breite:3"] .r-thermos{grid-template-columns:repeat(2,minmax(0,1fr))}
+/* Klima als Zeilen; ab mittlerer Breite zwei Spalten */
+.as-thermos{display:grid;grid-template-columns:minmax(0,1fr);gap:.5rem}
+@container blk (min-width:56rem){.as-thermos{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.as-thermo{display:grid;grid-template-columns:minmax(0,1fr) auto auto;grid-template-areas:"n ist soll" "n zst soll";align-items:center;gap:0 .8rem;
+  padding:.6rem .8rem;border-radius:.9rem;background:var(--flaeche-tief);border:1px solid var(--linie)}
+.as-thermo .n{all:unset;cursor:pointer;grid-area:n;display:flex;align-items:center;gap:.6rem;min-width:0;font-weight:600;font-size:1.1rem}
+.as-thermo .n span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.as-thermo .n .mdi{font-size:1.4rem;color:var(--lavender)}
+.as-thermo .ist{grid-area:ist;font-size:1.35rem;font-weight:600;text-align:right}
+.as-thermo .zst{grid-area:zst;font-size:.9rem;color:var(--leise);text-align:right}
+.as-thermo.heizt .zst{color:var(--warn)}
+.as-thermo.heizt .n .mdi{color:var(--warn)}
+.as-thermo .soll{grid-area:soll;display:flex;align-items:center;gap:.3rem}
+.as-thermo .soll b{min-width:4.2rem;text-align:center;font-size:1.15rem}
+.as-thermo .soll .knopf.rund{width:2.4rem;height:2.4rem;padding:0}
+@container blk (max-width:22rem){.as-thermo{grid-template-areas:"n n" "ist soll";grid-template-columns:auto 1fr}.as-thermo .zst{display:none}.as-thermo .soll{justify-content:flex-end}}
+/* Kacheln und Kamera passen sich der Blockbreite an */
+.as-block .raster{grid-template-columns:repeat(auto-fill,minmax(12.5rem,1fr))}
+@container blk (max-width:24rem){.as-block .raster{grid-template-columns:repeat(2,minmax(0,1fr))}.as-block .raster .kachel{min-height:5rem;padding:.8rem}}
+@container blk (max-width:15rem){.as-block .raster{grid-template-columns:minmax(0,1fr)}}
+.as-kamera{max-height:60cqh}
 .liste .zeile.klickbar:hover{background:rgba(255,255,255,.03)}
 
 /* Anpassen */
-body.anpassen .as-block{outline:1px dashed var(--linie-stark);outline-offset:.4rem;border-radius:var(--r-aussen)}
-body.anpassen .as-block > .r-box{pointer-events:none;opacity:.75}
+body.anpassen #as-raster .as-block{outline:1px dashed var(--linie-stark);outline-offset:.4rem;border-radius:var(--r-aussen)}
+body.anpassen #as-raster .as-block > .r-box{pointer-events:none;opacity:.75}
 .as-werkzeug{position:absolute;top:.6rem;right:.6rem;z-index:2;display:flex;gap:.3rem;align-items:center;padding:.3rem;border-radius:.8rem;background:var(--glas-fest);border:1px solid var(--linie-stark);box-shadow:0 .6rem 1.4rem -.6rem rgba(0,0,0,.6)}
 .as-werkzeug button{all:unset;cursor:pointer;min-width:2.2rem;height:2.2rem;display:grid;place-items:center;border-radius:.5rem;font-size:1rem;font-weight:600;color:var(--lavender)}
 .as-werkzeug button .mdi{font-size:1.3rem}
 .as-werkzeug button:hover{background:rgba(255,255,255,.08);color:var(--cloud)}
 .as-werkzeug button.aktiv{background:var(--purple);color:#fff}
 .as-werkzeug button:disabled{opacity:.3;cursor:default}
-.as-werkzeug .breiten{display:flex;gap:.15rem;padding:0 .3rem;border-inline:1px solid var(--linie)}
+.as-griff{all:unset;cursor:nwse-resize;position:absolute;right:.3rem;bottom:.3rem;z-index:3;width:2.4rem;height:2.4rem;display:grid;place-items:center;
+  border-radius:.6rem;background:var(--purple);color:#fff;box-shadow:0 .4rem 1rem -.3rem rgba(0,0,0,.6);touch-action:none}
+.as-griff .mdi{font-size:1.4rem}
+.as-masse{position:absolute;right:3.1rem;bottom:.75rem;z-index:3;font-size:.9rem;font-weight:600;color:var(--lavender);background:var(--glas-fest);padding:.15rem .5rem;border-radius:.4rem}
+.as-block.zieht{outline:2px solid var(--akzent)!important}
+.as-block.zieht > .r-box{opacity:.95}
 .as-vorrat{margin-top:2rem;padding:1.4rem;border:1px dashed var(--linie-stark);border-radius:var(--r-aussen)}
 .as-vorrat h3{margin:0 0 1rem;font-size:var(--t-hinweis);letter-spacing:.18em;text-transform:uppercase;color:var(--akzent)}
 
@@ -125,6 +155,9 @@ body.admin.offen .sheet{visibility:visible}
 body.admin .sheet-kopf{border-radius:0;padding:1rem 2.2rem}
 body.admin .sheet-kopf h1{font-size:1.9rem;flex:none;margin-right:1rem}
 body.admin .sheet-kopf .zu{display:none}
+/* Nur Titel ohne Reiter und ohne Zurück: Kopfzeile entfällt, die Modulleiste zeigt, wo man ist */
+body.admin .sheet:has(.zurueck[hidden]):has(#sheet-tabs:empty){--kopf-h:0px}
+body.admin .sheet:has(.zurueck[hidden]):has(#sheet-tabs:empty) .sheet-kopf{display:none}
 body.admin .sheet-inhalt{padding:calc(var(--kopf-h) + 1.6rem) 2.2rem 2.4rem}
 body.admin .sheet-inhalt>*{animation:none}
 .admin-seite .as-raster{align-items:stretch}
@@ -160,3 +193,34 @@ body.admin .ereignis .ereignis-hinweis .mdi{font-size:4rem}
 .ak-lage{-webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 2rem),transparent);mask-image:linear-gradient(90deg,#000 calc(100% - 2rem),transparent)}
 .as-karte .ring .innen b,.as-karte .ring .innen .wert-txt{font-size:1.1rem!important;font-weight:600;letter-spacing:0}
 .as-karte .t b{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+
+/* Dateimanager */
+.dm-kopf{display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;margin-bottom:1rem}
+.dm-pfad{display:flex;align-items:center;gap:.3rem;flex-wrap:wrap;min-width:0;font-size:1.1rem;color:var(--leise)}
+.dm-pfad button{all:unset;cursor:pointer;padding:.3rem .6rem;border-radius:.5rem;color:var(--cloud);font-weight:600}
+.dm-pfad button:hover{background:rgba(255,255,255,.07)}
+.dm-pfad button:focus-visible{outline:2px solid var(--cloud)}
+.dm-pfad > span{font-family:ui-monospace,Consolas,monospace;color:var(--lavender);overflow-wrap:anywhere}
+.dm-eingabe,.dm-meldung{display:flex;align-items:center;gap:.7rem;flex-wrap:wrap;padding:.8rem 1rem;margin-bottom:1rem;border-radius:1rem;background:var(--flaeche);border:1px solid var(--linie)}
+.dm-eingabe[hidden],.dm-meldung[hidden]{display:none}
+.dm-eingabe .feld{flex:1;min-width:16rem}
+.dm-meldung span{flex:1;min-width:0}
+.dm-meldung.fehler{border-color:rgba(239,106,122,.5);color:#ffd5db}
+.dm-liste{border-radius:var(--r-aussen);background:var(--flaeche);border:1px solid var(--linie);padding:.6rem 1rem;transition:border-color .2s}
+.dm-liste.ziel{border-color:var(--akzent);border-style:dashed}
+.dm-liste tbody tr{cursor:pointer}
+.dm-liste tbody tr:hover td{background:rgba(255,255,255,.03)}
+.dm-liste td:first-child{display:flex;align-items:center;gap:.7rem;min-width:0}
+.dm-liste td:first-child .mdi{font-size:1.4rem;color:var(--lavender);flex:none}
+.dm-liste tr.dm-ordner td:first-child .mdi{color:var(--warn)}
+.dm-liste td:first-child span{overflow-wrap:anywhere}
+.dm-liste td:first-child small{color:var(--leise);font-size:.85rem}
+.dm-liste td:nth-child(2){text-align:right}
+.dm-akt{white-space:nowrap;text-align:right;width:1%}
+.dm-akt .knopf.rund{width:2.4rem;height:2.4rem;padding:0;margin-left:.3rem}
+.sheet-inhalt.dm-editor-seite{display:flex;flex-direction:column}
+.dm-status{font-size:.95rem;color:var(--gut)}
+.dm-status.neu{color:var(--warn)}
+.dm-text{flex:1;min-height:30rem;width:100%;box-sizing:border-box;resize:none;padding:1rem 1.2rem;border-radius:1rem;border:1px solid var(--linie-stark);
+  background:#0b0920;color:var(--cloud);font:500 1.05rem/1.55 ui-monospace,"JetBrains Mono",Consolas,monospace;tab-size:2;white-space:pre;overflow:auto}
+.dm-text:focus{outline:2px solid var(--akzent);outline-offset:1px}

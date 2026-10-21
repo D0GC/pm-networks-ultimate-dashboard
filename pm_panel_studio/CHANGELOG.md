@@ -1,5 +1,23 @@
 # Änderungen
 
+## 2026.10.42 – 2026-10-21
+
+- Admin-Ansicht, Startseite: Raster aus 12 Spalten; im Modus „Anpassen“ lässt sich jeder Block am Griff unten rechts
+  frei in Breite und Höhe ziehen (rastet ein, Größe als „Spalten × Zeilen“). Der Inhalt richtet sich nach der
+  Blockgröße: Klima als kompakte Zeilen (Ist, Zustand, Soll mit − und +), Räume zu zweit nebeneinander, Kacheln und
+  Listen passen sich an, zu viel Inhalt scrollt im Block. Lücken füllen sich automatisch. Gespeichert als
+  `block:breite:höhe`; Anordnungen aus 2026.10.41 werden übernommen.
+- Admin-Ansicht: Modulseiten ohne eigene Kopfzeile (die Modulleiste zeigt, wo man ist); die Kopfzeile erscheint nur
+  noch mit Reitern oder Zurück-Knopf.
+- Neu: Dateimanager in der Admin-Ansicht (Seite „Dateien“). Ordner: Home Assistant (Konfiguration), share, media,
+  App-Konfigurationen, ssl und backup, alle mit Schreibrecht. Ordner durchsuchen, Dateien hochladen (mehrere, auch
+  per Ziehen und Ablegen, mit Fortschritt), herunterladen (Ordner als ZIP), Textdateien bearbeiten (Strg+S speichert,
+  Schutz vor Überschreiben fremder Änderungen), Ordner und Dateien anlegen, umbenennen, löschen (mit Bestätigung).
+  Nur für Administratoren: Die App prüft bei jeder Anfrage den angemeldeten Benutzer über Home Assistant; über den
+  Panel-Port ist der Dateimanager nicht erreichbar.
+- Eilmeldung am Wandpanel: Karte und Dialog zeigen die volle Schlagzeile statt der auf 34 Zeichen gekürzten Zeile
+  der Hinweisvorlage; der Dialog zeigt zusätzlich den ganzen Artikeltext der Tagesschau (lädt die App nach).
+
 ## 2026.10.41 – 2026-10-21
 
 - Neu: Admin-Ansicht am PC. Der Eintrag in der Seitenleiste von Home Assistant heißt jetzt „PM Dashboard“ und

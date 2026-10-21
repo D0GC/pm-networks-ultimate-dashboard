@@ -25,6 +25,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
+import aiohttp
 from aiohttp import web
 
 from . import __version__
@@ -135,6 +136,8 @@ class Hub:
         self.verbunden = False
         self.karten: list[dict] = []
         self._karten_json = ""
+        self._eil_texte: dict[str, str] = {}  # Link der Eilmeldung → Artikeltext (Markdown, leer = nicht abrufbar)
+        self._eil_laeuft: set[str] = set()
         self._diff: dict[str, Any] = {}
         self._flush_task: asyncio.Task | None = None
         self._tasks: list[asyncio.Task] = []
@@ -461,6 +464,9 @@ class Hub:
             self.opts.personen,
             self.opts.pakete_entitaet,
         )
+        for k in karten:
+            if k.get("schluessel") == "eil":
+                self._eil_vervollstaendigen(k)
         if "meldung" not in self.einstellungen.karten_aus:
             karten = kt.sortiere(self.popups.karten() + karten)
         roh = json.dumps(karten, ensure_ascii=False, sort_keys=True)
@@ -470,6 +476,42 @@ class Hub:
         self.karten = karten
         if senden:
             self.spawn(self.senden_alle({"typ": "karten", "karten": karten}))
+
+    def _eil_vervollstaendigen(self, k: dict) -> None:
+        """Volle Schlagzeile und, sobald geladen, der Artikeltext der Tagesschau für den Dialog „Eilmeldung“."""
+        kt.eil_anreichern(k, self.states)
+        url = k.get("link")
+        if not url:
+            return
+        if url in self._eil_texte:
+            if self._eil_texte[url]:
+                k["text"] = self._eil_texte[url]
+        elif url not in self._eil_laeuft:
+            self._eil_laeuft.add(url)
+            self.spawn(self._eil_text_laden(url))
+
+    async def _eil_text_laden(self, url: str) -> None:
+        api = re.sub(
+            r"\.html?(?:[?#].*)?$", ".json", url.replace("https://www.tagesschau.de/", "https://www.tagesschau.de/api2u/", 1)
+        )
+        text = ""
+        try:
+            async with self.client.session.get(
+                api,
+                timeout=aiohttp.ClientTimeout(total=15),
+                headers={"User-Agent": "PM Panel Studio", "Accept": "application/json"},
+            ) as r:
+                if r.status == 200:
+                    text = kt.eil_text(await r.json(content_type=None))
+                else:
+                    _LOGGER.info("Eilmeldung: Artikel nicht abrufbar (%s, HTTP %s)", api, r.status)
+        except (aiohttp.ClientError, TimeoutError, ValueError) as err:
+            _LOGGER.info("Eilmeldung: Artikel nicht abrufbar (%s): %s", api, err)
+        finally:
+            self._eil_laeuft.discard(url)
+        self._eil_texte = {url: text}  # nur die aktuelle Meldung merken
+        if text:
+            self._karten_neu()
 
     # ------------------------------------------------------------ Ruhe / Wach / Ereignis
 

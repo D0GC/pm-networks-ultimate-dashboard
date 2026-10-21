@@ -701,3 +701,31 @@ def test_muell_ohne_sondermuell():
     assert k["hinweis"] == "Biotonne"
     assert kt.parse_hinweise("muell|Müll|morgen|Sondermüll") == []
     assert kt.parse_hinweise("muell|Müll|morgen|Schadstoffmobil\nwetter|W|x|y")[0]["schluessel"] == "wetter"
+
+
+def test_eilmeldung_volle_schlagzeile_und_artikeltext():
+    zeilen = "eil|ARD|Eilmeldung|Bundestag beschließt Haushalt…"
+    states = {
+        "sensor.h": {"state": "1", "attributes": {"zeilen": zeilen}},
+        "sensor.tagesschau_eilmeldung": {
+            "state": "Bundestag beschließt Haushalt für 2027 nach langer Debatte",
+            "attributes": {"link": "/inland/haushalt-100.html"},
+        },
+    }
+    k = next(x for x in kt.parse_hinweise(zeilen) if x["schluessel"] == "eil")
+    kt.eil_anreichern(k, states)
+    assert k["hinweis"] == "Bundestag beschließt Haushalt für 2027 nach langer Debatte"
+    assert k["link"] == "https://www.tagesschau.de/inland/haushalt-100.html"
+    daten = {
+        "content": [
+            {"type": "text", "value": "<strong>Der Bundestag</strong> hat&nbsp;den Haushalt beschlossen."},
+            {"type": "image_gallery", "value": "x"},
+            {"type": "headline", "value": "<h2>Opposition kritisiert</h2>"},
+            {"type": "text", "value": "Die Opposition stimmte dagegen."},
+        ]
+    }
+    assert (
+        kt.eil_text(daten)
+        == "Der Bundestag hat den Haushalt beschlossen.\n\n**Opposition kritisiert**\n\nDie Opposition stimmte dagegen."
+    )
+    assert kt.eil_text(None) == "" and kt.eil_text({"content": "kaputt"}) == ""

@@ -19,14 +19,20 @@ in Home Assistant (Seitenleiste, Benachrichtigungen und Einstellungen bleiben er
 
 - **Modulleiste links:** alle Module des Panels, darunter die Admin-Seiten Türdienst, System, Terminal und Editor.
 - **Kopfzeile:** Uhr, Wetter, Anwesenheit, Statuspillen, Suche (Taste `/`) und Meldungsglocke.
-- **Startseite:** Blöcke im Raster aus drei Spalten. „Anpassen“ verschiebt Blöcke, stellt ihre Breite ein (1–3
-  Spalten), blendet sie aus und fügt weitere hinzu; „Speichern“ legt die Anordnung in `admin_start` ab. Blöcke:
+- **Startseite:** Blöcke im Raster aus 12 Spalten. „Anpassen“ verschiebt Blöcke (Pfeile), zieht sie am Griff unten
+  rechts frei auf jede Breite und Höhe, blendet sie aus und fügt weitere hinzu; der Inhalt passt sich der Blockgröße
+  an. „Speichern“ legt die Anordnung in `admin_start` ab (`block:breite:höhe`). Blöcke:
   Aufmerksamkeit (nicht erreichbare Geräte, Meldungen, offene Fenster, schwache Batterien, Updates, neue
   Türnachricht), Hinweise (die Karten des Feeds als Liste), Türen, Klima, Räume, Schnellzugriff (inklusive PCs und
   Wake on LAN), Energie, Pakete, Medien, Termine, Einkauf, Angebote, Sicherheit.
 - **Türdienst:** die letzten 60 Nachrichten mit Abschrift und Wiedergabe, die Einstellungen im Überblick, Haustür öffnen.
 - **System:** Systemzustand, Verbindungen der App, offene Meldungen, Sprünge zu Automationen, Geräten, Protokollen
   und weiteren Seiten von Home Assistant.
+- **Dateien:** Dateimanager für die Ordner Home Assistant (Konfiguration), share, media, App-Konfigurationen, ssl und
+  backup, alle beschreibbar. Hochladen (auch per Ziehen und Ablegen), Herunterladen (Ordner als ZIP), Textdateien
+  bearbeiten (Strg+S), anlegen, umbenennen, löschen. Nur für Administratoren: jede Anfrage wird über Home Assistant
+  geprüft; über den Panel-Port nicht erreichbar. Achtung: Änderungen an der Konfiguration wirken wie im Editor von
+  Home Assistant, ein Fehler in `configuration.yaml` kann den Neustart verhindern.
 - **Terminal:** die App „Advanced SSH & Web Terminal“ (oder „Terminal & SSH“) über Ingress eingebettet; sie muss
   installiert und gestartet sein.
 
