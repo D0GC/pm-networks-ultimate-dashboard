@@ -250,6 +250,18 @@
     return z;
   }
 
+  const energieTop = () => alle().filter((e) => e.startsWith("sensor.") && PS.a(e).device_class === "power" && PS.sichtbar(e) && isFinite(num(e)))
+    .sort((x, y) => num(y) - num(x));
+  // Was eine Raumkachel zeigt, als Vergleichswert (Temperatur und Feuchte gerundet wie angezeigt)
+  function raumSignatur(x) {
+    const w = PS.raumWerte(x.id);
+    const lichter = PS.lichtAuswahl(w.ent, x.name).sichtbar;
+    return [x.id, w.temp != null ? PS.zahl(w.temp, 1) : null, w.feuchte != null ? PS.zahl(w.feuchte, 0) : null,
+      lichter.filter((e) => PS.s(e) === "on").length, lichter.length, w.ent.length,
+      w.ent.filter((e) => e.startsWith("binary_sensor.") && PS.s(e) === "on").join(","),
+      w.klima ? PS.a(w.klima).hvac_action : null, w.ent.filter((e) => e.startsWith("media_player.") && PS.s(e) === "playing").join(",")];
+  }
+
   // ------------------------------------------------------------ Blöcke der Startseite
   // relevant(ids): bei welchen Zustandsänderungen der Block neu gezeichnet wird (Kacheln aktualisieren sich selbst)
   const B = {
@@ -269,6 +281,7 @@
         b.appendChild(r);
       },
       relevant: () => true,
+      signatur: () => JSON.stringify(lage().map((p) => [p.stufe, p.text])),
     },
     hinweise: {
       titel: "Hinweise", icon: "cards-outline",
@@ -288,6 +301,7 @@
         b.appendChild(l);
       },
       relevant: () => false, karten: true,
+      signatur: () => JSON.stringify((PS.feedListe || []).concat(PS.karten || []).map((k) => { const m = PS.kartenModell(k); return [k.id, m.zahl, m.h2, m.p, m.liste, Math.round((m.anteil || 0) * 20)]; })),
     },
     tueren: {
       titel: "Türen", icon: "door",
@@ -341,6 +355,8 @@
         b.appendChild(r);
       },
       relevant: (ids) => [...ids].some((e) => /^(light|climate|sensor|media_player|binary_sensor)\./.test(e)),
+      // Nur neu zeichnen, wenn sich an einer Kachel sichtbar etwas ändert (Sensoren melden sich im Sekundentakt)
+      signatur: () => JSON.stringify(bereicheListe().map((x) => raumSignatur(x))),
     },
     schnellzugriff: {
       titel: "Schnellzugriff", icon: "lightning-bolt-outline",
@@ -355,8 +371,7 @@
     energie: {
       titel: "Energie", icon: "lightning-bolt",
       render(b) {
-        const leistung = alle().filter((e) => e.startsWith("sensor.") && PS.a(e).device_class === "power" && PS.sichtbar(e) && isFinite(num(e)));
-        leistung.sort((x, y) => num(y) - num(x));
+        const leistung = energieTop();
         const summe = leistung.reduce((s, e) => s + Math.max(0, num(e)), 0);
         const max = Math.max(1, ...leistung.map((e) => Math.abs(num(e))));
         b.querySelector("h3 small").textContent = `${PS.zahl(summe, 0)} W jetzt`;
@@ -365,6 +380,17 @@
         b.appendChild(knopf("Energie öffnen", "chart-line", () => PS.oeffnen("energie")));
       },
       relevant: (ids) => [...ids].some((e) => e.startsWith("sensor.") && PS.a(e).device_class === "power"),
+      // Reihenfolge der sechs größten Verbraucher; solange sie gleich bleibt, nur Werte und Balken nachführen
+      signatur: () => JSON.stringify(energieTop().slice(0, 6)),
+      aktualisieren(b) {
+        const l = energieTop(), max = Math.max(1, ...l.map((e) => Math.abs(num(e))));
+        const s = b.querySelector("h3 small"); if (s) s.textContent = `${PS.zahl(l.reduce((a, e) => a + Math.max(0, num(e)), 0), 0)} W jetzt`;
+        b.querySelectorAll(".balken-zeile[data-eid]").forEach((z) => {
+          const e = z.dataset.eid; if (!PS.z[e]) return;
+          z.querySelector(".w").textContent = PS.text(e);
+          z.querySelector(".bar i").style.width = `${Math.max(1, Math.min(100, (Math.abs(num(e)) / max) * 100))}%`;
+        });
+      },
       takt: 10000,
     },
     pakete: {
@@ -379,6 +405,7 @@
         b.appendChild(l);
       },
       relevant: () => false, karten: true,
+      signatur: () => JSON.stringify((PS.feedListe || []).concat(PS.karten || []).map((k) => { const m = PS.kartenModell(k); return [k.id, m.zahl, m.h2, m.p, m.liste, Math.round((m.anteil || 0) * 20)]; })),
     },
     medien: {
       titel: "Medien", icon: "play-circle",
@@ -413,6 +440,8 @@
         b.appendChild(offen.length ? raster(offen.sort(nameSort)) : leer("Alle Türen und Fenster sind zu."));
       },
       relevant: (ids) => [...ids].some((e) => e.startsWith("binary_sensor.") || e.startsWith("alarm_control_panel.")),
+      signatur: () => JSON.stringify([alle().filter((e) => PS.domain(e) === "alarm_control_panel").map(PS.s),
+        alle().filter((e) => e.startsWith("binary_sensor.") && ["door", "window", "opening", "garage_door"].includes(PS.a(e).device_class) && PS.s(e) === "on")]),
     },
   };
   // Größe je Block: Breite in 12 Spalten, Höhe in Rasterzeilen (wie ADMIN_BLOECKE in config.py)
@@ -594,7 +623,7 @@
       bundel = null;
       [...faellig].forEach((x) => {
         const b = bloecke.get(x); if (!b) return;
-        if (b.def.signatur && b.def.signatur() === b.sig) return;
+        if (b.def.signatur && b.def.signatur() === b.sig) { if (b.def.aktualisieren) b.def.aktualisieren(b.el.querySelector(".r-box")); return; }
         if (b.el.contains(document.activeElement) && document.activeElement !== document.body) return;
         b.el.querySelectorAll("img").forEach(PS.kameraStoppen);
         blockZeichnen(x);
@@ -628,21 +657,31 @@
   setInterval(grussZeigen, 60000);
 
   // ------------------------------------------------------------ Laufschrift für zu lange Namen
-  const LAUF = ".kachel b, .as-raum .n, .gross .titel > span, .r-box h3 > span, .as-thermo .n span, .raum .oben b";
+  const LAUF = ".kachel b, .as-raum .n, .gross .titel > span, .r-box h3 > span, .as-thermo .n > span, .raum .oben b";
+  let laufNr = 0;
   function laufschrift() {
     document.querySelectorAll(LAUF).forEach((el) => {
       // Zahlenwalzen und Ringe haben ihr eigenes Innenleben
-      if (el.matches(".wert-txt, [data-text]") || el.closest(".ring")) return;
+      if (el.classList.contains("lauf-innen") || el.matches(".wert-txt, [data-text]") || el.closest(".ring")) return;
       if (!el.firstElementChild && el.textContent.trim()) {
         const i = document.createElement("span"); i.className = "lauf-innen";
         i.textContent = el.textContent; el.textContent = ""; el.appendChild(i);
       }
       const innen = el.firstElementChild;
       if (!innen || !innen.classList.contains("lauf-innen")) { el.classList.remove("lauftext"); return; }
-      const weg = innen.scrollWidth - el.clientWidth + 12;
-      const an = el.clientWidth > 0 && weg > 14;
-      el.classList.toggle("lauftext", an);
-      if (an) { el.style.setProperty("--weg", `-${weg}px`); el.style.setProperty("--dauer", `${Math.max(6, weg / 22 / 0.55 + 3).toFixed(1)}s`); }
+      const ueber = innen.offsetWidth - el.clientWidth;
+      const an = el.clientWidth > 0 && ueber > 0;
+      if (!an) { el.classList.remove("lauftext"); delete el.dataset.weg; return; }
+      // Bis knapp vor den rechten Rand fahren (außerhalb der Ausblendung); nur bei echter Änderung neu setzen,
+      // sonst springt die laufende Bewegung zurück
+      const weg = Math.round(ueber + 18);
+      if (el.dataset.weg !== String(weg)) {
+        el.dataset.weg = String(weg);
+        el.style.setProperty("--weg", `-${weg}px`);
+        el.style.setProperty("--dauer", `${Math.max(9, weg / 26 / 0.42).toFixed(1)}s`);
+        el.style.setProperty("--verzug", `${((laufNr++ % 7) * 0.9).toFixed(1)}s`);
+      }
+      el.classList.add("lauftext");
     });
   }
   let laufTimer = null;

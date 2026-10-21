@@ -132,7 +132,7 @@ body.admin.offen .admin-start{visibility:hidden}
 .as-thermo .soll{grid-area:soll;display:flex;align-items:center;gap:.3rem}
 .as-thermo .soll b{min-width:4.2rem;text-align:center;font-size:1.15rem}
 .as-thermo .soll .knopf.rund{width:2.4rem;height:2.4rem;padding:0}
-@container blk (max-width:22rem){.as-thermo{grid-template-areas:"n n" "ist soll";grid-template-columns:auto 1fr}.as-thermo .zst{display:none}.as-thermo .soll{justify-content:flex-end}}
+@container blk (max-width:30rem){.as-thermo{grid-template-areas:"n n" "ist soll";grid-template-columns:auto 1fr}.as-thermo .zst{display:none}.as-thermo .soll{justify-content:flex-end}}
 /* Kacheln und Kamera passen sich der Blockbreite an */
 .as-block .raster{grid-template-columns:repeat(auto-fill,minmax(12.5rem,1fr))}
 @container blk (max-width:24rem){.as-block .raster{grid-template-columns:repeat(2,minmax(0,1fr))}.as-block .raster .kachel{min-height:5rem;padding:.8rem}}
@@ -346,13 +346,20 @@ body.admin .r-zahl{overflow-wrap:anywhere}
 body.admin .gross .thermo{flex-wrap:wrap}
 /* Lange Namen (z. B. „PM Heizperiode“) als Laufschrift: einzeilig; passt der Name nicht, läuft er langsam durch,
    hält kurz und beginnt von vorn (admin.js setzt .lauftext, --weg und --dauer). Kleine Kachelraster füllen die Breite. */
-body.admin :is(.kachel b,.as-raum .n,.gross .titel > span,.r-box h3 > span,.as-thermo .n span,.raum .oben b){
+body.admin :is(.kachel b,.as-raum .n,.gross .titel > span,.r-box h3 > span,.as-thermo .n > span,.raum .oben b){
   display:block;white-space:nowrap;overflow:hidden;text-overflow:clip;-webkit-line-clamp:unset;min-width:0}
 body.admin .gross .titel > span{flex:0 1 auto}
 .lauf-innen{display:inline-block;will-change:transform}
-.lauftext{-webkit-mask-image:linear-gradient(90deg,transparent,#000 .5rem,#000 calc(100% - .9rem),transparent);mask-image:linear-gradient(90deg,transparent,#000 .5rem,#000 calc(100% - .9rem),transparent)}
-.lauftext > .lauf-innen{padding-left:.5rem;animation:durchlauf var(--dauer,8s) linear infinite}
-@keyframes durchlauf{0%,15%{transform:translateX(0)}70%,85%{transform:translateX(var(--weg))}100%{transform:translateX(0)}}
+.lauftext{-webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 1rem),transparent);mask-image:linear-gradient(90deg,#000 calc(100% - 1rem),transparent)}
+.lauftext > .lauf-innen{animation:durchlauf var(--dauer,10s) ease-in-out var(--verzug,0s) infinite}
+/* Stehen, sanft bis zum Ende, kurz halten, ausblenden, am Anfang wieder einblenden */
+@keyframes durchlauf{
+  0%,22%{transform:translateX(0);opacity:1}
+  64%,80%{transform:translateX(var(--weg));opacity:1}
+  87%{transform:translateX(var(--weg));opacity:0}
+  88%{transform:translateX(0);opacity:0}
+  95%,100%{transform:translateX(0);opacity:1}
+}
 @media (prefers-reduced-motion:reduce){.lauftext > .lauf-innen{animation:none}.lauftext{-webkit-mask-image:none;mask-image:none;text-overflow:ellipsis}}
 body.admin .raster.mini{grid-template-columns:repeat(auto-fill,minmax(11rem,1fr))}
 body.admin .r-box h3{gap:.6rem;flex-wrap:wrap}
