@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0F0C2A">
+<title>PM Dashboard</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg">
+<link rel="apple-touch-icon" href="icon.svg">
+<style>
+  html,body{height:100%;margin:0;background:#0F0C2A;color:#ECEBF2;font-family:"Montserrat","Segoe UI",system-ui,sans-serif}
+  #app{position:fixed;inset:0;width:100%;height:100%;border:0;background:#0F0C2A}
+  #laden{position:fixed;inset:0;display:grid;place-items:center;align-content:center;gap:1.2rem;background:#0F0C2A;transition:opacity .6s}
+  #laden img{width:5rem;height:5rem;animation:puls 2s ease-in-out infinite}
+  #laden p{margin:0;color:#9a94b4;font-size:15px;max-width:34rem;text-align:center;padding:0 16px}
+  #laden button{font:inherit;color:#ECEBF2;background:#784295;border:0;border-radius:10px;padding:.6rem 1.2rem;cursor:pointer}
+  body.bereit #laden{opacity:0;pointer-events:none}
+  @keyframes puls{50%{opacity:.5}}
+  @media (prefers-reduced-motion:reduce){#laden img{animation:none}}
+</style>
+</head>
+<body>
+<iframe id="app" title="PM Dashboard" allow="autoplay; microphone; clipboard-read; clipboard-write; fullscreen"></iframe>
+<div id="laden"><img src="icon.svg" alt=""><p id="status">PM Dashboard wird gestartet …</p><button id="neu" type="button" hidden>Neu anmelden</button></div>
+<script src="launcher.js"></script>
+</body>
+</html>

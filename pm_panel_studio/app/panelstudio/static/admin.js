@@ -10,7 +10,12 @@
   const nameSort = (x, y) => PS.name(x).localeCompare(PS.name(y), "de");
   const num = (e) => Number(PS.s(e));
 
-  PS.admin = { module: ["tuerdienst", "system", "terminal", "editor"] };
+  // Admin-Seiten und Seiten von Home Assistant in der Modulleiste; Trennlinie vor der jeweils ersten jeder Gruppe
+  const HA_MODULE = ["ha_einstellungen", "ha_karte", "ha_energie", "music_assistant"];
+  PS.admin = {
+    module: ["tuerdienst", "system", "terminal", "editor", ...HA_MODULE],
+    klasse: (m) => (HA_MODULE.includes(m) ? "admin-modul ha-modul" : PS.admin.module.includes(m) ? "admin-modul" : ""),
+  };
   document.body.classList.add("admin");
 
   // ------------------------------------------------------------ Aufbau: Kopfzeile und Startseite
@@ -61,19 +66,74 @@
     if (fn) { z.classList.add("klickbar"); z.addEventListener("click", fn); }
     return z;
   };
-  // Seite in Home Assistant öffnen (Seitenleiste bleibt; die Admin-Ansicht läuft im selben Fenster eingebettet)
-  function haOeffnen(pfad) {
-    try {
-      const t = window.top;
-      if (t && t !== window && t.location.origin === location.origin) {
-        t.history.pushState(null, "", pfad);
-        t.dispatchEvent(new CustomEvent("location-changed", { detail: { replace: false } }));
-        return;
-      }
-    } catch { /* anderer Ursprung: normal öffnen */ }
-    window.open(pfad, "_top");
-  }
+  // Seite von Home Assistant im Dashboard öffnen (eingebettet, ohne die Seitenleiste von Home Assistant)
+  function haOeffnen(pfad) { PS.oeffnen("ha_seite", pfad); }
   PS.haOeffnen = haOeffnen;
+  // Verbindung zu Home Assistant: in der Seitenleiste die des Frontends, als eigene App die der Startseite
+  const haVerbindung = async () => {
+    const t = window.top;
+    if (!t || t === window || !t.hassConnection) return null;
+    return (await t.hassConnection).conn;
+  };
+  // Seitenleiste von Home Assistant im eingebetteten Rahmen ausblenden (gleiche Herkunft; offene Shadow-DOMs)
+  function seitenleisteAus(frame) {
+    let n = 0;
+    const t = setInterval(() => {
+      if (++n > 80 || !frame.isConnected) { clearInterval(t); return; }
+      try {
+        const d = frame.contentDocument;
+        const main = d && d.querySelector("home-assistant") && d.querySelector("home-assistant").shadowRoot && d.querySelector("home-assistant").shadowRoot.querySelector("home-assistant-main");
+        const sr = main && main.shadowRoot; if (!sr || !sr.querySelector("ha-drawer, ha-sidebar")) return;
+        if (!sr.querySelector("style[data-pm]")) {
+          const st = d.createElement("style"); st.dataset.pm = "1";
+          st.textContent = "ha-sidebar{display:none!important}ha-drawer{--mdc-drawer-width:0px!important}";
+          sr.appendChild(st);
+        }
+        clearInterval(t);
+      } catch { clearInterval(t); }
+    }, 250);
+  }
+  function haRahmen(el, pfad, titel) {
+    el.classList.add("rahmen-seite");
+    const f = E(`<iframe class="admin-rahmen ha-rahmen" title="${PS.esc(titel || "Home Assistant")}"></iframe>`);
+    f.addEventListener("load", () => seitenleisteAus(f));
+    f.src = pfad;
+    el.appendChild(f);
+  }
+  // App über Ingress einbetten (erste gestartete aus der Liste der Kennungen oder mit passender Endung)
+  async function appAdresse(slugs, endung) {
+    const conn = await haVerbindung(); if (!conn) return null;
+    let kandidaten = [...slugs];
+    if (endung) {
+      try {
+        const l = await conn.sendMessagePromise({ type: "supervisor/api", endpoint: "/addons", method: "get" });
+        kandidaten.push(...((l && l.addons) || []).map((a) => a.slug).filter((x) => x.endsWith(endung) && !kandidaten.includes(x)));
+      } catch { /* nur die bekannten */ }
+    }
+    let gestoppt = null;
+    for (const slug of kandidaten) {
+      try {
+        const info = await conn.sendMessagePromise({ type: "supervisor/api", endpoint: `/addons/${slug}/info`, method: "get" });
+        if (info && info.ingress_url && info.state === "started") return { url: info.ingress_url, slug, name: info.name };
+        if (info && info.ingress_url && !gestoppt) gestoppt = { slug, name: info.name, aus: true };
+      } catch { /* nächste App */ }
+    }
+    return gestoppt;
+  }
+  function appSeite(titel, icon, slugs, endung, fehlt) {
+    return {
+      titel, icon,
+      async render(el) {
+        el.classList.add("rahmen-seite");
+        const hinweis = E(`<div class="leer">${PS.esc(titel)} wird verbunden …</div>`); el.appendChild(hinweis);
+        let a = null;
+        try { a = await appAdresse(slugs, endung); } catch { a = null; }
+        if (a && a.url) { hinweis.remove(); el.appendChild(E(`<iframe class="admin-rahmen" src="${PS.esc(a.url)}" title="${PS.esc(titel)}" allow="autoplay; clipboard-read; clipboard-write"></iframe>`)); return; }
+        hinweis.textContent = a && a.aus ? `${a.name} ist gestoppt.` : fehlt;
+        el.appendChild(knopf("In Home Assistant öffnen", "open-in-app", () => haOeffnen(`/hassio/ingress/${(a && a.slug) || slugs[0]}`)));
+      },
+    };
+  }
   const HA_LINKS = [
     ["Automationen", "robot", "/config/automation/dashboard"], ["Skripte", "script-text-outline", "/config/script/dashboard"],
     ["Geräte und Dienste", "devices", "/config/integrations/dashboard"], ["Entitäten", "shape-outline", "/config/entities"],
@@ -82,6 +142,52 @@
     ["Verlauf", "chart-box-outline", "/history"], ["Logbuch", "format-list-bulleted", "/logbook"],
     ["Sicherungen", "backup-restore", "/config/backup"], ["Einstellungen", "cog-outline", "/config/dashboard"],
   ];
+
+  // Räume in der Reihenfolge des Editors, ohne ausgeblendete
+  function bereicheListe() {
+    const aus = new Set(PS.einst.bereiche_ausblenden || []), folge = PS.einst.bereiche_reihenfolge || [];
+    const rang = (id) => { const i = folge.indexOf(id); return i < 0 ? 999 : i; };
+    return PS.bereiche.filter((x) => !aus.has(x.id)).sort((x, y) => rang(x.id) - rang(y.id) || x.name.localeCompare(y.name, "de"));
+  }
+  // Raumkachel: Name, Lichtschalter für alle Lichter des Raums, Temperatur und Feuchte, Zustände als Chips
+  function raumKachel(x, oeffnen) {
+    const w = PS.raumWerte(x.id);
+    const lichter = PS.lichtAuswahl(w.ent, x.name).sichtbar;
+    const chips = [];
+    const offen = w.ent.filter((e) => e.startsWith("binary_sensor.") && PS.s(e) === "on" && ["door", "window", "opening", "garage_door"].includes(PS.a(e).device_class));
+    if (offen.length) chips.push(`<i class="warn">${PS.ic("window-open-variant")}${offen.length} offen</i>`);
+    if (w.klima && PS.a(w.klima).hvac_action === "heating") chips.push(`<i class="warn">${PS.ic("fire")}heizt</i>`);
+    const medien = w.ent.find((e) => e.startsWith("media_player.") && PS.s(e) === "playing");
+    if (medien) chips.push(`<i class="an">${PS.ic("play")}${PS.esc(PS.kurzname(medien, x.name))}</i>`);
+    if (w.ent.some((e) => e.startsWith("binary_sensor.") && PS.s(e) === "on" && ["motion", "occupancy", "presence"].includes(PS.a(e).device_class))) chips.push(`<i>${PS.ic("motion-sensor")}Bewegung</i>`);
+    const werte = w.temp != null || w.feuchte != null
+      ? `${w.temp != null ? `<span class="tabular">${PS.zahl(w.temp, 1)}°</span>` : ""}${w.feuchte != null ? `<small class="tabular">${PS.ic("water-percent")}${PS.zahl(w.feuchte, 0)} %</small>` : ""}`
+      : `<small>${w.ent.length} ${w.ent.length === 1 ? "Gerät" : "Geräte"}</small>`;
+    const an = lichter.filter((e) => PS.s(e) === "on").length;
+    const k = E(`<div class="as-raum" role="button" tabindex="0">
+      <div class="kopf">${PS.ic(x.icon || "texture-box")}<span class="n">${PS.esc(x.name)}</span>${lichter.length ? `<button type="button" class="licht${an ? " an" : ""}" title="${an ? "Lichter ausschalten" : "Lichter einschalten"}">${PS.ic(an ? "lightbulb-on" : "lightbulb-outline")}<span class="tabular">${an}/${lichter.length}</span></button>` : ""}</div>
+      <div class="w">${werte}</div>
+      <div class="c">${chips.join("")}</div></div>`);
+    const l = k.querySelector(".licht");
+    if (l) l.addEventListener("click", (ev) => { ev.stopPropagation(); PS.dienst("light", an ? "turn_off" : "turn_on", { entity_id: lichter }); });
+    k.addEventListener("click", oeffnen);
+    k.addEventListener("keydown", (ev) => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); oeffnen(); } });
+    return k;
+  }
+  // Seite „Räume“ am PC: dieselben Kacheln im breiten Raster statt der Panel-Karten
+  const RAEUME = PS.module.raeume;
+  RAEUME.render = (el) => {
+    const r = E('<div class="as-raeume voll"></div>');
+    const fuellen = () => { r.innerHTML = ""; bereicheListe().forEach((x) => r.appendChild(raumKachel(x, () => RAEUME.unterseite(x.id)))); };
+    fuellen(); r._fuellen = fuellen;
+    el.appendChild(r);
+  };
+  let raeumeTimer = null;
+  PS.on("diff", (ids) => {
+    const r = document.querySelector("#sheet-inhalt .as-raeume.voll");
+    if (!r || raeumeTimer || ![...ids].some((e) => /^(light|climate|sensor|media_player|binary_sensor)\./.test(e))) return;
+    raeumeTimer = setTimeout(() => { raeumeTimer = null; if (r.isConnected && r._fuellen) r._fuellen(); }, 800);
+  });
 
   // Thermostat als eine Zeile: Name (öffnet alle Einstellungen), Ist, Zustand, Soll mit − und +
   function thermoZeile(eid) {
@@ -207,23 +313,8 @@
     raeume: {
       titel: "Räume", icon: "floor-plan",
       render(b) {
-        const aus = new Set(PS.einst.bereiche_ausblenden || []), folge = PS.einst.bereiche_reihenfolge || [];
-        const rang = (id) => { const i = folge.indexOf(id); return i < 0 ? 999 : i; };
-        const bereiche = PS.bereiche.filter((x) => !aus.has(x.id)).sort((x, y) => rang(x.id) - rang(y.id) || x.name.localeCompare(y.name, "de"));
         const r = E('<div class="as-raeume"></div>');
-        bereiche.forEach((x) => {
-          const w = PS.raumWerte(x.id);
-          if (!w.ent.length) return;
-          const chips = [];
-          if (w.lichterAn) chips.push(`<i class="an">${w.lichterAn} Licht${w.lichterAn > 1 ? "er" : ""}</i>`);
-          w.ent.filter((e) => PS.domain(e) === "media_player" && PS.s(e) === "playing").slice(0, 1).forEach((e) => chips.push(`<i>${PS.esc(PS.kurzname(e, x.name))} spielt</i>`));
-          w.ent.filter((e) => e.startsWith("binary_sensor.") && ["door", "window", "opening"].includes(PS.a(e).device_class) && PS.s(e) === "on").slice(0, 1).forEach(() => chips.push('<i class="warn">offen</i>'));
-          const k = E(`<button type="button" class="as-raum">${PS.ic(x.icon || "texture-box")}<span class="n">${PS.esc(x.name)}</span>
-            <span class="w tabular">${w.temp != null ? PS.zahl(w.temp, 1) + "°" : "–"}${w.feuchte != null ? `<small>${PS.zahl(w.feuchte, 0)} %</small>` : ""}</span>
-            <span class="c">${chips.join("") || "<i>ruhig</i>"}</span></button>`);
-          k.addEventListener("click", () => PS.oeffnen("raeume", x.id));
-          r.appendChild(k);
-        });
+        bereicheListe().filter((x) => PS.raumWerte(x.id).ent.length).forEach((x) => r.appendChild(raumKachel(x, () => PS.oeffnen("raeume", x.id))));
         b.appendChild(r);
       },
       relevant: (ids) => [...ids].some((e) => /^(light|climate|sensor|media_player|binary_sensor)\./.test(e)),
@@ -567,7 +658,10 @@
         const d = await (await fetch("api/einstellungen", { cache: "no-store" })).json();
         info.innerHTML = `<dt>Home Assistant</dt><dd>${d.verbunden ? "verbunden" : "getrennt"}</dd><dt>Offene Verbindungen</dt><dd>${PS.esc(d.panels)} (Wandpanels und diese Ansicht)</dd><dt>Panel-Port</dt><dd>${PS.esc(d.port)}</dd>`;
       } catch { info.innerHTML = "<dt>Status</dt><dd>nicht abrufbar</dd>"; }
-      b2.appendChild(knopf("Panel-Vorschau", "tablet", () => window.open("panel", "_blank", "noopener")));
+      b2.appendChild(E('<div class="reihe"></div>')).append(
+        knopf("Als eigene App öffnen", "open-in-new", () => window.open("/local/pm-dashboard/", "_blank", "noopener"), "primaer"),
+        knopf("Panel-Vorschau", "tablet", () => window.open("panel", "_blank", "noopener")),
+      );
       const b3 = block("Meldungen", `${(PS.popups || []).length} offen`);
       const l3 = E('<div class="liste"></div>');
       (PS.popups || []).forEach((m) => l3.appendChild(zeile(PS.meldungIcon(m.icon), m.titel, [m.text, PS.zeitRelativ(new Date(m.seit * 1000).toISOString())].filter(Boolean).join(" · "), () => PS.popupZeigen(m.id))));
@@ -581,33 +675,16 @@
     },
   };
 
-  // Terminal: die App „Advanced SSH & Web Terminal“ über Ingress eingebettet (Adresse über die Sitzung von Home Assistant)
-  const TERMINAL_APPS = ["a0d7b954_ssh", "core_ssh"];
-  async function terminalAdresse() {
-    const t = window.top;
-    if (!t || t === window || !t.hassConnection) return null;
-    const { conn } = await t.hassConnection;
-    for (const slug of TERMINAL_APPS) {
-      try {
-        const info = await conn.sendMessagePromise({ type: "supervisor/api", endpoint: `/addons/${slug}/info`, method: "get" });
-        if (info && info.ingress_url && info.state === "started") return { url: info.ingress_url, slug, name: info.name };
-        if (info && info.ingress_url) return { slug, name: info.name, aus: true };
-      } catch { /* nächste App */ }
-    }
-    return null;
-  }
-  PS.module.terminal = {
-    titel: "Terminal", icon: "console",
-    async render(el) {
-      el.classList.add("rahmen-seite");
-      const hinweis = E('<div class="leer">Terminal wird verbunden …</div>'); el.appendChild(hinweis);
-      let t = null;
-      try { t = await terminalAdresse(); } catch { t = null; }
-      if (t && t.url) { hinweis.remove(); el.appendChild(E(`<iframe class="admin-rahmen" src="${PS.esc(t.url)}" title="Terminal"></iframe>`)); return; }
-      hinweis.textContent = t && t.aus ? `${t.name} ist gestoppt.` : "Kein Web-Terminal gefunden. Benötigt wird die App „Advanced SSH & Web Terminal“ oder „Terminal & SSH“.";
-      el.appendChild(knopf("In Home Assistant öffnen", "open-in-app", () => haOeffnen(`/hassio/ingress/${(t && t.slug) || TERMINAL_APPS[0]}`)));
-    },
-  };
+  // Terminal: die App „Advanced SSH & Web Terminal“ (oder „Terminal & SSH“) über Ingress
+  PS.module.terminal = appSeite("Terminal", "console", ["a0d7b954_ssh", "core_ssh"], null,
+    "Kein Web-Terminal gefunden. Benötigt wird die App „Advanced SSH & Web Terminal“ oder „Terminal & SSH“.");
+  PS.module.music_assistant = { ...appSeite("Music Assistant", "music-circle-outline", [], "_music_assistant", "Music Assistant ist nicht installiert.") };
+  // Seiten von Home Assistant im Dashboard
+  const haSeite = (titel, icon, pfad, kurz) => ({ titel, icon, kurz, render(el) { haRahmen(el, pfad, titel); } });
+  PS.module.ha_einstellungen = haSeite("Einstellungen", "cog-outline", "/config/dashboard");
+  PS.module.ha_karte = haSeite("Karte", "map-outline", "/map");
+  PS.module.ha_energie = haSeite("Energie HA", "home-lightning-bolt-outline", "/energy");
+  PS.module.ha_seite = { titel: "Home Assistant", icon: "home-assistant", render(el, pfad) { haRahmen(el, pfad || "/config/dashboard"); } };
 
   PS.module.editor = {
     titel: "Editor", icon: "tune-variant",

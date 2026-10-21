@@ -668,7 +668,7 @@
     if (mehr.length === 1) { direkt = mods; mehr = []; }
     if (!mehr.length) mehrOffen = false;
     const summe = mehr.reduce((n, m) => n + zaehler(m), 0);
-    $("#dock").innerHTML = direkt.map((m) => dockKnopf(m, def(m), zaehler(m), PS.admin && PS.admin.module.includes(m) ? "admin-modul" : "")).join("")
+    $("#dock").innerHTML = direkt.map((m) => dockKnopf(m, def(m), zaehler(m), PS.admin ? PS.admin.klasse(m) : "")).join("")
       + (mehr.length ? `${dockKnopf("mehr", { titel: "Mehr", icon: "dots-horizontal" }, summe).replace("<button ", `<button aria-haspopup="true" aria-expanded="${mehrOffen}" `)}`
         + `<div class="dock-mehr" id="dock-mehr" role="menu" aria-label="Weitere Module"${mehrOffen ? "" : " hidden"}>${mehr.map((m) => dockKnopf(m, def(m), zaehler(m))).join("")}</div>` : "");
     $("#dock").dataset.mehr = mehr.join(",");

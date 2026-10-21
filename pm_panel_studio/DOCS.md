@@ -36,6 +36,15 @@ in Home Assistant (Seitenleiste, Benachrichtigungen und Einstellungen bleiben er
 - **Terminal:** die App „Advanced SSH & Web Terminal“ (oder „Terminal & SSH“) über Ingress eingebettet; sie muss
   installiert und gestartet sein.
 
+- **Home Assistant:** Einstellungen, Karte, Energie und Music Assistant öffnen sich als Seiten im Dashboard, ohne
+  die Seitenleiste von Home Assistant.
+
+**Als eigene App:** `http://<Home-Assistant>:8123/local/pm-dashboard/` (bzw. die externe Adresse) zeigt das Dashboard
+im Vollbild ohne Oberfläche von Home Assistant. Die App legt diese Startseite beim Start im Ordner `www` ab. Die
+Anmeldung läuft über das Konto von Home Assistant; wer im selben Browser schon angemeldet ist („Angemeldet bleiben“),
+landet direkt im Dashboard. Über HTTPS (z. B. Home Assistant Cloud) lässt sich die Seite im Browser als App
+installieren. Fehlte der Ordner `www`, ist ein Neustart von Home Assistant nötig, bevor `/local/` ihn ausliefert.
+
 Am PC gibt es keinen Ruhezustand und keine Rückkehr zur Startseite nach Zeit. Klicks am PC wecken das Wandpanel
 nicht. Klingelt es, erscheint unten rechts ein Hinweis mit Sprechen und Türöffner.
 
