@@ -62,6 +62,21 @@ configuration:
   fritz_passwort:
     name: "FRITZ!Box: Kennwort (Telefonbuch)"
     description: "Kennwort dieses Benutzers."
+  unifi_adresse:
+    name: "UniFi: Adresse des Gateways"
+    description: "Für die Seite „Netzwerk“: Adresse des UniFi-Gateways (UniFi OS), z. B. https://192.168.3.1."
+  unifi_api_schluessel:
+    name: "UniFi: API-Schlüssel"
+    description: "In UniFi Network unter Einstellungen → Control Plane → Integrationen erzeugen. Alternativ Benutzer und Kennwort eines lokalen Kontos."
+  unifi_benutzer:
+    name: "UniFi: Benutzer (statt API-Schlüssel)"
+    description: "Lokales Konto mit Leserechten (nur nötig ohne API-Schlüssel)."
+  unifi_kennwort:
+    name: "UniFi: Kennwort"
+    description: "Kennwort dieses Kontos."
+  unifi_site:
+    name: "UniFi: Site"
+    description: "Kennung der Site, meist default."
   log_level:
     name: Protokollstufe
     description: debug, info, warning oder error.

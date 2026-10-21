@@ -1,5 +1,5 @@
 name: PM Panel Studio
-version: "2026.10.52"
+version: "2026.10.53"
 slug: pm_panel_studio
 description: >-
   Wandpanel-Oberfläche für den Flur: rotierende Hinweiskarten mit Ringtimern, Ruhe- und Wachzustand,
@@ -77,6 +77,11 @@ options:
   telefon_externe_adresse: ""
   fritz_benutzer: ""
   fritz_passwort: ""
+  unifi_adresse: https://192.168.3.1
+  unifi_api_schluessel: ""
+  unifi_benutzer: ""
+  unifi_kennwort: ""
+  unifi_site: default
   log_level: info
 schema:
   hinweise_entitaet: str?
@@ -104,4 +109,9 @@ schema:
   telefon_externe_adresse: str?
   fritz_benutzer: str?
   fritz_passwort: password?
+  unifi_adresse: str?
+  unifi_api_schluessel: password?
+  unifi_benutzer: str?
+  unifi_kennwort: password?
+  unifi_site: str?
   log_level: list(debug|info|warning|error)

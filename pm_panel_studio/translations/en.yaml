@@ -62,6 +62,21 @@ configuration:
   fritz_passwort:
     name: "FRITZ!Box: password (phonebook)"
     description: "Password of that user."
+  unifi_adresse:
+    name: "UniFi: gateway address"
+    description: "For the network page: address of the UniFi gateway (UniFi OS), e.g. https://192.168.3.1."
+  unifi_api_schluessel:
+    name: "UniFi: API key"
+    description: "Create in UniFi Network under Settings → Control Plane → Integrations. Alternatively user and password of a local account."
+  unifi_benutzer:
+    name: "UniFi: user (instead of API key)"
+    description: "Local account with read access (only without API key)."
+  unifi_kennwort:
+    name: "UniFi: password"
+    description: "Password of that account."
+  unifi_site:
+    name: "UniFi: site"
+    description: "Site id, usually default."
   log_level:
     name: Log level
     description: debug, info, warning or error.

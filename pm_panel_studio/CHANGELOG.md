@@ -1,5 +1,18 @@
 # Änderungen
 
+## 2026.10.53 – 2026-10-21
+
+- Neu: Seite „Netzwerk“ und Block „Netzwerk“ auf der Startseite (wird einmalig angehängt). Direkt vom UniFi-Gateway:
+  Internet verbunden oder gestört, Anbieter und WAN-Adresse, Latenz, Ping, Download und Upload des letzten
+  Speedtests, Speedtest starten, Durchsatz jetzt, Verbindungsdauer, Ausfälle; Clients gesamt, LAN, WLAN, Gäste;
+  alle UniFi-Geräte (Gateway, Switches, Access Points) mit Zustand, CPU, RAM, Temperatur, Laufzeit, Clients, Ports
+  und Firmware-Updates. Zugang über die neuen App-Optionen „UniFi: API-Schlüssel“ (oder Benutzer und Kennwort),
+  Adresse vorbelegt mit https://192.168.3.1. Ohne Zugang zeigt die Seite, was die UniFi-Integration von Home
+  Assistant liefert (Geräte, Clients je WLAN).
+- Admin-Ansicht: Im Hochformat und auf den Admin-Seiten füllen beide Spalten sich unabhängig (Mauerwerk), ohne
+  Leerraum neben kürzeren Blöcken.
+- Modulseiten des Panels behalten zwei Spalten bis zur Telefonbreite; der Inhalt passt sich der Spalte an.
+
 ## 2026.10.52 – 2026-10-21
 
 - Admin-Ansicht, Startseite: kein ständiges Neuzeichnen mehr. Räume, Aufmerksamkeit, Sicherheit, Hinweise und

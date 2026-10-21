@@ -20,7 +20,7 @@ from typing import Any
 import aiohttp
 from aiohttp import web
 
-from . import __version__, dateien, eigene_app
+from . import __version__, dateien, eigene_app, netz
 from .config import DATA_DIR, EinstellungsSpeicher, Options
 from .ha_client import HAClient, HAError
 from .hub import BILD_ERLAUBT, Hub
@@ -127,7 +127,9 @@ def admin_html() -> str:
     html = html.replace('<html lang="de">', '<html lang="de" class="admin">', 1)
     html = html.replace("<title>PM Panel Flur</title>", "<title>PM Dashboard</title>", 1)
     html = html.replace("</head>", '<link rel="stylesheet" href="static/admin.css">\n</head>', 1)
-    skripte = "".join(f'<script src="static/{n}.js"></script>\n' for n in ("admin", "admin-dateien", "admin-verwaltung"))
+    skripte = "".join(
+        f'<script src="static/{n}.js"></script>\n' for n in ("admin", "admin-dateien", "admin-verwaltung", "admin-netz")
+    )
     return html.replace("</body>", skripte + "</body>", 1)
 
 
@@ -437,6 +439,42 @@ async def token_neu(request: web.Request) -> web.Response:
 
 
 K_PANEL_APP: web.AppKey[web.Application] = web.AppKey("panel_app")
+K_NETZ: web.AppKey[list] = web.AppKey("netz")
+
+
+def _unifi(request: web.Request) -> netz.Unifi:
+    halter = request.app[K_NETZ]
+    if not halter:
+        o = request.app[K_HUB].opts
+        halter.append(
+            netz.Unifi(
+                request.app[K_HUB].client.session,
+                o.unifi_adresse,
+                o.unifi_api_schluessel,
+                o.unifi_benutzer,
+                o.unifi_kennwort,
+                o.unifi_site,
+            )
+        )
+    return halter[0]
+
+
+async def netz_stand(request: web.Request) -> web.Response:
+    """Netzwerkstatus vom UniFi-Gateway (nur Ingress); ohne Zugangsdaten {"quelle": null}."""
+    return web.json_response(await _unifi(request).stand(request.query.get("neu") == "1"))
+
+
+async def netz_speedtest(request: web.Request) -> web.Response:
+    if request.headers.get("X-PMPS-Aktion") != "1":
+        raise web.HTTPForbidden(text="Kopfzeile X-PMPS-Aktion fehlt.")
+    u = _unifi(request)
+    if not u.eingerichtet:
+        raise web.HTTPBadRequest(text="UniFi ist nicht eingerichtet (App-Optionen).")
+    try:
+        await u.speedtest()
+    except (netz.UnifiFehler, aiohttp.ClientError, TimeoutError) as err:
+        raise web.HTTPBadGateway(text=str(err)) from err
+    return web.json_response({"ok": True})
 
 
 # ------------------------------------------------------------------ Aufbau
@@ -471,6 +509,9 @@ def create_ingress_app(hub: Hub, token: list[str], networks: list[Any] | None = 
     app.router.add_post("/api/token", token_neu)
     # Dateimanager nur über Ingress und nur für Administratoren, nie über den Panel-Port
     dateien.routen(app, dateien.AdminPruefung(lambda: hub.client.ws_command({"type": "config/auth/list"})))
+    app[K_NETZ] = []
+    app.router.add_get("/api/netz", netz_stand)
+    app.router.add_post("/api/netz/speedtest", netz_speedtest)
     _gemeinsam(app)
     return app
 

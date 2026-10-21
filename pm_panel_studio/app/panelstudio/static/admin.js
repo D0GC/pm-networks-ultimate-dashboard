@@ -446,8 +446,9 @@
   };
   // Größe je Block: Breite in 12 Spalten, Höhe in Rasterzeilen (wie ADMIN_BLOECKE in config.py)
   const GROESSE = { aufmerksamkeit: [12, 2], hinweise: [4, 8], tueren: [4, 8], klima: [4, 5], raeume: [6, 7], schnellzugriff: [3, 7], energie: [3, 7],
-    pakete: [4, 5], medien: [4, 5], termine: [4, 6], einkauf: [4, 6], angebote: [4, 6], sicherheit: [4, 6] };
-  const STANDARD = ["aufmerksamkeit", "hinweise", "klima", "tueren", "raeume", "schnellzugriff", "energie", "pakete", "medien"].map((id) => `${id}:${GROESSE[id].join(":")}`);
+    pakete: [4, 5], medien: [4, 5], termine: [4, 6], einkauf: [4, 6], angebote: [4, 6], sicherheit: [4, 6], netzwerk: [4, 6] };
+  PS.admin.bloecke = B; PS.admin.groesse = GROESSE;  // weitere Blöcke aus eigenen Dateien (z. B. Netzwerk)
+  const STANDARD = ["aufmerksamkeit", "hinweise", "klima", "tueren", "raeume", "netzwerk", "schnellzugriff", "energie", "pakete", "medien"].map((id) => `${id}:${GROESSE[id].join(":")}`);
 
   // Lage für „Aufmerksamkeit“ und die Zeile unter dem Gruß
   function lage() {
@@ -505,10 +506,45 @@
     raster.querySelectorAll(".as-block").forEach((el) => {
       const w = +el.dataset.w, h = +el.dataset.h;
       el.style.gridColumn = `span ${spalten === 12 ? w : spalten === 2 ? (w >= 6 ? 2 : 1) : 1}`;
-      el.style.gridRow = spalten === 12 ? `span ${h}` : "auto";
+      if (spalten === 12) el.style.gridRow = `span ${h}`;
     });
+    raster.classList.toggle("mauer", spalten !== 12);
+    if (spalten !== 12) mauern(raster);
   }
   new ResizeObserver(() => spannen()).observe($("#as-raster"));
+
+  // Mauerwerk: Spalten unabhängig voneinander füllen. Feine Rasterzeilen (.mauer), jeder Block belegt so viele, wie
+  // sein Inhalt hoch ist; ändert sich der Inhalt, wird nachgemessen.
+  const MAUER_ZEILE = 6;
+  function mauern(raster) {
+    if (!raster.isConnected || !raster.classList.contains("mauer")) return;
+    const luecke = parseFloat(getComputedStyle(raster).rowGap) || 0;
+    raster.querySelectorAll(":scope > .as-block").forEach((el) => {
+      const inhalt = el.querySelector(":scope > .r-box"); if (!inhalt) return;
+      const h = inhalt.getBoundingClientRect().height;
+      el.style.gridRow = `span ${Math.max(1, Math.ceil((h + luecke) / (MAUER_ZEILE + luecke)))}`;
+    });
+  }
+  const mauerBeobachter = new ResizeObserver((eintraege) => {
+    const raster = new Set(eintraege.map((x) => x.target.closest(".mauer")).filter(Boolean));
+    requestAnimationFrame(() => raster.forEach(mauern));
+  });
+  PS.admin.mauer = (raster) => {
+    raster.classList.add("mauer");
+    raster.querySelectorAll(":scope > .as-block > .r-box").forEach((b) => mauerBeobachter.observe(b));
+    mauern(raster);
+  };
+  // Neue Blöcke (Startseite und Admin-Seiten) beobachten
+  let mauerBald = false;
+  new MutationObserver(() => {
+    if (mauerBald) return;
+    mauerBald = true;
+    requestAnimationFrame(() => { mauerBald = false; document.querySelectorAll(".as-raster.mauer, .as-seitenraster").forEach((r) => {
+      r.classList.add("mauer");
+      r.querySelectorAll(":scope > .as-block > .r-box").forEach((b) => { if (!b._mauer) { b._mauer = true; mauerBeobachter.observe(b); } });
+      mauern(r);
+    }); });
+  }).observe(document.body, { childList: true, subtree: true });
   function startZeichnen() {
     const raster = $("#as-raster");
     raster.querySelectorAll("img").forEach(PS.kameraStoppen);
@@ -615,6 +651,7 @@
   // Neu zeichnen: nur betroffene Blöcke, gebündelt, nicht während jemand darin bedient
   const faellig = new Set();
   let bundel = null;
+  PS.admin.vormerken = (id) => vormerken(id);
   function vormerken(id) {
     faellig.add(id);
     if (bundel) return;
