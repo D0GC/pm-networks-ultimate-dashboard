@@ -149,3 +149,15 @@ def test_status_modi():
     assert e.status_modi == ["input_boolean.a", "switch.b", "binary_sensor.c"]
     e.aktualisieren({"status_modi": []})
     assert e.status_modi == []
+
+
+def test_admin_startseite():
+    from panelstudio.config import ADMIN_START, Einstellungen
+
+    e = Einstellungen()
+    assert e.admin_start == ADMIN_START and e.admin_start[0] == "aufmerksamkeit:3"
+    # unbekannte Blöcke und Doppelte fallen weg, fehlende Breite kommt aus der Vorgabe
+    assert e.aktualisieren({"admin_start": ["klima:2", "klima:1", "gibtsnicht", "raeume", "termine:9"]}) == []
+    assert e.admin_start == ["klima:2", "raeume:2"]
+    e.aktualisieren({"admin_start": []})
+    assert e.admin_start == []

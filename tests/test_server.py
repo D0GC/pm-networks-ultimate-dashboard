@@ -33,8 +33,11 @@ async def test_panel_braucht_zugangsschluessel(panel, token):
 
 
 async def test_editor_und_einstellungen(ingress, hub):
-    r = await ingress.get("/")
+    r = await ingress.get("/editor")
     assert r.status == 200 and "Panel einrichten" in await r.text()
+    # Startseite im Seitenleisten-Eintrag: Admin-Ansicht (Panel-Seite mit eigenem Layout)
+    html = await (await ingress.get("/")).text()
+    assert 'class="admin"' in html and "static/admin.js" in html and "static/admin.css" in html and "static/core.js" in html
     d = await (await ingress.get("/api/einstellungen")).json()
     assert d["verbunden"] and d["port"] == 8098 and len(d["token"]) > 10
     ws = await ingress.ws_connect("/api/ws")

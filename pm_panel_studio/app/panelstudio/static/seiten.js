@@ -24,6 +24,8 @@
     return z;
   };
   const alleKnopf = (text, modul) => knopf(text, "view-grid-outline", () => PS.unterseite(`${PS.module[modul].titel} · alle`, (el) => PS.module[modul]._alle(el)), "r-alles");
+  PS.bau = { E, box, raster, ring, knopf, balken };  // Bausteine auch für die Admin-Startseite
+
   function seite(el, modul) {
     el.classList.add("raumseite");
     const g = E('<div class="raum-ansicht"><div class="r-spalte"></div><div class="r-spalte"></div><div class="r-spalte"></div></div>');
@@ -513,9 +515,8 @@
   }
 
   // ------------------------------------------------------------ Wartung
-  function wartung(el) {
-    const [l, m, r] = seite(el, "wartung");
-    // Systemzustand: Geräte, deren Entitäten alle nicht verfügbar sind (automatisch, ohne feste Liste)
+  // Systemzustand: Geräte, deren Entitäten alle nicht verfügbar sind (automatisch, ohne feste Liste)
+  PS.systemzustand = () => {
     const ignoriert = new Set((PS.einst.wartung_ignorieren || []).map((e) => (PS.reg[e] || {}).d).filter(Boolean));
     const jeGeraet = new Map();
     Object.entries(PS.reg || {}).forEach(([e, r]) => {
@@ -526,7 +527,12 @@
     const weg = [...jeGeraet.entries()].filter(([, es]) => es.every((e) => PS.s(e) === "unavailable"))
       .map(([d, es]) => ({ d, e: es.find((x) => !(PS.reg[x] || {}).ec) || es[0] }))
       .sort((x, y) => (Date.parse(PS.st(y.e).lc) || 0) - (Date.parse(PS.st(x.e).lc) || 0));
-    const gesamt = jeGeraet.size, ok = gesamt - weg.length;
+    return { weg, gesamt: jeGeraet.size };
+  };
+  function wartung(el) {
+    const [l, m, r] = seite(el, "wartung");
+    const { weg, gesamt } = PS.systemzustand();
+    const ok = gesamt - weg.length;
     const b1 = box("Systemzustand", "Geräte erreichbar");
     const kopf = E('<div class="r-zustand"></div>');
     kopf.append(ring(gesamt ? ok / gesamt : 1, weg.length ? "var(--warn)" : "var(--gut)", String(ok), `von ${gesamt}`),

@@ -1,5 +1,19 @@
 # Änderungen
 
+## 2026.10.41 – 2026-10-21
+
+- Neu: Admin-Ansicht am PC. Der Eintrag in der Seitenleiste von Home Assistant heißt jetzt „PM Dashboard“ und
+  öffnet statt des Editors eine eingebettete Ansicht (Seitenleiste bleibt sichtbar): links alle Module des Panels,
+  oben Uhr, Wetter, Anwesenheit, Status, Suche (Taste /) und Meldungen, darunter eine anpassbare Startseite.
+- Startseite aus Blöcken: Aufmerksamkeit, Hinweise, Türen, Klima, Räume, Schnellzugriff, Energie, Pakete, Medien,
+  Termine, Einkauf, Angebote, Sicherheit. „Anpassen“ ordnet, verbreitert (1–3 Spalten), blendet aus und ein;
+  gespeichert in `admin_start`.
+- Admin-Seiten: Türdienst (alle Nachrichten mit Abschrift und Wiedergabe, Einstellungen, Haustür öffnen), System
+  (Systemzustand, Verbindungen, Meldungen, Sprünge in die Einstellungen von Home Assistant), Terminal (App „Advanced
+  SSH & Web Terminal“ eingebettet) und Editor (bisheriger Editor, auch unter `…/editor`).
+- Am PC kein Ruhezustand, keine Rückkehr zur Startseite nach Zeit; Klicks am PC wecken das Wandpanel nicht mehr.
+  Klingeln erscheint als Hinweis unten rechts statt als Vollbild.
+
 ## 2026.10.40 – 2026-10-21
 
 - Türdienst: Ablage nach Tagen, je Tag ein Ordner mit `wav` und `json` getrennt

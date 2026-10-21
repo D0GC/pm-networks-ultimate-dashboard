@@ -303,6 +303,16 @@
   const WARN_NAME = { 1: "Wetterwarnung", 2: "Markante Warnung", 3: "Unwetterwarnung", 4: "Extreme Unwetterwarnung" };
   function ringAnteil(k) { return modell(k).anteil; }
   PS.ringAnteil = ringAnteil;
+  PS.kartenModell = modell;  // auch für die Hinweisliste der Admin-Ansicht
+  // Detail einer Feed-Karte zeigen; false, wenn die Karte keines hat
+  PS.karteOeffnen = (kk) => {
+    if (kk && kk.art === "meldung") PS.popupZeigen(kk.id);
+    else if (kk && kk.schluessel === "eil") PS.eilZeigen(kk);
+    else if (kk && kk.art === "sport") PS.sportZeigen(kk);
+    else if (kk && kk.art === "pakete") PS.paketeZeigen(kk);
+    else return false;
+    return true;
+  };
   // Kurze Terminliste im p-Platz der Karte (Uhrzeit fett, Titel einzeilig gekürzt)
   const listeHTML = (zeilen, klasse = "") => `<p class="liste${klasse ? " " + klasse : ""}">${zeilen.map((z) => `<span><b>${PS.esc(z[0])}</b>${PS.esc(z[1])}</span>`).join("")}</p>`;
   function karteInhalt(k) {
@@ -339,7 +349,7 @@
         el.addEventListener("click", (ev) => {
           const b = ev.target.closest && ev.target.closest(".aktionen [data-akt]");
           if (b) { ev.stopPropagation(); kartenAktion(b.dataset.akt, el._karte); return; }
-          const kk = el._karte; if (kk && kk.art === "meldung") PS.popupZeigen(kk.id); else if (kk && kk.schluessel === "eil") PS.eilZeigen(kk); else if (kk && kk.art === "sport") PS.sportZeigen(kk); else if (kk && kk.art === "pakete") PS.paketeZeigen(kk); else weiter();
+          if (!PS.karteOeffnen(el._karte)) weiter();
         });
         box.appendChild(el); elemente.set(k.id, el);
         el.innerHTML = inhalt.html;
@@ -651,12 +661,14 @@
     const mods = ["start", ...(PS.einst.module || [])].filter((m) => PS.modulDa(m) || m === "start");
     const def = (m) => (m === "start" ? { titel: "Start", icon: "home" } : PS.module[m]);
     const zaehler = (m) => (def(m).zaehler ? def(m).zaehler() : 0);
-    const anzahl = Math.max(3, Math.min(12, +PS.einst.dock_anzahl || 6));
+    // Admin-Ansicht: alle Module untereinander in der Leiste, dahinter die Admin-Seiten
+    if (PS.admin) mods.push(...PS.admin.module.filter(PS.modulDa));
+    const anzahl = PS.admin ? 99 : Math.max(3, Math.min(12, +PS.einst.dock_anzahl || 6));
     let direkt = mods.slice(0, anzahl + 1), mehr = mods.slice(anzahl + 1);  // „Start“ zählt nicht mit
     if (mehr.length === 1) { direkt = mods; mehr = []; }
     if (!mehr.length) mehrOffen = false;
     const summe = mehr.reduce((n, m) => n + zaehler(m), 0);
-    $("#dock").innerHTML = direkt.map((m) => dockKnopf(m, def(m), zaehler(m))).join("")
+    $("#dock").innerHTML = direkt.map((m) => dockKnopf(m, def(m), zaehler(m), PS.admin && PS.admin.module.includes(m) ? "admin-modul" : "")).join("")
       + (mehr.length ? `${dockKnopf("mehr", { titel: "Mehr", icon: "dots-horizontal" }, summe).replace("<button ", `<button aria-haspopup="true" aria-expanded="${mehrOffen}" `)}`
         + `<div class="dock-mehr" id="dock-mehr" role="menu" aria-label="Weitere Module"${mehrOffen ? "" : " hidden"}>${mehr.map((m) => dockKnopf(m, def(m), zaehler(m))).join("")}</div>` : "");
     $("#dock").dataset.mehr = mehr.join(",");
@@ -924,6 +936,7 @@
     setInterval(feedAufbauen, 60 * 1000);
     setInterval(() => {
       // In Klima Studio (eingebettet) kommen Berührungen nicht beim Panel an: dort erst nach 10 Minuten zurück
+      if (PS.admin) return;  // am PC bleibt die Seite offen
       const frist = stapel[0] && stapel[0].modul === "studio" ? 600 : PS.einst.bedienung_zurueck_s || 60;
       if (document.body.classList.contains("offen") && Date.now() - zuletztBeruehrt > frist * 1000) PS.schliessen();
     }, 5000);

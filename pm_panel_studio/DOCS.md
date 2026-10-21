@@ -7,10 +7,31 @@ Karten und Zustände selbst und schickt dem Panel nur fertige Änderungen.
 
 | Zugang | Zweck |
 |--------|-------|
-| Seitenleiste „Panel Studio“ (Ingress) | Editor: Verhalten, Schnellzugriff, Module, Räume, Karten; Panel-Adresse; Vorschau |
+| Seitenleiste „PM Dashboard“ (Ingress, nur Administratoren) | Admin-Ansicht am PC (siehe unten); Editor unter „Editor“ oder `…/editor`, Panel-Vorschau unter `…/panel` |
 | `http://<Home-Assistant>:8098/?token=…` | Das Wandpanel selbst. Der Schlüssel steht im Editor. Nach dem ersten Aufruf merkt sich der Browser den Zugang (Cookie) |
 
 Der Zugangsschlüssel liegt in `/data/panel_token`. „Neuen Schlüssel erzeugen“ im Editor trennt alle Panels.
+
+## Admin-Ansicht am PC
+
+Der Seitenleisten-Eintrag „PM Dashboard“ zeigt die Oberfläche des Wandpanels für Maus und großes Fenster, eingebettet
+in Home Assistant (Seitenleiste, Benachrichtigungen und Einstellungen bleiben erreichbar).
+
+- **Modulleiste links:** alle Module des Panels, darunter die Admin-Seiten Türdienst, System, Terminal und Editor.
+- **Kopfzeile:** Uhr, Wetter, Anwesenheit, Statuspillen, Suche (Taste `/`) und Meldungsglocke.
+- **Startseite:** Blöcke im Raster aus drei Spalten. „Anpassen“ verschiebt Blöcke, stellt ihre Breite ein (1–3
+  Spalten), blendet sie aus und fügt weitere hinzu; „Speichern“ legt die Anordnung in `admin_start` ab. Blöcke:
+  Aufmerksamkeit (nicht erreichbare Geräte, Meldungen, offene Fenster, schwache Batterien, Updates, neue
+  Türnachricht), Hinweise (die Karten des Feeds als Liste), Türen, Klima, Räume, Schnellzugriff (inklusive PCs und
+  Wake on LAN), Energie, Pakete, Medien, Termine, Einkauf, Angebote, Sicherheit.
+- **Türdienst:** die letzten 60 Nachrichten mit Abschrift und Wiedergabe, die Einstellungen im Überblick, Haustür öffnen.
+- **System:** Systemzustand, Verbindungen der App, offene Meldungen, Sprünge zu Automationen, Geräten, Protokollen
+  und weiteren Seiten von Home Assistant.
+- **Terminal:** die App „Advanced SSH & Web Terminal“ (oder „Terminal & SSH“) über Ingress eingebettet; sie muss
+  installiert und gestartet sein.
+
+Am PC gibt es keinen Ruhezustand und keine Rückkehr zur Startseite nach Zeit. Klicks am PC wecken das Wandpanel
+nicht. Klingelt es, erscheint unten rechts ein Hinweis mit Sprechen und Türöffner.
 
 ## Optionen
 

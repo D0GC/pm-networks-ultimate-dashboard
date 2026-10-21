@@ -1,5 +1,5 @@
 name: PM Panel Studio
-version: "2026.10.40"
+version: "2026.10.41"
 slug: pm_panel_studio
 description: >-
   Wandpanel-Oberfläche für den Flur: rotierende Hinweiskarten mit Ringtimern, Ruhe- und Wachzustand,
@@ -13,8 +13,8 @@ startup: application
 boot: auto
 ingress: true
 ingress_port: 8099
-panel_icon: mdi:tablet-dashboard
-panel_title: Panel Studio
+panel_icon: mdi:view-dashboard-variant
+panel_title: PM Dashboard
 panel_admin: true
 ports:
   8098/tcp: 8098

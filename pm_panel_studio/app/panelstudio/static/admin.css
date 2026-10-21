@@ -1,0 +1,162 @@
+/* PM Panel Studio – Admin-Ansicht am PC: Modulleiste links, Kopfzeile oben, Inhalt im Raster. Gleiche Twilight-Optik
+   wie das Wandpanel, kleinere rem-Basis für Maus und großes Fenster; kein Ruhezustand, keine Sheet-Animation. */
+html.admin{font-size:clamp(10px,min(.74vw,1.5vh),15px)}
+body.admin{--rail:7.4rem;--kopf:6rem;-webkit-user-select:text;user-select:text}
+body.admin .dimmer,body.admin .gruss,body.admin .spalte,body.admin .mitte{display:none}
+
+/* Gerüst */
+body.admin .start{inset:0;padding:0;gap:0;grid-template-columns:var(--rail) minmax(0,1fr);grid-template-rows:var(--kopf) minmax(0,1fr);transition:none}
+body.admin.offen .start{transform:none;opacity:1;filter:none}
+
+/* Modulleiste */
+body.admin .dock{grid-column:1;grid-row:1/3;justify-self:stretch;width:auto;margin:0;border-radius:0;flex-direction:column;justify-content:flex-start;gap:.2rem;
+  padding:1rem .5rem;overflow-y:auto;scrollbar-width:none;background:rgba(15,12,42,.62);box-shadow:inset -1px 0 0 var(--linie)}
+body.admin .dock button{flex-direction:column;gap:.25rem;min-width:0;min-height:0;padding:.7rem .2rem;font-size:.92rem;color:var(--leise)}
+body.admin .dock button .mdi{font-size:1.9rem}
+body.admin .dock button:hover{background:rgba(255,255,255,.06);color:var(--cloud)}
+body.admin .dock button.aktiv{background:rgba(176,127,208,.22);color:var(--cloud)}
+body.admin .dock .dock-name{display:block;text-align:center;white-space:normal;line-height:1.15}
+body.admin .dock button.admin-modul{color:#c9a8e6}
+body.admin .dock button.admin-modul:not(.admin-modul ~ .admin-modul){margin-top:.8rem;position:relative}
+body.admin .dock button.admin-modul:not(.admin-modul ~ .admin-modul)::before{content:"";position:absolute;left:25%;right:25%;top:-.5rem;height:1px;background:var(--linie-stark)}
+body.admin .dock button:active{transform:none}
+
+/* Kopfzeile */
+.admin-kopf{grid-column:2;grid-row:1;display:flex;align-items:center;gap:2rem;padding:0 2.2rem;min-width:0;
+  background:rgba(15,12,42,.38);box-shadow:inset 0 -1px 0 var(--linie)}
+.ak-zeit{display:flex;align-items:baseline;gap:1rem;flex:none}
+body.admin .uhr{font-size:2.6rem;letter-spacing:-.02em;line-height:1}
+body.admin .datum{font-size:1.1rem;margin:0;color:var(--leise)}
+.ak-lage{display:flex;align-items:center;gap:1rem;min-width:0;flex:1;overflow:hidden}
+body.admin .wetter{gap:.6rem;flex:none}
+body.admin .wetter .wi,body.admin .wetter .mdi{font-size:2.4rem}
+body.admin .wetter b{font-size:1.5rem;display:inline;margin-right:.4rem}
+body.admin .wetter small{font-size:1rem}
+body.admin .wetter > div{white-space:nowrap}
+body.admin .personen,body.admin .status-zeile{flex-wrap:nowrap;gap:.5rem;min-width:0}
+body.admin .person,body.admin .pille{font-size:1rem;white-space:nowrap}
+body.admin .person .av{width:1.9rem;height:1.9rem}
+.ak-rechts{display:flex;align-items:center;gap:.8rem;flex:none}
+.ak-suche{all:unset;cursor:pointer;display:flex;align-items:center;gap:.6rem;padding:.6rem 1rem;border-radius:.8rem;background:var(--flaeche-tief);border:1px solid var(--linie);color:var(--leise);font-size:1rem;min-width:13rem}
+.ak-suche:hover{border-color:var(--linie-stark);color:var(--cloud)}
+.ak-suche kbd{margin-left:auto;font:500 .85rem ui-monospace,Consolas,monospace;border:1px solid var(--linie-stark);border-radius:.3rem;padding:0 .35rem}
+.ak-suche:focus-visible{outline:2px solid var(--cloud);outline-offset:2px}
+
+/* Startseite */
+.admin-start{grid-column:2;grid-row:2;overflow-y:auto;padding:2rem 2.2rem 3rem;min-width:0;scrollbar-width:thin;scrollbar-color:var(--violet) transparent}
+body.admin.offen .admin-start{visibility:hidden}
+.as-kopf{display:flex;align-items:flex-end;justify-content:space-between;gap:1.5rem;flex-wrap:wrap;margin-bottom:1.6rem}
+.as-kopf h1{margin:0;font-size:2.2rem;font-weight:600;letter-spacing:-.01em}
+.as-kopf p{margin:.3rem 0 0;color:var(--leise);font-size:1.15rem}
+.as-raster{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1.4rem;align-items:start}
+.as-block{grid-column:span var(--breite,1);position:relative;min-width:0}
+.as-block > .r-box{height:100%}
+.as-block .r-box h3{justify-content:flex-start;gap:.6rem}
+.as-block .r-box h3 small{margin-left:auto}
+.as-block .r-box h3 .mdi{font-size:1.3rem}
+@media (max-width:1180px){.as-raster{grid-template-columns:repeat(2,minmax(0,1fr))}.as-block{grid-column:span min(var(--breite,1),2)}}
+@media (max-width:760px){.as-raster{grid-template-columns:minmax(0,1fr)}.as-block{grid-column:span 1}}
+
+.as-nominal{display:flex;align-items:center;gap:1rem;color:var(--gut)}
+.as-nominal .mdi{font-size:2.6rem}
+.as-nominal b{display:block;font-size:1.3rem;color:var(--cloud)}
+.as-nominal small{color:var(--leise);font-size:1rem}
+.as-chips{display:flex;flex-wrap:wrap;gap:.6rem}
+.as-chip{all:unset;cursor:pointer;display:inline-flex;align-items:center;gap:.5rem;padding:.55rem 1rem;border-radius:99px;font-size:1.05rem;font-weight:600;border:1px solid transparent}
+.as-chip .mdi{font-size:1.3rem}
+.as-chip.info{color:var(--info);background:rgba(143,180,255,.12)}
+.as-chip.warn{color:var(--warn);background:rgba(240,180,76,.13)}
+.as-chip.krit{color:var(--krit);background:rgba(239,106,122,.15)}
+.as-chip:hover{border-color:currentColor}
+.as-chip:focus-visible{outline:2px solid var(--cloud);outline-offset:2px}
+
+.as-karten{display:flex;flex-direction:column}
+.as-karte{display:grid;grid-template-columns:3.6rem minmax(0,1fr);gap:1rem;align-items:center;padding:.7rem 0;border-top:1px solid var(--linie);cursor:pointer}
+.as-karte:first-child{border-top:0;padding-top:0}
+.as-karte .ring{width:3.6rem;height:3.6rem;position:relative;aspect-ratio:1}
+.as-karte .ring svg{width:100%;height:100%}
+.as-karte .ring .innen{position:absolute;inset:0;display:grid;place-items:center;font-size:1rem}
+.as-karte .ring .innen .mdi{font-size:1.4rem;color:var(--farbe)}
+.as-karte .t{min-width:0;display:flex;flex-direction:column;gap:.1rem}
+.as-karte .t small{color:var(--farbe);font-size:.9rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase}
+.as-karte .t b{font-size:1.15rem;font-weight:600}
+.as-karte .t span{color:var(--leise);font-size:1rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+.as-raeume{display:grid;grid-template-columns:repeat(auto-fill,minmax(13rem,1fr));gap:.8rem}
+.as-raum{all:unset;cursor:pointer;display:grid;grid-template-columns:auto 1fr;grid-template-areas:"i n" "w w" "c c";gap:.3rem .6rem;align-items:center;
+  padding:1rem;border-radius:1rem;background:var(--flaeche-tief);border:1px solid var(--linie)}
+.as-raum:hover{border-color:var(--linie-stark)}
+.as-raum:focus-visible{outline:2px solid var(--cloud);outline-offset:2px}
+.as-raum .mdi{grid-area:i;font-size:1.4rem;color:var(--lavender)}
+.as-raum .n{grid-area:n;font-weight:600;font-size:1.1rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.as-raum .w{grid-area:w;font-size:1.8rem;font-weight:600}
+.as-raum .w small{font-size:1rem;color:var(--leise);font-weight:500;margin-left:.6rem}
+.as-raum .c{grid-area:c;display:flex;gap:.35rem;flex-wrap:wrap}
+.as-raum .c i{font-style:normal;font-size:.9rem;padding:.15rem .55rem;border-radius:.4rem;background:rgba(197,192,211,.1);color:var(--lavender)}
+.as-raum .c i.an{background:rgba(240,180,76,.16);color:#f6cf86}
+.as-raum .c i.warn{background:rgba(239,106,122,.15);color:var(--krit)}
+
+.as-medien{display:flex;flex-direction:column;gap:.8rem}
+.as-medien .gross{padding:1rem;background:var(--flaeche-tief)}
+.as-kamera{cursor:pointer}
+.as-kamera img{width:100%;height:100%;object-fit:cover;display:block}
+.as-kamera span{position:absolute;left:.8rem;top:.6rem;font-size:.95rem;font-weight:600;background:rgba(0,0,0,.45);padding:.2rem .6rem;border-radius:.4rem}
+.as-block .r-thermos{grid-template-columns:minmax(0,1fr)}
+.as-block[style*="--breite:2"] .r-thermos,.as-block[style*="--breite:3"] .r-thermos{grid-template-columns:repeat(2,minmax(0,1fr))}
+.liste .zeile.klickbar:hover{background:rgba(255,255,255,.03)}
+
+/* Anpassen */
+body.anpassen .as-block{outline:1px dashed var(--linie-stark);outline-offset:.4rem;border-radius:var(--r-aussen)}
+body.anpassen .as-block > .r-box{pointer-events:none;opacity:.75}
+.as-werkzeug{position:absolute;top:.6rem;right:.6rem;z-index:2;display:flex;gap:.3rem;align-items:center;padding:.3rem;border-radius:.8rem;background:var(--glas-fest);border:1px solid var(--linie-stark);box-shadow:0 .6rem 1.4rem -.6rem rgba(0,0,0,.6)}
+.as-werkzeug button{all:unset;cursor:pointer;min-width:2.2rem;height:2.2rem;display:grid;place-items:center;border-radius:.5rem;font-size:1rem;font-weight:600;color:var(--lavender)}
+.as-werkzeug button .mdi{font-size:1.3rem}
+.as-werkzeug button:hover{background:rgba(255,255,255,.08);color:var(--cloud)}
+.as-werkzeug button.aktiv{background:var(--purple);color:#fff}
+.as-werkzeug button:disabled{opacity:.3;cursor:default}
+.as-werkzeug .breiten{display:flex;gap:.15rem;padding:0 .3rem;border-inline:1px solid var(--linie)}
+.as-vorrat{margin-top:2rem;padding:1.4rem;border:1px dashed var(--linie-stark);border-radius:var(--r-aussen)}
+.as-vorrat h3{margin:0 0 1rem;font-size:var(--t-hinweis);letter-spacing:.18em;text-transform:uppercase;color:var(--akzent)}
+
+/* Modulseiten im Inhaltsbereich statt als Sheet */
+body.admin .sheet{left:var(--rail);right:0;top:var(--kopf);bottom:0;border-radius:0;border:0;box-shadow:none;transform:none;transition:none;
+  visibility:hidden;background:rgba(15,12,42,.94);--kopf-h:5.4rem}
+body.admin.offen .sheet{visibility:visible}
+body.admin .sheet-kopf{border-radius:0;padding:1rem 2.2rem}
+body.admin .sheet-kopf h1{font-size:1.9rem;flex:none;margin-right:1rem}
+body.admin .sheet-kopf .zu{display:none}
+body.admin .sheet-inhalt{padding:calc(var(--kopf-h) + 1.6rem) 2.2rem 2.4rem}
+body.admin .sheet-inhalt>*{animation:none}
+.admin-seite .as-raster{align-items:stretch}
+.as-werte{display:grid;grid-template-columns:auto minmax(0,1fr);gap:.5rem 1.2rem;margin:0;font-size:1.05rem}
+.as-werte dt{color:var(--leise)}
+.as-werte dd{margin:0;overflow-wrap:anywhere}
+.as-tabelle{overflow-x:auto}
+.as-tabelle table{width:100%;border-collapse:collapse;font-size:1.05rem}
+.as-tabelle th{text-align:left;font-weight:600;color:var(--leise);font-size:.85rem;letter-spacing:.08em;text-transform:uppercase;padding:0 .8rem .6rem}
+.as-tabelle td{padding:.7rem .8rem;border-top:1px solid var(--linie);vertical-align:middle}
+.as-tabelle td:nth-child(2),.as-tabelle td:nth-child(3){white-space:nowrap;color:var(--lavender)}
+.as-tabelle .knopf{padding:.45rem .8rem}
+.as-links{display:grid;grid-template-columns:repeat(auto-fill,minmax(15rem,1fr));gap:.7rem}
+.as-link{all:unset;cursor:pointer;display:flex;align-items:center;gap:.8rem;padding:1rem;border-radius:1rem;background:var(--flaeche-tief);border:1px solid var(--linie);font-size:1.05rem}
+.as-link .mdi{font-size:1.5rem;color:var(--akzent)}
+.as-link:hover{border-color:var(--linie-stark)}
+.as-link:focus-visible{outline:2px solid var(--cloud);outline-offset:2px}
+.sheet-inhalt.rahmen-seite{padding:var(--kopf-h) 0 0;display:flex;flex-direction:column}
+.sheet-inhalt.rahmen-seite > .leer,.sheet-inhalt.rahmen-seite > .knopf{margin:1.6rem 2.2rem 0;align-self:flex-start}
+.admin-rahmen{flex:1;width:100%;border:0;background:#fff;min-height:0}
+.sheet-inhalt.rahmen-seite .admin-rahmen[title="Terminal"]{background:#000}
+
+/* Klingeln: Hinweis unten rechts statt Vollbild */
+body.admin .ereignis{inset:auto 1.6rem 1.6rem auto;place-items:end;background:none;width:34rem}
+body.admin .ereignis .bild{width:100%;border-radius:1.4rem;box-shadow:0 1.6rem 3.6rem -1rem rgba(0,0,0,.7)}
+body.admin .ereignis .akt{bottom:1rem;gap:.5rem}
+body.admin .ereignis .akt .knopf{font-size:1rem;padding:.6rem 1rem}
+body.admin .ereignis .ereignis-hinweis{font-size:1.3rem}
+body.admin .ereignis .ereignis-hinweis .mdi{font-size:4rem}
+
+/* Feinschliff: feste Größen in der Kopfzeile und in den Hinweisringen */
+.ak-lage > *,body.admin .person,body.admin .pille{flex:none}
+.ak-lage{-webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 2rem),transparent);mask-image:linear-gradient(90deg,#000 calc(100% - 2rem),transparent)}
+.as-karte .ring .innen b,.as-karte .ring .innen .wert-txt{font-size:1.1rem!important;font-weight:600;letter-spacing:0}
+.as-karte .t b{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
