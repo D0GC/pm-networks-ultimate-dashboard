@@ -188,8 +188,8 @@
       : `<small>${w.ent.length} ${w.ent.length === 1 ? "Gerät" : "Geräte"}</small>`;
     const an = lichter.filter((e) => PS.s(e) === "on").length;
     const k = E(`<div class="as-raum" role="button" tabindex="0">
-      <div class="kopf">${PS.ic(x.icon || "texture-box")}<span class="n">${PS.esc(x.name)}</span>${lichter.length ? `<button type="button" class="licht${an ? " an" : ""}" title="${an ? "Lichter ausschalten" : "Lichter einschalten"}">${PS.ic(an ? "lightbulb-on" : "lightbulb-outline")}<span class="tabular">${an}/${lichter.length}</span></button>` : ""}</div>
-      <div class="w">${werte}</div>
+      <div class="kopf">${PS.ic(x.icon || "texture-box")}<span class="n">${PS.esc(x.name)}</span></div>
+      <div class="w">${werte}${lichter.length ? `<button type="button" class="licht${an ? " an" : ""}" title="${an ? "Lichter ausschalten" : "Lichter einschalten"}">${PS.ic(an ? "lightbulb-on" : "lightbulb-outline")}<span class="tabular">${an}/${lichter.length}</span></button>` : ""}</div>
       <div class="c">${chips.join("")}</div></div>`);
     const l = k.querySelector(".licht");
     if (l) l.addEventListener("click", (ev) => { ev.stopPropagation(); PS.dienst("light", an ? "turn_off" : "turn_on", { entity_id: lichter }); });
@@ -627,6 +627,29 @@
   setInterval(() => { if (!document.body.classList.contains("offen")) bloecke.forEach((b, id) => { if (b.def.takt) vormerken(id); }); }, 15000);
   setInterval(grussZeigen, 60000);
 
+  // ------------------------------------------------------------ Laufschrift für zu lange Namen
+  const LAUF = ".kachel b, .as-raum .n, .gross .titel > span, .r-box h3 > span, .as-thermo .n span, .raum .oben b";
+  function laufschrift() {
+    document.querySelectorAll(LAUF).forEach((el) => {
+      // Zahlenwalzen und Ringe haben ihr eigenes Innenleben
+      if (el.matches(".wert-txt, [data-text]") || el.closest(".ring")) return;
+      if (!el.firstElementChild && el.textContent.trim()) {
+        const i = document.createElement("span"); i.className = "lauf-innen";
+        i.textContent = el.textContent; el.textContent = ""; el.appendChild(i);
+      }
+      const innen = el.firstElementChild;
+      if (!innen || !innen.classList.contains("lauf-innen")) { el.classList.remove("lauftext"); return; }
+      const weg = innen.scrollWidth - el.clientWidth + 12;
+      const an = el.clientWidth > 0 && weg > 14;
+      el.classList.toggle("lauftext", an);
+      if (an) { el.style.setProperty("--weg", `-${weg}px`); el.style.setProperty("--dauer", `${Math.max(6, weg / 22 / 0.55 + 3).toFixed(1)}s`); }
+    });
+  }
+  let laufTimer = null;
+  const laufBald = () => { clearTimeout(laufTimer); laufTimer = setTimeout(laufschrift, 250); };
+  new MutationObserver(laufBald).observe(document.body, { childList: true, subtree: true, characterData: true });
+  addEventListener("resize", laufBald);
+
   // ------------------------------------------------------------ Admin-Seiten
   PS.module.tuerdienst = {
     titel: "Türdienst", kurz: "Tür", icon: "doorbell",
@@ -704,6 +727,8 @@
   PS.module.terminal = appSeite("Terminal", "console", ["a0d7b954_ssh", "core_ssh"], null,
     "Kein Web-Terminal gefunden. Benötigt wird die App „Advanced SSH & Web Terminal“ oder „Terminal & SSH“.");
   PS.module.music_assistant = { ...appSeite("Music Assistant", "music-circle-outline", [], "_music_assistant", "Music Assistant ist nicht installiert.") };
+  // Klima Studio über seinen eigenen Ingress (der Umweg über die App funktioniert nur am Wandpanel ohne Ingress)
+  PS.module.studio = { ...appSeite("Klima Studio", "thermometer-lines", ["bdf1cc64_pm_klima_studio"], "_pm_klima_studio", "PM Klima Studio ist nicht installiert."), kurz: (PS.module.studio || {}).kurz };
   // Seiten von Home Assistant im Dashboard
   const haSeite = (titel, icon, pfad, kurz) => ({ titel, icon, kurz, render(el) { haRahmen(el, pfad, titel); } });
   PS.module.ha_einstellungen = haSeite("Einstellungen", "cog-outline", "/config/dashboard");
