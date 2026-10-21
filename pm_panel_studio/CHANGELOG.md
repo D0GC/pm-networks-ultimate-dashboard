@@ -1,5 +1,17 @@
 # Änderungen
 
+## 2026.10.51 – 2026-10-21
+
+- Admin-Ansicht: Klima Studio läuft über seinen eigenen Ingress-Zugang (der Weg über die App funktioniert nur am
+  Wandpanel und zeigte am PC nichts).
+- Admin-Ansicht, Modulseiten (Klima, Licht, Wartung, Sicherheit …) in schmaleren Fenstern: zwei Spalten mit der
+  Bedienung oben, hochkant eine Spalte; die Seite scrollt als Ganzes. Thermostate stehen nicht mehr übereinander,
+  kleine Kachelraster füllen die Breite.
+- Admin-Ansicht: Zu lange Namen auf Kacheln, Raum- und Thermostatkarten und in Kartentiteln laufen als Laufschrift
+  durch (kurze Pause, dann von vorn), statt abgeschnitten zu werden; bei reduzierter Bewegung „…“.
+- Raumkacheln: der Lichtschalter steht rechts neben der Temperatur, der Name hat die volle Breite. Zähler in der
+  Modulleiste werden nicht mehr abgeschnitten.
+
 ## 2026.10.50 – 2026-10-21
 
 - Admin-Ansicht passt sich dem Fenster an: unter rund 1100 Pixel Breite (schmales Fenster, Hochformat) stehen die
