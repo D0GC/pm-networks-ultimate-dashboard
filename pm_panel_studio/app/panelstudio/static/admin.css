@@ -297,3 +297,7 @@ body.admin .dock > button{flex:none}
 .vw-tabelle td:nth-child(2),.vw-tabelle td:nth-child(3){color:var(--lavender);white-space:nowrap}
 .vw-dialog{margin-top:1.2rem;padding-top:1rem;border-top:1px solid var(--linie);display:flex;flex-direction:column;gap:.6rem}
 .vw-dialog small{font-size:.85rem;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--akzent)}
+
+/* Eingebettete Seite von Home Assistant mit eigenem Zurück-Pfeil: keine zweite Kopfzeile */
+body.admin .sheet:has(.ha-rahmen.eigener-kopf){--kopf-h:0px}
+body.admin .sheet:has(.ha-rahmen.eigener-kopf) .sheet-kopf{display:none}

@@ -110,6 +110,8 @@
     f.src = pfad;
     el.appendChild(f);
     if (!unterseite) return;
+    // Seiten unter /config haben einen eigenen Zurück-Pfeil (wird unten abgefangen): dann ohne Kopfzeile des Dashboards
+    if (pfad.startsWith("/config/")) f.classList.add("eigener-kopf");
     // Zurück-Pfeil von Home Assistant: statt dessen Übersicht wieder die Seite des Dashboards zeigen, von der man kam
     const start = pfad.split("?")[0];
     const t = setInterval(() => {
