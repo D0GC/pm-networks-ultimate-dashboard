@@ -613,3 +613,4 @@ body .raum-ansicht.frei{display:grid;grid-template-columns:repeat(var(--spalten,
 .raum-ansicht.frei > *{min-width:0;margin:0}
 .raum-ansicht.frei > :not(.frei-fest){align-self:start}
 .raum-ansicht.frei > .frei-fest{overflow:auto;scrollbar-width:thin}
+.flur-aus{display:none!important}

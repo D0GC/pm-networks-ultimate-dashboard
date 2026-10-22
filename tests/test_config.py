@@ -234,3 +234,19 @@ def test_raumkarte_und_listen_aenderungen():
         }
     )
     assert set(e.layouts) == {"plus:x|Geräte|raster0", "minus:x|Geräte|raster0", "pos:x"}
+
+
+def test_layouts_grenzen_und_flur():
+    e = Einstellungen()
+    e.aktualisieren(
+        {
+            "layouts": {
+                "max:raeume/Büro|Geräte|raster0": ["0:9:max"],
+                "flur:teile": ["1:0:uhr", "3:0:kacheln", "9:0:gruss"],
+                "flur:spalten": ["0:31:links", "0:27:rechts"],
+            }
+        }
+    )
+    assert e.layouts["max:raeume/Büro|Geräte|raster0"] == ["1:9:max"]
+    assert e.layouts["flur:teile"] == ["1:0:uhr", "3:0:kacheln", "9:0:gruss"]
+    assert e.layouts["flur:spalten"] == ["1:31:links", "1:27:rechts"]

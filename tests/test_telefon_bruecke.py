@@ -64,10 +64,11 @@ async def strecke():
 async def test_takt_ausgang_gleichmaessig_und_stille(strecke) -> None:
     bruecke, _sitzung, _audio, panel = strecke
     bruecke.starten()
-    await bis(lambda: len(panel.rahmen) >= 26, timeout=3)
-    zeiten = [t for t, _ in panel.rahmen]
+    await bis(lambda: len(panel.rahmen) >= 31, timeout=3)
     assert all(len(d) == 320 and d == bytes(320) for _, d in panel.rahmen)  # keine RTP-Daten: Stille
-    # absolute Zeitplanung: 25 Abstände dauern ~500 ms, ohne Drift
+    # Absolute Zeitplanung: 25 Abstände dauern ~500 ms, ohne Drift. Gemessen nach fünf Rahmen Anlauf; der erste
+    # Takt fällt beim ersten Test eines Laufs mit dem Aufwärmen der Ereignisschleife zusammen und streut.
+    zeiten = [t for t, _ in panel.rahmen][5:31]
     assert 0.46 < zeiten[25] - zeiten[0] < 0.56
     assert max(b - a for a, b in pairwise(zeiten)) < 0.06
 

@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import json
 import logging
 import socket
 import time
@@ -29,6 +30,8 @@ import aiohttp
 _LOGGER = logging.getLogger(__name__)
 
 FRISCH_S = 2.5  # Gesundheitsbericht (Live-Durchsatz, Latenz)
+LIVE_FRISCH_S = 6.0  # so lange gilt ein Gateway-Stand aus der Ereignisverbindung als aktuell
+LIVE_RUHE_S = 60.0  # ohne Abfrage der Admin-Ansicht schließt die Ereignisverbindung nach dieser Zeit
 GERAETE_S = 20  # Geräteliste ändert sich selten
 # Wie UniFi: Microsoft, Google und Cloudflare
 PING_ZIELE = (("Microsoft", "www.microsoft.com", 443), ("Google", "www.google.com", 443), ("Cloudflare", "1.1.1.1", 443))
@@ -228,6 +231,14 @@ class Unifi:
         self._roh_gw: dict[str, Any] | None = None
         self._roh_health: list[dict[str, Any]] = []
         self._zaehler_rate: tuple[float, float] | None = None
+        # Ereignisverbindung (WebSocket) zum Controller: das Gateway meldet seinen Stand selbst, wie in der UniFi-Oberfläche
+        self._ws_task: asyncio.Task | None = None
+        self._ws_gw: dict[str, Any] | None = None
+        self._ws_zeit = 0.0
+        self._ws_verbunden = False
+        self._ws_fehler: str | None = None
+        self._ws_typen: dict[str, int] = {}
+        self._abgefragt = 0.0
         self._zeit = 0.0
         self._sperre = asyncio.Lock()
 
@@ -278,9 +289,11 @@ class Unifi:
     async def stand(self, neu: bool = False) -> dict[str, Any]:
         if not self.eingerichtet:
             return {"quelle": None, "fehler": None}
+        self._abgefragt = time.monotonic()
+        self._ws_starten()
         async with self._sperre:
             if self._stand and not neu and time.monotonic() - self._zeit < FRISCH_S:
-                return self._stand
+                return self._mit_live(self._stand)
             try:
                 if neu or self._geraete is None or time.monotonic() - self._geraete_zeit >= GERAETE_S:
                     health, geraete = await asyncio.gather(self._api("GET", "stat/health"), self._api("GET", "stat/device"))
@@ -303,7 +316,79 @@ class Unifi:
                     "fehler": str(err) or type(err).__name__,
                 }
             self._stand, self._zeit = stand, time.monotonic()
-            return stand
+            return self._mit_live(stand)
+
+    # ------------------------------------------------------------ Ereignisverbindung
+    def _mit_live(self, stand: dict[str, Any]) -> dict[str, Any]:
+        """Durchsatz aus dem jüngsten Gateway-Ereignis, solange es frisch ist; sonst der abgefragte Stand."""
+        live = self._ws_gw is not None and time.monotonic() - self._ws_zeit < LIVE_FRISCH_S
+        rate = durchsatz(self._ws_gw) if live else None
+        if not rate or not isinstance(stand.get("internet"), dict):
+            return {**stand, "live": False}
+        return {
+            **stand,
+            "live": True,
+            "zeit": int(time.time()),
+            "internet": {**stand["internet"], "rx_bps": rate[0], "tx_bps": rate[1], "durchsatz_quelle": "live-" + rate[2]},
+        }
+
+    def _ws_starten(self) -> None:
+        if self._ws_task is None or self._ws_task.done():
+            self._ws_task = asyncio.create_task(self._ws_lauf())
+
+    async def _ws_lauf(self) -> None:
+        """Verbindet sich mit den Ereignissen des Controllers, solange die Admin-Ansicht abfragt; bei Fehlern mit
+        wachsender Pause neu. Gateway-Meldungen (device:sync, device:update) ergänzen den zuletzt bekannten Stand."""
+        url = self.adresse.replace("https://", "wss://", 1).replace("http://", "ws://", 1)
+        url += f"/proxy/network/wss/s/{self.site}/events?clients=v2"
+        pause = 5.0
+        while time.monotonic() - self._abgefragt < LIVE_RUHE_S:
+            try:
+                if not self.schluessel and not self._angemeldet:
+                    await self._anmelden()
+                async with self.session.ws_connect(url, headers=self._koepfe(), ssl=False, heartbeat=30) as ws:
+                    self._ws_verbunden, self._ws_fehler, pause = True, None, 5.0
+                    while time.monotonic() - self._abgefragt < LIVE_RUHE_S:
+                        try:
+                            nachricht = await ws.receive(timeout=10)
+                        except TimeoutError:
+                            continue
+                        if nachricht.type != aiohttp.WSMsgType.TEXT:
+                            if nachricht.type in (aiohttp.WSMsgType.CLOSED, aiohttp.WSMsgType.CLOSING, aiohttp.WSMsgType.ERROR):
+                                break
+                            continue
+                        self._ws_nachricht(nachricht.data)
+            except asyncio.CancelledError:
+                raise
+            except (aiohttp.ClientError, TimeoutError, UnifiFehler, ValueError) as err:
+                self._ws_fehler = str(err) or type(err).__name__
+                _LOGGER.debug("UniFi-Ereignisse: %s", err)
+            self._ws_verbunden = False
+            await asyncio.sleep(pause)
+            pause = min(60.0, pause * 2)
+        self._ws_verbunden = False
+
+    def _ws_nachricht(self, text: str) -> None:
+        try:
+            daten = json.loads(text)
+        except ValueError:
+            return
+        if not isinstance(daten, dict):
+            return
+        art = str((daten.get("meta") or {}).get("message") or "?")
+        self._ws_typen[art] = self._ws_typen.get(art, 0) + 1
+        if art not in ("device:sync", "device:update"):
+            return
+        for d in daten.get("data") or []:
+            if ist_gateway(d):
+                self._ws_gw = {**(self._ws_gw or {}), **d}
+                self._ws_zeit = time.monotonic()
+
+    async def schliessen(self) -> None:
+        if self._ws_task is not None:
+            self._ws_task.cancel()
+            await asyncio.gather(self._ws_task, return_exceptions=True)
+            self._ws_task = None
 
     async def _gateway(self, geraete: list[dict[str, Any]]) -> dict[str, Any] | None:
         """Das Gateway bei jeder Abfrage frisch (laufender WAN-Durchsatz); die übrige Geräteliste ruht 20 s."""
@@ -326,7 +411,15 @@ class Unifi:
             if isinstance(h, dict) and h.get("subsystem") in ("wan", "www", "lan", "wlan"):
                 felder += [{"pfad": f"health.{h['subsystem']}.{p}", "wert": w} for p, w in durchsatzfelder(h)]
         z = self._zaehler_rate
+        live_gw = self._ws_gw or {}
         return {
+            "live": {
+                "verbunden": self._ws_verbunden,
+                "fehler": self._ws_fehler,
+                "letzte_s": round(time.monotonic() - self._ws_zeit, 1) if self._ws_gw else None,
+                "nachrichten": dict(sorted(self._ws_typen.items(), key=lambda x: -x[1])[:12]),
+                "felder": [{"pfad": f"live.{p}", "wert": w} for p, w in durchsatzfelder(live_gw)],
+            },
             "zeit": int(time.time()),
             "gateway": gw.get("name") or gw.get("model"),
             "last_seen": gw.get("last_seen"),

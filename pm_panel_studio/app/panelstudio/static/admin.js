@@ -521,6 +521,32 @@
     return p;
   }
 
+  // ------------------------------------------------------------ Flur-Startseite anordnen
+  // Das Panel des Flurs in seiner Größe (1280 × 800), eingebettet mit ?anordnen=1: dort laufen Ziehen, Ausblenden und
+  // Spaltenbreiten (static/flur-anordnen.js); gespeichert wird sofort, das Panel im Flur folgt.
+  PS.module.flurstart = {
+    titel: "Flur-Startseite", icon: "tablet-dashboard",
+    render(el) {
+      el.classList.add("admin-seite");
+      const w = E(`<div class="flur-vorschau"><div class="fv-leiste"><span>${PS.ic("information-outline")}Teile ziehen, mit dem Auge ausblenden, an den lila Linien die Spaltenbreite ändern. Jede Änderung gilt sofort im Flur.</span></div>
+        <div class="fv-rahmen"><iframe title="Startseite im Flur" src="panel?anordnen=1"></iframe></div></div>`);
+      const zuruecksetzen = knopf("Standard", "restore", async () => {
+        const L = { ...(PS.einst.layouts || {}) }; delete L["flur:teile"]; delete L["flur:spalten"];
+        await ordnungSpeichern({ layouts: L }, "Flur-Startseite zurückgesetzt");
+        w.querySelector("iframe").contentWindow.location.reload();
+      });
+      w.querySelector(".fv-leiste").appendChild(zuruecksetzen);
+      el.appendChild(w);
+      const rahmen = w.querySelector(".fv-rahmen"), f = w.querySelector("iframe");
+      const passen = () => { const s = Math.min(1, rahmen.clientWidth / 1280); f.style.transform = `scale(${s})`; rahmen.style.height = `${800 * s}px`; };
+      new ResizeObserver(passen).observe(rahmen); passen();
+    },
+  };
+  {
+    const i = PS.admin.module.indexOf("editor");
+    PS.admin.module.splice(i < 0 ? PS.admin.module.length : i + 1, 0, "flurstart");
+  }
+
   // ------------------------------------------------------------ Ziehen zum Sortieren (Maus, Stift, Finger)
   // Das gezogene Element wandert unter dem Zeiger durch seine Geschwister; erst nach 6 px Weg, damit ein Klick ein
   // Klick bleibt. Geschwister zählen nur, wenn „gehoert“ sie annimmt.
@@ -618,14 +644,14 @@
     dlg.querySelector(".zu").addEventListener("click", PS.dialogSchliessen);
     $("#dialog-grund").classList.add("offen");
   });
-  anordnenLeiste.append(karteKnopf, freiKnopf, zuruecksetzen, knopf("Fertig", "check", () => anordnen(false), "primaer"));
   function layoutSpeichern(schluessel, eintraege, meldung) {
+    verlaufMerken();
     const neu = { ...(PS.einst.layouts || {}) };
     if (eintraege && eintraege.length) neu[schluessel] = eintraege; else delete neu[schluessel];
     PS.einst.layouts = neu;
     if (aufStart()) wurzeln().forEach((w) => PS.layout.anwenden(w, START)); else PS.layout.anwenden();
     listenMarkieren();
-    return ordnungSpeichern({ layouts: neu }, meldung);
+    return ordnungSpeichern({ layouts: neu }, meldung, true);
   }
   const freiEintraege = (g) => [...g.children].filter((el) => el.dataset.teil).map((el) => `${el.dataset.w || 4}:${el.dataset.h || 0}:${el.dataset.teil}`);
   anordnenKnopf.addEventListener("click", () => anordnen(!document.body.classList.contains("anordnen")));
@@ -641,7 +667,7 @@
     const an = document.body.classList.contains("anordnen");
     [$("#sheet-inhalt"), $("#as-raster")].forEach((w) => {
       w.querySelectorAll(".ord-liste").forEach((x) => x.classList.remove("ord-liste"));
-      if (!an) w.querySelectorAll(".frei-ziehen, .frei-groesse, .ord-breite").forEach((x) => x.remove());
+      if (!an) w.querySelectorAll(".frei-ziehen, .frei-groesse, .ord-breite, .ord-weg, .ord-plus, .ord-grenze").forEach((x) => x.remove());
     });
     const g = aufStart() ? null : $("#sheet-inhalt .raum-ansicht");
     freiKnopf.style.display = !g || g.classList.contains("frei") ? "none" : "";
@@ -657,6 +683,10 @@
           E(`<span class="ord-weg" role="button" title="Aus dieser Liste entfernen">${PS.ic("close")}</span>`));
       });
       if (!c.querySelector(":scope > .ord-plus")) c.appendChild(E(`<button type="button" class="ord-plus">${PS.ic("plus")}<span>Gerät hinzufügen</span></button>`));
+      // Begrenzte Liste: Anzahl einstellen
+      if (c.dataset.grenze && !(c.nextElementSibling && c.nextElementSibling.classList.contains("ord-grenze"))) {
+        c.after(E(`<div class="ord-grenze"><span>Zeigt ${Math.min(+c.dataset.grenze, +c.dataset.alle)} von ${c.dataset.alle}</span><button type="button" data-d="-1" aria-label="Weniger">${PS.ic("minus")}</button><button type="button" data-d="1" aria-label="Mehr">${PS.ic("plus")}</button></div>`));
+      }
     });
     // Teile im freien Raster: Griff zum Verschieben, Ecke für die Größe
     if (g && g.classList.contains("frei")) [...g.children].forEach((el) => {
@@ -671,14 +701,52 @@
   [$("#sheet-inhalt"), $("#as-raster")].forEach((w) => markierer.observe(w, { childList: true, subtree: true }));
   // Wechsel zwischen Startseite und Modulseite beendet das Anordnen
   PS.on("seite", () => { if (document.body.classList.contains("anordnen") && anordnenStart !== aufStart()) anordnen(false); });
-  async function ordnungSpeichern(teil, meldung) {
+  // Rückgängig: vor jeder Änderung den Stand aller Anordnungen merken (bis 40 Schritte in dieser Sitzung)
+  const ANORDNUNG = ["reihenfolgen", "layouts", "bereiche_reihenfolge", "raumkarte"];
+  const verlauf = [];
+  const anordnungStand = () => JSON.parse(JSON.stringify(Object.fromEntries(ANORDNUNG.map((k) => [k, PS.einst[k] ?? (k === "raumkarte" || k === "bereiche_reihenfolge" ? [] : {})]))));
+  const rueckKnopf = knopf("Rückgängig", "undo", async () => {
+    const alt = verlauf.pop(); if (!alt) return;
+    await ordnungSpeichern(alt, "Letzte Änderung zurückgenommen", true);
+    neuAnwenden();
+  });
+  const rueckZeigen = () => { rueckKnopf.disabled = !verlauf.length; };
+  // Stand vor einer Änderung merken; wer PS.einst schon vor dem Speichern ändert, ruft das vorher selbst auf
+  function verlaufMerken() { verlauf.push(anordnungStand()); if (verlauf.length > 40) verlauf.shift(); }
+  async function ordnungSpeichern(teil, meldung, ohneVerlauf) {
+    if (!ohneVerlauf) verlaufMerken();
+    rueckZeigen();
     try {
       const r = await fetch("api/einstellungen", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(teil) });
       if (!r.ok) throw new Error(await r.text());
       Object.assign(PS.einst, (await r.json()).einstellungen);
       if (meldung) PS.toast(meldung);
     } catch (e) { PS.toast("Nicht gespeichert: " + (e.message || e), true); }
+    rueckZeigen();
   }
+  // Sicherung aller Anordnungen als Datei und Wiederherstellen daraus
+  const sichernKnopf = knopf("Sichern", "content-save-outline", () => {
+    const daten = { art: "pm-panel-studio-anordnung", version: 1, zeit: new Date().toISOString(), ...anordnungStand() };
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([JSON.stringify(daten, null, 2)], { type: "application/json" }));
+    a.download = `anordnung-${new Date().toISOString().slice(0, 16).replace(/[:T]/g, "-")}.json`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  });
+  const ladenKnopf = knopf("Laden", "folder-open-outline", () => {
+    const f = document.createElement("input"); f.type = "file"; f.accept = "application/json,.json";
+    f.addEventListener("change", async () => {
+      try {
+        const d = JSON.parse(await f.files[0].text());
+        if (d.art !== "pm-panel-studio-anordnung") throw new Error("Keine Sicherung einer Anordnung");
+        await ordnungSpeichern(Object.fromEntries(ANORDNUNG.filter((k) => k in d).map((k) => [k, d[k]])), "Anordnung wiederhergestellt");
+        neuAnwenden();
+      } catch (e) { PS.toast("Nicht geladen: " + (e.message || e), true); }
+    });
+    f.click();
+  });
+  anordnenLeiste.append(rueckKnopf, karteKnopf, freiKnopf, zuruecksetzen, sichernKnopf, ladenKnopf, knopf("Fertig", "check", () => anordnen(false), "primaer"));
+  rueckZeigen();
   const kennbar = (x) => !!PS.ordnung.kennung(x);
   const druck = (ev) => {
     if (!document.body.classList.contains("anordnen")) return;
@@ -819,15 +887,23 @@
   $("#as-raster").addEventListener("click", (ev) => { if (document.body.classList.contains("anordnen") && aufStart()) { ev.stopPropagation(); ev.preventDefault(); listenAktion(ev); } }, true);
   // Geräte einer Liste hinzufügen oder aus ihr entfernen (gilt auf allen Panels)
   function listenAktion(ev) {
+    const g = ev.target.closest(".ord-grenze button");
+    if (g) {
+      const raster = g.closest(".ord-grenze").previousElementSibling, k = schluesselVon(raster);
+      const n = Math.max(1, Math.min(60, (+raster.dataset.grenze || 6) + +g.dataset.d));
+      layoutSpeichern("max:" + k, [`0:${n}:max`]).then(() => neuAnwenden());
+      return;
+    }
     const t = ev.target.closest(".ord-plus, .ord-weg"); if (!t) return;
     const liste = t.closest(".ord-liste"); if (!liste) return;
     const k = schluesselVon(liste), L = PS.einst.layouts || {};
     const lesen = (n) => (L[n + k] || []).map(PS.layout.eintragLesen).filter(Boolean).map((x) => x.id);
     const schreiben = (plus, minus) => {
+      verlaufMerken();
       const neu = { ...L };
       ["plus:", "minus:"].forEach((n, i) => { const l = [plus, minus][i]; if (l.length) neu[n + k] = l.map((e) => `0:0:${e}`); else delete neu[n + k]; });
       PS.einst.layouts = neu;
-      return ordnungSpeichern({ layouts: neu });
+      return ordnungSpeichern({ layouts: neu }, null, true);
     };
     if (t.classList.contains("ord-weg")) {
       const eid = PS.ordnung.kennung(t.parentElement);

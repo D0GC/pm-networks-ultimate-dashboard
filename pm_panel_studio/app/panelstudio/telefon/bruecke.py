@@ -58,7 +58,9 @@ class TonBruecke:
         loop = asyncio.get_running_loop()
         start = loop.time()
         n = 0
-        while True:
+        # Abbruchmarke zusätzlich zum Cancel: asyncio.wait_for (Python 3.11) kann einen Cancel verschlucken, wenn er genau
+        # beim Abschluss des Sendens eintrifft; ohne Marke liefe der Takt dann weiter und schliessen() wartete ewig.
+        while not self._geschlossen:
             n += 1
             verzug = start + n * TAKT - loop.time()
             if verzug > 0:

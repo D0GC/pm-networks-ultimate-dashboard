@@ -461,6 +461,11 @@ def _unifi(request: web.Request) -> netz.Unifi:
     return halter[0]
 
 
+async def _netz_schliessen(app: web.Application) -> None:
+    for u in app[K_NETZ]:
+        await u.schliessen()
+
+
 async def netz_stand(request: web.Request) -> web.Response:
     """Netzwerkstatus vom UniFi-Gateway (nur Ingress; ohne Zugangsdaten {"quelle": null}) und der eigene Live-Ping."""
     u = _unifi(request)
@@ -527,6 +532,7 @@ def create_ingress_app(hub: Hub, token: list[str], networks: list[Any] | None = 
     app[K_ADMIN] = ist_admin
     app[K_NETZ] = []
     app[K_PING] = netz.Ping()
+    app.on_cleanup.append(_netz_schliessen)
     app.router.add_get("/api/netz", netz_stand)
     app.router.add_post("/api/netz/speedtest", netz_speedtest)
     app.router.add_get("/api/netz/diagnose", netz_diagnose)
