@@ -605,3 +605,11 @@ body.zugaenglich .person.da .av::after{box-shadow:0 0 0 .2rem var(--navy),inset 
 body.zugaenglich .liste .zeile.erledigt .n{text-decoration:line-through}
 body.zugaenglich .gross.kompakt .soll b{min-width:3.4rem;font-size:1.5rem}
 body.zugaenglich .gross.kompakt .soll{gap:.25rem}
+
+/* Freies Raster (am PC eingestellt): zwölf Spalten, feine Zeilen, Teile in gespeicherter Folge (start.js) */
+.sheet-inhalt.raumseite.frei-seite{overflow-y:auto!important;display:block!important}
+body .raum-ansicht.frei{display:grid;grid-template-columns:repeat(var(--spalten,12),minmax(0,1fr))!important;grid-auto-rows:8px;grid-auto-flow:row dense;
+  gap:1.2rem 1.4rem;align-content:start;min-height:0;height:auto}
+.raum-ansicht.frei > *{min-width:0;margin:0}
+.raum-ansicht.frei > :not(.frei-fest){align-self:start}
+.raum-ansicht.frei > .frei-fest{overflow:auto;scrollbar-width:thin}

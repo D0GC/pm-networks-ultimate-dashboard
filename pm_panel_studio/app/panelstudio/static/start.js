@@ -785,8 +785,83 @@
       });
     },
   };
+  // ------------------------------------------------------------ Freies Raster (Position und Größe, am PC eingestellt)
+  // Seiten im Drei-Spalten-Muster (.raum-ansicht) werden, sobald für sie ein Raster gespeichert ist, zu einem Raster aus
+  // zwölf Spalten: jedes Teil (Box, Klima-, Medienkarte, Knopf) in gespeicherter Folge, Breite in Spalten, Höhe in
+  // feinen Zeilen (0 = nach Inhalt). Schmal: zwei Spalten (ab halber Breite voll), ganz schmal eine; Höhe nach Inhalt.
+  // Kacheln in einem Raster können mehrere Spalten breit sein. Gespeichert in PS.einst.layouts:
+  // „seite:Modul/Titel“ → ["b:h:Kennung", …] und „liste:Listenschlüssel“ → ["b:0:Entität", …].
+  const ZEILE_PX = 8;
+  const teilId = (el) => kennung(el) || (el.dataset.medien ? "medien:" + el.dataset.medien : "")
+    || (el.matches(".knopf") ? "knopf:" + (el.querySelector(":scope > span") || el).textContent.trim() : "") || "";
+  function teileVon(g) {
+    if (g.classList.contains("frei")) return [...g.children];
+    return [...g.children].flatMap((x) => (x.classList.contains("r-spalte") ? [...x.children] : [x]));
+  }
+  function teilIds(teile) {
+    const zaehler = {};
+    return teile.map((el) => {
+      let id = teilId(el);
+      if (!id) { const k = el.classList[0] || el.tagName.toLowerCase(); zaehler[k] = (zaehler[k] || 0) + 1; id = `teil:${k}${zaehler[k]}`; }
+      return id;
+    });
+  }
+  const eintragLesen = (x) => { const m = /^(\d{1,2}):(\d{1,3}):(.+)$/.exec(x); return m ? { w: +m[1], h: +m[2], id: m[3] } : null; };
+  function freiSpannen(g) {
+    const breit = g.clientWidth, spalten = breit < 560 ? 1 : breit < 900 ? 2 : 12;
+    g.style.setProperty("--spalten", spalten);
+    const luecke = parseFloat(getComputedStyle(g).rowGap) || 0;
+    [...g.children].forEach((el) => {
+      const w = +el.dataset.w || 4, h = +el.dataset.h || 0;
+      el.style.gridColumn = `span ${spalten === 12 ? w : spalten === 2 ? (w >= 6 ? 2 : 1) : 1}`;
+      const fest = spalten === 12 && h > 0;
+      el.classList.toggle("frei-fest", fest);
+      const hoehe = fest ? 0 : el.getBoundingClientRect().height;
+      el.style.gridRow = `span ${fest ? h : Math.max(1, Math.ceil((hoehe + luecke) / (ZEILE_PX + luecke)))}`;
+    });
+  }
+  const freiBeobachter = new ResizeObserver((liste) => {
+    const gs = new Set(liste.map((x) => x.target.closest(".raum-ansicht.frei")).filter(Boolean));
+    requestAnimationFrame(() => gs.forEach((g) => g.isConnected && freiSpannen(g)));
+  });
+  function rasterAnwenden(g, eintraege) {
+    const teile = teileVon(g), ids = teilIds(teile);
+    const nachId = new Map(teile.map((el, i) => [ids[i], el]));
+    const folge = eintraege.map(eintragLesen).filter((x) => x && nachId.has(x.id));
+    const gesehen = new Set(folge.map((x) => x.id));
+    const alle = [...folge, ...ids.filter((id) => !gesehen.has(id)).map((id) => ({ id, w: 4, h: 0 }))];
+    const soll = alle.map((x) => nachId.get(x.id));
+    alle.forEach((x, i) => { const el = soll[i]; el.dataset.w = x.w; el.dataset.h = x.h; el.dataset.teil = x.id; });
+    if (!g.classList.contains("frei")) {
+      g.classList.add("frei");
+      if (g.parentElement) g.parentElement.classList.add("frei-seite");
+      g.replaceChildren(...soll);
+    } else if (!soll.every((el, i) => g.children[i] === el)) g.replaceChildren(...soll);
+    soll.forEach((el) => { if (!el._freiBeob) { el._freiBeob = true; freiBeobachter.observe(el); } });
+    freiSpannen(g);
+  }
+  PS.layout = {
+    teileVon, teilIds, freiSpannen, eintragLesen,
+    anwenden(wurzel = $("#sheet-inhalt")) {
+      if (PS.ordnung.zieht || !stapel.length) return;
+      const L = PS.einst.layouts || {};
+      const g = wurzel.querySelector(".raum-ansicht"), seite = L["seite:" + seitenSchluessel()];
+      if (g && seite && seite.length) rasterAnwenden(g, seite);
+      // Kachelbreiten je Liste
+      const listen = ordnungsListen(wurzel);
+      listen.filter((c) => c.classList.contains("raster")).forEach((c) => {
+        const b = L["liste:" + listenSchluessel(c, wurzel, listen)];
+        const breite = new Map((b || []).map(eintragLesen).filter(Boolean).map((x) => [x.id, x.w]));
+        [...c.children].forEach((k) => {
+          const w = breite.get(kennung(k));
+          if (w > 1) { k.style.gridColumn = `span ${w}`; k.dataset.spanne = w; } else if (k.dataset.spanne) { k.style.gridColumn = ""; delete k.dataset.spanne; }
+        });
+      });
+    },
+  };
+
   let ordnungBald = 0;
-  const ordnungVormerken = () => { if (!ordnungBald) ordnungBald = requestAnimationFrame(() => { ordnungBald = 0; PS.ordnung.anwenden(); }); };
+  const ordnungVormerken = () => { if (!ordnungBald) ordnungBald = requestAnimationFrame(() => { ordnungBald = 0; PS.ordnung.anwenden(); PS.layout.anwenden(); }); };
   new MutationObserver(ordnungVormerken).observe($("#sheet-inhalt"), { childList: true, subtree: true });
   PS.on("einstellungen", ordnungVormerken);
 

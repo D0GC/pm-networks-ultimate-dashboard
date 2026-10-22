@@ -199,3 +199,21 @@ def test_reihenfolgen():
     viele = {f"s{i}": ["a"] for i in range(1000)}
     e.aktualisieren({"reihenfolgen": viele})
     assert len(e.reihenfolgen) == 400
+
+
+def test_layouts():
+    e = Einstellungen()
+    assert not e.aktualisieren(
+        {
+            "layouts": {
+                "seite:raeume/Büro": ["4:0:box:Licht", "20:999:box:Geräte", "kaputt", "6:12:knopf:Alle Geräte"],
+                "liste:raeume/Büro|Geräte|raster0": ["2:0:switch.a"],
+                "fremd": ["4:0:x"],
+            }
+        }
+    )
+    assert e.layouts == {
+        "seite:raeume/Büro": ["4:0:box:Licht", "12:200:box:Geräte", "6:12:knopf:Alle Geräte"],
+        "liste:raeume/Büro|Geräte|raster0": ["2:0:switch.a"],
+    }
+    assert Einstellungen.from_dict(e.to_dict()).layouts == e.layouts

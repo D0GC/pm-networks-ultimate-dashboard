@@ -560,12 +560,33 @@
   const anordnenLeiste = E(`<div class="ord-leiste" hidden><span>${PS.ic("drag-variant")}Ziehen zum Sortieren · Boxen an der Überschrift</span></div>`);
   document.body.append(anordnenKnopf, anordnenLeiste);
   const zuruecksetzen = knopf("Seite zurücksetzen", "restore", async () => {
-    const seite = PS.ordnung.seite() + "|", alt = PS.einst.reihenfolgen || {};
-    const neu = Object.fromEntries(Object.entries(alt).filter(([k]) => !k.startsWith(seite)));
-    await ordnungSpeichern({ reihenfolgen: neu }, "Reihenfolge dieser Seite zurückgesetzt");
+    const seite = PS.ordnung.seite(), alt = PS.einst.reihenfolgen || {}, lay = PS.einst.layouts || {};
+    const neu = Object.fromEntries(Object.entries(alt).filter(([k]) => !k.startsWith(seite + "|")));
+    const neuLay = Object.fromEntries(Object.entries(lay).filter(([k]) => k !== "seite:" + seite && !k.startsWith("liste:" + seite + "|")));
+    await ordnungSpeichern({ reihenfolgen: neu, layouts: neuLay }, "Anordnung dieser Seite zurückgesetzt");
     PS.neuZeichnen();
   });
-  anordnenLeiste.append(zuruecksetzen, knopf("Fertig", "check", () => anordnen(false), "primaer"));
+  // Freies Raster: Position und Größe der Teile einer Seite im Drei-Spalten-Muster
+  const freiKnopf = knopf("Freies Raster", "view-grid-plus-outline", () => {
+    const g = $("#sheet-inhalt .raum-ansicht"); if (!g) return;
+    const breite = g.clientWidth || 1, spalten = [...g.children].filter((x) => x.classList.contains("r-spalte"));
+    const reihen = spalten.map((sp) => [...sp.children].map((el) => ({ el, w: Math.max(2, Math.min(12, Math.round((sp.getBoundingClientRect().width / breite) * 12))) })));
+    const lose = [...g.children].filter((x) => !x.classList.contains("r-spalte")).map((el) => ({ el, w: 12 }));
+    const folge = [...lose];
+    for (let i = 0; i < Math.max(0, ...reihen.map((x) => x.length)); i++) reihen.forEach((sp) => { if (sp[i]) folge.push(sp[i]); });
+    const ids = PS.layout.teilIds(folge.map((x) => x.el));
+    layoutSpeichern("seite:" + PS.ordnung.seite(), folge.map((x, i) => `${x.w}:0:${ids[i]}`), "Freies Raster aktiv: Teile am Griff ziehen, Größe unten rechts");
+  });
+  anordnenLeiste.append(freiKnopf, zuruecksetzen, knopf("Fertig", "check", () => anordnen(false), "primaer"));
+  function layoutSpeichern(schluessel, eintraege, meldung) {
+    const neu = { ...(PS.einst.layouts || {}) };
+    if (eintraege && eintraege.length) neu[schluessel] = eintraege; else delete neu[schluessel];
+    PS.einst.layouts = neu;
+    PS.layout.anwenden();
+    listenMarkieren();
+    return ordnungSpeichern({ layouts: neu }, meldung);
+  }
+  const freiEintraege = (g) => [...g.children].filter((el) => el.dataset.teil).map((el) => `${el.dataset.w || 4}:${el.dataset.h || 0}:${el.dataset.teil}`);
   anordnenKnopf.addEventListener("click", () => anordnen(!document.body.classList.contains("anordnen")));
   function anordnen(an) {
     document.body.classList.toggle("anordnen", an);
@@ -574,10 +595,21 @@
     listenMarkieren();
   }
   function listenMarkieren() {
-    const inhalt = $("#sheet-inhalt");
+    const inhalt = $("#sheet-inhalt"), an = document.body.classList.contains("anordnen");
     inhalt.querySelectorAll(".ord-liste").forEach((x) => x.classList.remove("ord-liste"));
-    if (!document.body.classList.contains("anordnen")) return;
-    PS.ordnung.listen(inhalt).forEach((c) => c.classList.add("ord-liste"));
+    const g = inhalt.querySelector(".raum-ansicht");
+    freiKnopf.style.display = !g || g.classList.contains("frei") ? "none" : "";
+    if (!an) { inhalt.querySelectorAll(".frei-ziehen, .frei-groesse, .ord-breite").forEach((x) => x.remove()); return; }
+    const listen = PS.ordnung.listen(inhalt);
+    listen.forEach((c) => c.classList.add("ord-liste"));
+    // Kacheln in Rastern: Breite ziehen
+    listen.filter((c) => c.classList.contains("raster")).forEach((c) => [...c.children].forEach((k) => {
+      if (PS.ordnung.kennung(k) && !k.querySelector(":scope > .ord-breite")) k.appendChild(E(`<span class="ord-breite" title="Breite ziehen">${PS.ic("arrow-expand-horizontal")}</span>`));
+    }));
+    // Teile im freien Raster: Griff zum Verschieben, Ecke für die Größe
+    if (g && g.classList.contains("frei")) [...g.children].forEach((el) => {
+      if (!el.querySelector(":scope > .frei-ziehen")) el.append(E(`<span class="frei-ziehen" title="Verschieben">${PS.ic("drag-variant")}</span>`), E(`<span class="frei-groesse" title="Größe ziehen · Doppelklick: Höhe nach Inhalt">${PS.ic("resize-bottom-right")}</span>`));
+    });
   }
   let markierenBald = 0;
   new MutationObserver(() => {
@@ -596,6 +628,7 @@
   const kennbar = (x) => !!PS.ordnung.kennung(x);
   $("#sheet-inhalt").addEventListener("pointerdown", (ev) => {
     if (!document.body.classList.contains("anordnen")) return;
+    if (freiGriffe(ev)) return;
     const listen = new Set($("#sheet-inhalt").querySelectorAll(".ord-liste"));
     // Überschrift einer Box: die Box ziehen; sonst das innerste kenntliche Element einer Liste
     const kopf = ev.target.closest(".r-box > h3, .gruppe > h3");
@@ -606,6 +639,12 @@
     if (!el) return;
     ev.preventDefault();
     const liste = el.parentElement;
+    if (liste.matches(".raum-ansicht.frei")) {
+      PS.ordnung.zieht = true;
+      window.addEventListener("pointerup", () => setTimeout(() => { if (!document.body.classList.contains("ord-ziehen")) PS.ordnung.zieht = false; }, 0), { once: true });
+      ziehen(ev, el, (x) => x.parentElement === liste, () => { PS.ordnung.zieht = false; layoutSpeichern("seite:" + PS.ordnung.seite(), freiEintraege(liste)); });
+      return;
+    }
     PS.ordnung.zieht = true;
     ziehen(ev, el, kennbar, () => {
       PS.ordnung.zieht = false;
@@ -620,6 +659,49 @@
     // ohne Bewegung zurücksetzen
     window.addEventListener("pointerup", () => { setTimeout(() => { if (!document.body.classList.contains("ord-ziehen")) PS.ordnung.zieht = false; }, 0); }, { once: true });
   });
+  // Griffe im Anordnen-Modus: Teil verschieben, Teil vergrößern, Kachelbreite
+  function freiGriffe(ev) {
+    const t = ev.target.closest(".frei-ziehen, .frei-groesse, .ord-breite"); if (!t) return false;
+    ev.preventDefault(); ev.stopPropagation();
+    const el = t.parentElement, g = el.parentElement;
+    PS.ordnung.zieht = true;
+    window.addEventListener("pointerup", () => setTimeout(() => { if (!document.body.classList.contains("ord-ziehen")) PS.ordnung.zieht = false; }, 0), { once: true });
+    if (t.classList.contains("frei-ziehen")) {
+      ziehen(ev, el, (x) => x.parentElement === g, () => { PS.ordnung.zieht = false; layoutSpeichern("seite:" + PS.ordnung.seite(), freiEintraege(g)); });
+      return true;
+    }
+    const st = getComputedStyle(g), lueckeX = parseFloat(st.columnGap) || 0, lueckeY = parseFloat(st.rowGap) || 0;
+    const spalten = st.gridTemplateColumns.split(" ").filter(Boolean).length || 1;
+    const spalteB = (g.clientWidth - lueckeX * (spalten - 1)) / spalten, r0 = el.getBoundingClientRect();
+    t.setPointerCapture(ev.pointerId); el.classList.add("ord-zieht-groesse");
+    const kachel = t.classList.contains("ord-breite");
+    const bewegen = (e) => {
+      const w = Math.max(1, Math.min(spalten, Math.round((e.clientX - r0.left + lueckeX) / (spalteB + lueckeX))));
+      if (kachel) { el.style.gridColumn = w > 1 ? `span ${w}` : ""; el.dataset.spanne = w; return; }
+      if (spalten !== 12) return;
+      el.dataset.w = Math.max(2, w);
+      el.dataset.h = Math.max(4, Math.round((e.clientY - r0.top + lueckeY) / (8 + lueckeY)));
+      PS.layout.freiSpannen(g);
+    };
+    const ende = () => {
+      t.removeEventListener("pointermove", bewegen); el.classList.remove("ord-zieht-groesse");
+      PS.ordnung.zieht = false;
+      if (kachel) {
+        const schluessel = "liste:" + PS.ordnung.schluessel(g);
+        layoutSpeichern(schluessel, [...g.children].filter((k) => +k.dataset.spanne > 1 && PS.ordnung.kennung(k)).map((k) => `${k.dataset.spanne}:0:${PS.ordnung.kennung(k)}`));
+      } else layoutSpeichern("seite:" + PS.ordnung.seite(), freiEintraege(g));
+    };
+    t.addEventListener("pointermove", bewegen);
+    t.addEventListener("pointerup", ende, { once: true });
+    t.addEventListener("pointercancel", ende, { once: true });
+    if (!kachel && spalten !== 12) PS.toast("Größen lassen sich im breiten Fenster ziehen; schmal folgt das Raster zwei Spalten.");
+    return true;
+  }
+  $("#sheet-inhalt").addEventListener("dblclick", (ev) => {
+    const t = ev.target.closest(".frei-groesse"); if (!t) return;
+    const el = t.parentElement; el.dataset.h = 0;
+    layoutSpeichern("seite:" + PS.ordnung.seite(), freiEintraege(el.parentElement), "Höhe folgt wieder dem Inhalt");
+  }, true);
   // Im Anordnen-Modus nichts auslösen
   $("#sheet-inhalt").addEventListener("click", (ev) => { if (document.body.classList.contains("anordnen")) { ev.stopPropagation(); ev.preventDefault(); } }, true);
 

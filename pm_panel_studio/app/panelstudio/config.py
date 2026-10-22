@@ -290,6 +290,22 @@ def reihenfolgen_pruefen(val: dict[Any, Any]) -> dict[str, list[str]]:
     return aus
 
 
+def layouts_pruefen(val: dict[Any, Any]) -> dict[str, list[str]]:
+    """Wie die Reihenfolgen, je Eintrag aber „Breite:Höhe:Kennung“ (Breite 1–12, Höhe 0–200 Zeilen, 0 = nach Inhalt)."""
+    aus: dict[str, list[str]] = {}
+    for k, eintraege in reihenfolgen_pruefen(val).items():
+        if not k.startswith(("seite:", "liste:")):
+            continue
+        gut = []
+        for e in eintraege:
+            m = re.match(r"^(\d{1,2}):(\d{1,3}):(.+)$", e)
+            if m:
+                gut.append(f"{max(1, min(12, int(m.group(1))))}:{min(200, int(m.group(2)))}:{m.group(3)}")
+        if gut:
+            aus[k] = gut
+    return aus
+
+
 @dataclass
 class Einstellungen:
     """Im Editor einstellbar, wirkt sofort auf alle verbundenen Panels."""
@@ -310,6 +326,8 @@ class Einstellungen:
     # Eigene Reihenfolge je Liste (Kacheln, Boxen), am PC angeordnet, auf allen Panels gültig:
     # „Modul/Seitentitel|Boxtitel|Liste“ → Kennungen (Entität, Bereich oder „box:Titel“) in gewünschter Folge
     reihenfolgen: dict[str, list[str]] = field(default_factory=dict)
+    # Freies Raster je Seite („seite:Modul/Titel“) und Kachelbreiten je Liste („liste:…“): Einträge „Breite:Höhe:Kennung“
+    layouts: dict[str, list[str]] = field(default_factory=dict)
     # Startseite der Admin-Ansicht am PC: Blöcke in Reihenfolge, „block:breite“ (1–3 Spalten); fehlende sind aus
     admin_start: list[str] = field(default_factory=lambda: list(ADMIN_START))
     admin_bekannt: list[str] = field(default_factory=lambda: list(ADMIN_BLOECKE))
@@ -508,6 +526,11 @@ class Einstellungen:
                     abgewiesen.append(key)
                     continue
                 self.reihenfolgen = reihenfolgen_pruefen(val)
+            elif key == "layouts":
+                if not isinstance(val, dict):
+                    abgewiesen.append(key)
+                    continue
+                self.layouts = layouts_pruefen(val)
             elif key == "gruss_anrede":
                 if not isinstance(val, dict):
                     abgewiesen.append(key)
