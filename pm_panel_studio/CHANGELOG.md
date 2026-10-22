@@ -1,5 +1,17 @@
 # Änderungen
 
+## 2026.10.64 – 2026-10-22
+
+- Freie Plätze in Kachelrastern: Im Anordnen-Modus landet eine gezogene Kachel genau in der Zelle unter dem Zeiger,
+  auch in einer leeren; liegt dort eine andere, tauschen beide die Plätze.
+- Geräte hinzufügen und entfernen: Jedes Kachelraster hat im Anordnen-Modus „Gerät hinzufügen“ (Suche über alle
+  Entitäten), jede Kachel ein ×. Gilt auf allen Panels, auch im Flur.
+- Startseite der Admin-Ansicht: „Inhalt anordnen“ ordnet den Inhalt der Blöcke (Räume, Schnellzugriff, Klima …) wie
+  auf den Modulseiten, samt Kachelplätzen, Breiten und Geräteauswahl.
+- Raumkarten: „Karteninhalt“ (im Anordnen-Modus, wo Räume zu sehen sind) legt fest, welche Teile eine Raumkarte zeigt
+  und in welcher Folge: Temperatur, Luftfeuchte, Geräteanzahl, Licht, offene Fenster, Heizt, Wiedergabe, Bewegung.
+  Gilt für Räume-Seite, Startseiten-Block und die Raumübersicht im Flur.
+
 ## 2026.10.63 – 2026-10-22
 
 - Freies Raster: Im Anordnen-Modus wandelt „Freies Raster“ eine Seite im Drei-Spalten-Muster (Raumansicht, Klima,

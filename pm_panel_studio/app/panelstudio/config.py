@@ -267,6 +267,7 @@ ADMIN_START = [
 ]
 
 
+RAUMKARTE_TEILE = ("temp", "feuchte", "anzahl", "licht", "offen", "heizt", "medien", "bewegung")
 REIHENFOLGEN_MAX = 400  # Listen
 REIHENFOLGE_LAENGE = 120  # Einträge je Liste
 
@@ -294,7 +295,7 @@ def layouts_pruefen(val: dict[Any, Any]) -> dict[str, list[str]]:
     """Wie die Reihenfolgen, je Eintrag aber „Breite:Höhe:Kennung“ (Breite 1–12, Höhe 0–200 Zeilen, 0 = nach Inhalt)."""
     aus: dict[str, list[str]] = {}
     for k, eintraege in reihenfolgen_pruefen(val).items():
-        if not k.startswith(("seite:", "liste:")):
+        if not k.startswith(("seite:", "liste:", "pos:", "plus:", "minus:")):
             continue
         gut = []
         for e in eintraege:
@@ -326,8 +327,12 @@ class Einstellungen:
     # Eigene Reihenfolge je Liste (Kacheln, Boxen), am PC angeordnet, auf allen Panels gültig:
     # „Modul/Seitentitel|Boxtitel|Liste“ → Kennungen (Entität, Bereich oder „box:Titel“) in gewünschter Folge
     reihenfolgen: dict[str, list[str]] = field(default_factory=dict)
-    # Freies Raster je Seite („seite:Modul/Titel“) und Kachelbreiten je Liste („liste:…“): Einträge „Breite:Höhe:Kennung“
+    # Freies Raster je Seite („seite:Modul/Titel“), Kachelbreiten („liste:…“, „Breite:0:Kennung“) und freie Plätze in
+    # Kachelrastern („pos:…“, „Spalte:Zeile:Kennung“), hinzugefügte und entfernte Geräte („plus:…“, „minus:…“,
+    # „0:0:Entität“); Einträge sonst „Breite:Höhe:Kennung“
     layouts: dict[str, list[str]] = field(default_factory=dict)
+    # Inhalt der Raumkarten: Teile in Reihenfolge (fehlende sind aus); leer = alle in Vorgabefolge
+    raumkarte: list[str] = field(default_factory=lambda: list(RAUMKARTE_TEILE))
     # Startseite der Admin-Ansicht am PC: Blöcke in Reihenfolge, „block:breite“ (1–3 Spalten); fehlende sind aus
     admin_start: list[str] = field(default_factory=lambda: list(ADMIN_START))
     admin_bekannt: list[str] = field(default_factory=lambda: list(ADMIN_BLOECKE))
@@ -526,6 +531,9 @@ class Einstellungen:
                     abgewiesen.append(key)
                     continue
                 self.reihenfolgen = reihenfolgen_pruefen(val)
+            elif key == "raumkarte":
+                vals = val if isinstance(val, list) else []
+                self.raumkarte = [t for t in dict.fromkeys(str(v) for v in vals) if t in RAUMKARTE_TEILE]
             elif key == "layouts":
                 if not isinstance(val, dict):
                     abgewiesen.append(key)

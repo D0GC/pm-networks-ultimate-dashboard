@@ -217,3 +217,20 @@ def test_layouts():
         "liste:raeume/Büro|Geräte|raster0": ["2:0:switch.a"],
     }
     assert Einstellungen.from_dict(e.to_dict()).layouts == e.layouts
+
+
+def test_raumkarte_und_listen_aenderungen():
+    e = Einstellungen()
+    assert e.raumkarte[0] == "temp" and len(e.raumkarte) == 8
+    e.aktualisieren({"raumkarte": ["licht", "temp", "unsinn", "licht"]})
+    assert e.raumkarte == ["licht", "temp"]
+    e.aktualisieren(
+        {
+            "layouts": {
+                "plus:x|Geräte|raster0": ["0:0:switch.a"],
+                "minus:x|Geräte|raster0": ["0:0:switch.b"],
+                "pos:x": ["2:3:switch.a"],
+            }
+        }
+    )
+    assert set(e.layouts) == {"plus:x|Geräte|raster0", "minus:x|Geräte|raster0", "pos:x"}
