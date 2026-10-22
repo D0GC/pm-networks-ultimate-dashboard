@@ -90,7 +90,7 @@
     const u = unifi(); if (!u || !u.internet || !u.zeit) return;
     const v = NETZ.verlauf, i = u.internet;
     if (v.length && v[v.length - 1].t >= u.zeit) return;
-    v.push({ t: u.zeit, rx: i.rx_bps, tx: i.tx_bps, ping: pingMs() });
+    v.push({ t: u.zeit, ct: performance.now(), rx: i.rx_bps, tx: i.tx_bps, ping: pingMs() });
     while (v.length && v[0].t < u.zeit - VERLAUF_S) v.shift();
   }
   const speedtestText = (i) => `Speedtest: ↓ ${mbit(i.down_mbit)} · ↑ ${mbit(i.up_mbit)} Mbit/s · ${i.ping_ms != null ? PS.zahl(i.ping_ms, 0) : "–"} ms${i.speedtest_zeit ? ` · ${PS.zeitRelativ(new Date(i.speedtest_zeit * 1000).toISOString())}` : ""}`;
@@ -122,7 +122,7 @@
       wurzel.querySelectorAll("[data-netz-text]").forEach((el) => { const t = TEXTE[el.dataset.netzText](i); if (el.textContent !== t) el.textContent = t; });
     }
     wurzel.querySelectorAll("canvas.nz-fluss").forEach((cv) => { if (!FLUSS.has(cv)) flussAnmelden(cv); });
-    wurzel.querySelectorAll("canvas.nz-verlauf").forEach(verlaufZeichnen);
+    wurzel.querySelectorAll("canvas.nz-lauf").forEach((cv) => { if (!FLUSS.has(cv)) flussAnmelden(cv); });
   }
 
   // Leinwand in Gerätepixeln, gelöscht, Koordinaten in CSS-Pixeln
@@ -175,8 +175,12 @@
     const dt = flussLetzt ? Math.min(0.1, (jetzt - flussLetzt) / 1000) : 0;
     flussLetzt = jetzt;
     const i = (unifi() && unifi().internet) || {};
-    const ruhig = (reduziert && reduziert.matches) || document.body.classList.contains("ohne-animation") || i.status !== "ok";
-    FLUSS.forEach((cv) => { if (cv.isConnected) flussZeichnen(cv, i, dt, ruhig); });
+    const still = (reduziert && reduziert.matches) || document.body.classList.contains("ohne-animation");
+    const ruhig = still || i.status !== "ok";
+    FLUSS.forEach((cv) => {
+      if (!cv.isConnected) return;
+      if (cv.classList.contains("nz-lauf")) laufZeichnen(cv, jetzt, still); else flussZeichnen(cv, i, dt, ruhig);
+    });
   }
   function flussZeichnen(cv, i, dt, ruhig) {
     if (ruhig && cv._ruhig) return;  // stehendes Bild nur einmal zeichnen
@@ -206,47 +210,47 @@
     }
   }
 
-  // Durchsatz der letzten zehn Minuten: Download als Fläche, Upload als Linie
-  function verlaufZeichnen(cv) {
+  // Laufleiste wie unter „Throughput“ in UniFi: je Abfrage ein Balken (Download), Upload als Linie darüber; die
+  // Leiste gleitet stetig nach links, der neueste Balken schiebt sich von rechts herein. Die Skala folgt weich der
+  // Spitze im sichtbaren Ausschnitt. Auf der Seite zusätzlich der Ping (gestrichelt, eigene Skala) und Beschriftung.
+  function laufZeichnen(cv, jetzt, still) {
     const l = leinwand(cv); if (!l) return;
-    const { c, w, h } = l, v = NETZ.verlauf;
-    if (v.length < 2) return;
-    // Anfangs füllt der Verlauf die Breite, bis zehn Minuten beisammen sind
-    const ende = v[v.length - 1].t, anfang = Math.max(v[0].t, ende - VERLAUF_S), spanne = Math.max(30, ende - anfang), oben = 16;
-    const spitze = Math.max(1, ...v.map((p) => Math.max(mbitVon(p.rx), mbitVon(p.tx))));
-    const X = (t) => ((t - anfang) / spanne) * (w - 2) + 1, Y = (m) => h - 1 - (m / (spitze * 1.1)) * (h - oben - 1);
-    const linie = (k) => {
-      const zuege = [];
-      v.forEach((p, n) => { if (p[k] == null) return; if (!n || p.t - v[n - 1].t > 12 || v[n - 1][k] == null) zuege.push([]); zuege[zuege.length - 1].push([X(p.t), Y(mbitVon(p[k]))]); });
-      return zuege;
-    };
-    const info = rgb("--info", "#8fb4ff"), akzent = rgb("--akzent", "#b07fd0");
-    const g = c.createLinearGradient(0, oben, 0, h); g.addColorStop(0, `rgba(${info},.35)`); g.addColorStop(1, `rgba(${info},0)`);
-    linie("rx").forEach((z) => {
-      if (z.length < 2) return;
-      c.beginPath(); z.forEach(([x, y], n) => (n ? c.lineTo(x, y) : c.moveTo(x, y)));
-      c.strokeStyle = `rgb(${info})`; c.lineWidth = 1.6; c.stroke();
-      c.lineTo(z[z.length - 1][0], h); c.lineTo(z[0][0], h); c.closePath(); c.fillStyle = g; c.fill();
+    const { c, w, h } = l, v = NETZ.verlauf, gross = cv.classList.contains("nz-gross");
+    if (!v.length) return;
+    const schritt = gross ? 7 : 5, breite = schritt - 2, oben = gross ? 16 : 2;
+    const anzahl = Math.min(v.length, Math.ceil(w / schritt) + 1), sicht = v.slice(-anzahl);
+    const letzte = v[v.length - 1];
+    const versatz = still ? schritt : Math.min(1, (jetzt - letzte.ct) / TAKT_MS) * schritt;
+    const ziel = Math.max(1, ...sicht.map((p) => Math.max(mbitVon(p.rx), mbitVon(p.tx)))) * 1.15;
+    cv._max = cv._max ? cv._max + (ziel - cv._max) * 0.06 : ziel;
+    const X = (k) => w + schritt - versatz - (sicht.length - k) * schritt;  // linke Kante des Balkens k
+    const Y = (m) => h - 1 - Math.min(1, m / cv._max) * (h - oben - 1);
+    const info = cv._farbe.rx, akzent = cv._farbe.tx;
+    const g = c.createLinearGradient(0, oben, 0, h); g.addColorStop(0, `rgba(${info},.95)`); g.addColorStop(1, `rgba(${info},.35)`);
+    c.fillStyle = g;
+    sicht.forEach((p, k) => {
+      const x = X(k); if (x + breite < 0 || p.rx == null) return;
+      const y = Y(mbitVon(p.rx)); c.fillRect(x, y, breite, Math.max(1, h - y));
     });
-    linie("tx").forEach((z) => {
-      if (z.length < 2) return;
-      c.beginPath(); z.forEach(([x, y], n) => (n ? c.lineTo(x, y) : c.moveTo(x, y)));
-      c.strokeStyle = `rgb(${akzent})`; c.lineWidth = 1.6; c.stroke();
-    });
-    const pings = v.map((p) => p.ping).filter((x) => x != null);
+    c.beginPath(); let an = false;
+    sicht.forEach((p, k) => { if (p.tx == null) { an = false; return; } const x = X(k) + breite / 2, y = Y(mbitVon(p.tx)); an ? c.lineTo(x, y) : c.moveTo(x, y); an = true; });
+    c.strokeStyle = `rgb(${akzent})`; c.lineWidth = 1.5; c.lineJoin = "round"; c.stroke();
+    if (!gross) return;
+    const pings = sicht.map((p) => p.ping).filter((x) => x != null);
     if (pings.length > 1) {
       const pmax = Math.max(10, ...pings) * 1.1, gut = rgb("--gut", "#5fd3a0");
-      c.beginPath(); let an = false;
-      v.forEach((p, n) => { if (p.ping == null || (n && p.t - v[n - 1].t > 12)) { an = false; if (p.ping == null) return; } const x = X(p.t), y = h - 1 - (p.ping / pmax) * (h - oben - 1); an ? c.lineTo(x, y) : c.moveTo(x, y); an = true; });
+      c.beginPath(); an = false;
+      sicht.forEach((p, k) => { if (p.ping == null) { an = false; return; } const x = X(k) + breite / 2, y = h - 1 - (p.ping / pmax) * (h - oben - 1); an ? c.lineTo(x, y) : c.moveTo(x, y); an = true; });
       c.setLineDash([3, 3]); c.strokeStyle = `rgba(${gut},.85)`; c.lineWidth = 1.2; c.stroke(); c.setLineDash([]);
       c.fillStyle = `rgb(${gut})`; c.font = "11px system-ui, sans-serif"; c.textBaseline = "top"; c.textAlign = "right";
       c.fillText(`Ping bis ${PS.zahl(Math.max(...pings), 0)} ms`, w - 2, 1); c.textAlign = "left";
     }
+    const spanne = sicht.length > 1 ? sicht[sicht.length - 1].t - sicht[0].t : 0;
     c.fillStyle = getComputedStyle(cv).color; c.font = "11px system-ui, sans-serif"; c.textBaseline = "top";
-    c.fillText(`Spitze ${mbit(spitze)} Mbit/s · letzte ${spanne < 90 ? `${Math.round(spanne)} s` : `${Math.round(spanne / 60)} min`}`, 2, 1);
+    c.fillText(`Spitze ${mbit(Math.max(...sicht.map((p) => Math.max(mbitVon(p.rx), mbitVon(p.tx)))))} Mbit/s · letzte ${spanne < 90 ? `${Math.round(spanne)} s` : `${Math.round(spanne / 60)} min`}`, 2, 1);
   }
 
-  // Live-Teil: Ping, Download, Upload als Zahlenwalzen, darunter der Netzfluss (auf der Seite zusätzlich der Verlauf)
+  // Live-Teil: Ping, Download, Upload als Zahlenwalzen, darunter Netzfluss und Laufleiste
   const liveTeil = (gross) => E(`<div class="nz-live">
     <div class="nz-werte${gross ? " nz-gross" : ""}">
       <div class="nz-ping"><small>Ping Ø jetzt</small><b class="tabular"><span data-netz="lat"></span><i>ms</i></b></div>
@@ -254,7 +258,7 @@
       <div class="nz-tx"><small>Upload jetzt</small><b class="tabular"><span data-netz="tx"></span><i data-netz-text="txEinheit">Mbit/s</i></b></div></div>
     ${gross ? `<div class="nz-pings">${PING_ZIELE.map((n) => `<div><small>${n}</small><b class="tabular"><span data-netz="ping:${n}"></span><i>ms</i></b></div>`).join("")}</div>` : ""}
     <div class="nz-flussbahn${gross ? " nz-gross" : ""}"><span title="Internet">${PS.ic("web")}</span><canvas class="nz-fluss"></canvas><span title="Zuhause">${PS.ic("home-outline")}</span></div>
-    ${gross ? '<canvas class="nz-verlauf"></canvas>' : ""}</div>`);
+    <canvas class="nz-lauf${gross ? " nz-gross" : ""}"></canvas></div>`);
 
   // ------------------------------------------------------------ Block für die Startseite
   PS.admin.bloecke.netzwerk = {
