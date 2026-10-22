@@ -86,17 +86,21 @@
     const u = unifi(); if (!u || !u.internet || !u.zeit) return;
     const v = NETZ.verlauf, i = u.internet;
     if (v.length && v[v.length - 1].t >= u.zeit) return;
-    v.push({ t: u.zeit, rx: i.rx_bps, tx: i.tx_bps });
+    v.push({ t: u.zeit, rx: i.rx_bps, tx: i.tx_bps, ping: pingMs() });
     while (v.length && v[0].t < u.zeit - VERLAUF_S) v.shift();
   }
   const speedtestText = (i) => `Speedtest: ↓ ${mbit(i.down_mbit)} · ↑ ${mbit(i.up_mbit)} Mbit/s · ${i.ping_ms != null ? PS.zahl(i.ping_ms, 0) : "–"} ms${i.speedtest_zeit ? ` · ${PS.zeitRelativ(new Date(i.speedtest_zeit * 1000).toISOString())}` : ""}`;
+  // Eigener Live-Ping des Backends (TCP-Verbindungsaufbau); ohne Messung die Latenz laut Gateway
+  const pingMs = () => (NETZ.stand && NETZ.stand.ping && NETZ.stand.ping.ms != null ? NETZ.stand.ping.ms : null);
   const LIVE = {
     rx: (i) => rate(i.rx_bps),
     tx: (i) => rate(i.tx_bps),
-    lat: (i) => (i.latenz_ms != null ? PS.zahl(i.latenz_ms, 0) : "–"),
+    lat: (i) => { const p = pingMs() ?? i.latenz_ms; return p != null ? PS.zahl(p, p < 10 ? 1 : 0) : "–"; },
   };
   const TEXTE = {
     speedtest: speedtestText,
+    gateway: (i) => (i.latenz_ms != null ? `${PS.zahl(i.latenz_ms, 0)} ms` : "–"),
+    ziel: () => (NETZ.stand && NETZ.stand.ping && NETZ.stand.ping.ziel ? `zu ${NETZ.stand.ping.ziel}` : "laut Gateway"),
     zuletzt: (i) => (i.speedtest_zeit ? PS.zeitRelativ(new Date(i.speedtest_zeit * 1000).toISOString()) : "noch keiner"),
   };
   function liveSetzen(wurzel = document) {
@@ -217,6 +221,15 @@
       c.beginPath(); z.forEach(([x, y], n) => (n ? c.lineTo(x, y) : c.moveTo(x, y)));
       c.strokeStyle = `rgb(${akzent})`; c.lineWidth = 1.6; c.stroke();
     });
+    const pings = v.map((p) => p.ping).filter((x) => x != null);
+    if (pings.length > 1) {
+      const pmax = Math.max(10, ...pings) * 1.1, gut = rgb("--gut", "#5fd3a0");
+      c.beginPath(); let an = false;
+      v.forEach((p, n) => { if (p.ping == null || (n && p.t - v[n - 1].t > 12)) { an = false; if (p.ping == null) return; } const x = X(p.t), y = h - 1 - (p.ping / pmax) * (h - oben - 1); an ? c.lineTo(x, y) : c.moveTo(x, y); an = true; });
+      c.setLineDash([3, 3]); c.strokeStyle = `rgba(${gut},.85)`; c.lineWidth = 1.2; c.stroke(); c.setLineDash([]);
+      c.fillStyle = `rgb(${gut})`; c.font = "11px system-ui, sans-serif"; c.textBaseline = "top"; c.textAlign = "right";
+      c.fillText(`Ping bis ${PS.zahl(Math.max(...pings), 0)} ms`, w - 2, 1); c.textAlign = "left";
+    }
     c.fillStyle = getComputedStyle(cv).color; c.font = "11px system-ui, sans-serif"; c.textBaseline = "top";
     c.fillText(`Spitze ${mbit(spitze)} Mbit/s · letzte ${spanne < 90 ? `${Math.round(spanne)} s` : `${Math.round(spanne / 60)} min`}`, 2, 1);
   }
@@ -224,7 +237,7 @@
   // Live-Teil: Ping, Download, Upload als Zahlenwalzen, darunter der Netzfluss (auf der Seite zusätzlich der Verlauf)
   const liveTeil = (gross) => E(`<div class="nz-live">
     <div class="nz-werte${gross ? " nz-gross" : ""}">
-      <div><small>Ping jetzt</small><b class="tabular"><span data-netz="lat"></span><i>ms</i></b></div>
+      <div class="nz-ping"><small>Ping jetzt <em data-netz-text="ziel"></em></small><b class="tabular"><span data-netz="lat"></span><i>ms</i></b></div>
       <div class="nz-rx"><small>Download jetzt</small><b class="tabular"><span data-netz="rx"></span><i>Mbit/s</i></b></div>
       <div class="nz-tx"><small>Upload jetzt</small><b class="tabular"><span data-netz="tx"></span><i>Mbit/s</i></b></div></div>
     <div class="nz-flussbahn${gross ? " nz-gross" : ""}"><span title="Internet">${PS.ic("web")}</span><canvas class="nz-fluss"></canvas><span title="Zuhause">${PS.ic("home-outline")}</span></div>
@@ -310,6 +323,7 @@
         if (NETZ.stand.fehler) b.appendChild(E(`<div class="nz-zeile warn">${PS.ic("alert-outline")}<span>Gateway antwortet gerade nicht: ${PS.esc(NETZ.stand.fehler)}</span></div>`));
         b.appendChild(E(`<dl class="as-werte">
           <dt>Speedtest</dt><dd class="tabular">↓ ${mbit(i.down_mbit)} · ↑ ${mbit(i.up_mbit)} Mbit/s · Ping ${i.ping_ms != null ? PS.zahl(i.ping_ms, 0) : "–"} ms</dd>
+          <dt>Ping laut Gateway</dt><dd class="tabular" data-netz-text="gateway"></dd>
           <dt>Letzter Speedtest</dt><dd data-netz-text="zuletzt"></dd>
           <dt>Verbunden seit</dt><dd>${dauer(i.uptime)}</dd>
           ${i.ausfaelle != null ? `<dt>Ausfälle</dt><dd class="tabular">${PS.zahl(i.ausfaelle, 0)}</dd>` : ""}</dl>`));

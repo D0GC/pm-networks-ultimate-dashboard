@@ -383,6 +383,7 @@ body.admin .r-box h3{gap:.6rem;flex-wrap:wrap}
 .nz-geraete td{white-space:nowrap}
 .nz-live{display:flex;flex-direction:column;gap:.6rem}
 .nz-live[hidden]{display:none}
+.nz-werte .nz-ping small{color:var(--gut)}.nz-werte small em{font-style:normal;color:var(--leise);font-size:.8rem}
 .nz-werte .nz-rx small{color:var(--info)}.nz-werte .nz-tx small{color:var(--akzent)}
 .nz-werte b .walze{vertical-align:baseline}
 .nz-flussbahn{display:flex;align-items:center;gap:.5rem;color:var(--lavender)}
