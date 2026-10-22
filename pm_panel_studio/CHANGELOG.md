@@ -1,5 +1,14 @@
 # Änderungen
 
+## 2026.10.63 – 2026-10-22
+
+- Freies Raster: Im Anordnen-Modus wandelt „Freies Raster“ eine Seite im Drei-Spalten-Muster (Raumansicht, Klima,
+  Licht, Sicherheit, Energie …) in ein Raster aus zwölf Spalten. Jedes Teil lässt sich am Griff oben verschieben und
+  unten rechts in Breite und Höhe ziehen (Doppelklick: Höhe wieder nach Inhalt). Gilt sofort auf allen Panels;
+  schmale Anzeigen ordnen in zwei Spalten oder einer.
+- Kachelbreite: Kacheln in Rastern lassen sich im Anordnen-Modus über mehrere Spalten ziehen.
+- „Seite zurücksetzen“ stellt auch Raster und Kachelbreiten der Seite zurück.
+
 ## 2026.10.62 – 2026-10-22
 
 - Anordnen auf allen Seiten (Admin-Ansicht): Knopf „Anordnen“ unten rechts auf jeder Modul- und Unterseite. Kacheln,
