@@ -81,6 +81,8 @@ TEXT_OPTIONEN = (
     "unifi_benutzer",
     "unifi_kennwort",
     "unifi_site",
+    "proxmox_adresse",
+    "proxmox_token",
 )
 
 
@@ -123,6 +125,10 @@ class Options:
     unifi_benutzer: str = ""
     unifi_kennwort: str = ""
     unifi_site: str = "default"
+    # Proxmox-Seite: Proxmox VE direkt (nur lesend) für IP-Adressen der Gäste und schnellere Werte; API-Token im Format
+    # „benutzer@realm!name=geheimnis“; leer = nur die Daten der Integration Proxmox VE von Home Assistant
+    proxmox_adresse: str = "https://192.168.5.10:8006"
+    proxmox_token: str = ""
     log_level: str = "info"
 
     @classmethod
@@ -171,6 +177,8 @@ class Options:
             d.pop(k, None)
         d["klima_studio"] = self.klima_studio
         d["telefon"] = self.telefon
+        d["proxmox"] = bool(self.proxmox_adresse and self.proxmox_token)
+        d["proxmox_ui"] = self.proxmox_adresse  # nur die Adresse für „In Proxmox öffnen“, nie das Token
         d["unifi"] = bool(self.unifi_adresse and (self.unifi_api_schluessel or (self.unifi_benutzer and self.unifi_kennwort)))
         return d
 

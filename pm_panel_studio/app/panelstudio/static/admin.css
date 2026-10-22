@@ -518,3 +518,27 @@ body.admin.offen:has(.flur-vorschau) .ord-knopf{display:none}
 .sv-speicher > div{display:flex;flex-direction:column;min-width:0}
 .sv-speicher small{color:var(--leise)}
 @media (prefers-reduced-motion:reduce){.sv-punkt.an{animation:none}.sv-puls.schlag i::after{animation:none}}
+/* Proxmox: Kachel je VM und Container */
+.sv-gk-raster{display:grid;grid-template-columns:repeat(auto-fill,minmax(17rem,1fr));gap:1rem}
+.sv-gk{display:flex;flex-direction:column;gap:.7rem;padding:1rem;border-radius:1.1rem;background:var(--flaeche-tief);border:1px solid var(--linie);min-width:0}
+.sv-gk.an{border-color:rgba(95,211,160,.25)}
+.sv-gk:not(.an){opacity:.75}
+.sv-gk-kopf{display:flex;align-items:center;gap:.6rem;min-width:0}
+.sv-gk-kopf > .mdi{font-size:1.6rem;color:var(--lavender)}
+.sv-gk-kopf > div{display:flex;flex-direction:column;min-width:0;flex:1}
+.sv-gk-kopf b{font-size:1.1rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sv-gk-kopf small{color:var(--leise);font-size:.82rem}
+.sv-gk-zustand{display:inline-flex;align-items:center;gap:.35rem;font-size:.85rem;padding:.15rem .55rem;border-radius:99px;background:rgba(197,192,211,.1);color:var(--leise)}
+.sv-gk-zustand.an{background:rgba(95,211,160,.14);color:var(--gut)}
+.sv-gk-ip{all:unset;cursor:pointer;display:flex;align-items:center;gap:.45rem;font-size:.95rem;color:var(--lavender);padding:.35rem .6rem;border-radius:.6rem;background:rgba(197,192,211,.06)}
+.sv-gk-ip span{flex:1;font-variant-numeric:tabular-nums;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sv-gk-ip .mdi:last-child{opacity:.5;font-size:1rem}
+.sv-gk-ip:hover{background:rgba(197,192,211,.12)}
+.sv-ringe.sv-klein .ring.r-ring{width:5.4rem}
+.sv-ringe.sv-klein .sv-ring .innen b{font-size:1.2rem!important}
+.sv-gk .sv-kurve{height:2.6rem}
+.sv-gk .as-werte{margin:0;font-size:.9rem}
+.sv-gk-tasten,.sv-gk-mehr{display:flex;gap:.4rem;flex-wrap:wrap}
+.sv-gk-tasten .knopf,.sv-gk-mehr .knopf{padding:.45rem .75rem;font-size:.9rem}
+.sv-gk-tasten .knopf.aktiv{background:var(--purple);color:#fff}
+.sv-gk-mehr[hidden]{display:none}
