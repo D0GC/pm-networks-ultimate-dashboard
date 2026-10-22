@@ -200,7 +200,21 @@ body.admin .ereignis .ereignis-hinweis .mdi{font-size:4rem}
 
 /* Feinschliff: feste Größen in der Kopfzeile und in den Hinweisringen */
 .ak-lage > *,body.admin .person,body.admin .pille{flex:none}
-.ak-lage{-webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 2rem),transparent);mask-image:linear-gradient(90deg,#000 calc(100% - 2rem),transparent)}
+/* Laufband (Bauchbinde) für Personen und Statuspillen */
+.ak-band{flex:1 1 auto!important;min-width:min(22rem,42vw);overflow:hidden;position:relative}
+/* Platz für das Band: Wetterdetails weichen zuerst, auf dem Telefon das Wetter ganz */
+@media (max-width:1400px){body.admin .wetter small{display:none}}
+@media (max-width:620px){body.admin .ak-lage .wetter{display:none}.ak-band{min-width:0}}
+.ak-band.laeuft{-webkit-mask-image:linear-gradient(90deg,transparent,#000 1.5rem,#000 calc(100% - 1.5rem),transparent);mask-image:linear-gradient(90deg,transparent,#000 1.5rem,#000 calc(100% - 1.5rem),transparent)}
+.ak-band-innen{display:flex;align-items:center;column-gap:2.5rem;width:max-content}
+.ak-band-teil{display:flex;align-items:center;gap:1rem;flex:none}
+.ak-band.laeuft .ak-band-innen{animation:ak-band var(--dauer,20s) linear infinite}
+.ak-band.laeuft:hover .ak-band-innen{animation-play-state:paused}
+@keyframes ak-band{from{transform:translateX(0)}to{transform:translateX(var(--weg,-50%))}}
+@media (prefers-reduced-motion:reduce){.ak-band{overflow-x:auto;scrollbar-width:none}.ak-band.laeuft .ak-band-innen{animation:none}.ak-band-klon{display:none!important}}
+body.ohne-animation .ak-band{overflow-x:auto;scrollbar-width:none}
+body.ohne-animation .ak-band.laeuft .ak-band-innen{animation:none}
+body.ohne-animation .ak-band-klon{display:none!important}
 .as-karte .ring .innen b,.as-karte .ring .innen .wert-txt{font-size:1.1rem!important;font-weight:600;letter-spacing:0}
 .as-karte .t b{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 
@@ -317,7 +331,6 @@ body.admin .sheet:has(.ha-rahmen.eigener-kopf) .sheet-kopf{display:none}
   body.admin .dock .dock-name{font-size:.8rem}
 }
 @media (max-width:620px){
-  body.admin .personen,body.admin .status-zeile{display:none}
   .as-kopf h1{font-size:1.8rem}
 }
 

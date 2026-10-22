@@ -1,5 +1,13 @@
 # Änderungen
 
+## 2026.10.61 – 2026-10-22
+
+- Admin-Ansicht: Personen und Statuspillen in der Kopfzeile laufen als Band durch wie eine Bauchbinde, sobald sie
+  nicht hineinpassen; nach dem letzten Eintrag folgt nahtlos wieder der erste. Beim Zeigen hält das Band an, Klicks
+  wirken auch auf die durchlaufende Kopie, bei reduzierter Bewegung lässt es sich von Hand schieben.
+- Platz dafür: Die Wetterdetails weichen unter 1400 px Breite, auf dem Telefon das Wetter ganz; dort ist das Band
+  nun ebenfalls zu sehen.
+
 ## 2026.10.60 – 2026-10-22
 
 - Netzwerk: Laufleiste wie unter „Throughput“ in UniFi, im Startblock und auf der Seite. Je Abfrage ein
