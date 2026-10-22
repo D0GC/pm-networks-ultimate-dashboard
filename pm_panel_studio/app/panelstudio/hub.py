@@ -33,6 +33,7 @@ from . import karten as kt
 from . import szenen as sz
 from .config import Einstellungen, EinstellungsSpeicher, Options
 from .ha_client import HAClient, HAError
+from .klingeln import Klingelbuch
 from .pforte import Pforte
 from .popups import PopupSpeicher, text_aus_inhalt, weckt
 from .sprache import Sprache
@@ -127,6 +128,9 @@ class Hub:
             self._pforte_meldung,
             lambda: self._lokal(datetime.now(UTC)),
         )
+        # Klingelbuch: jedes Klingeln mit Ausgang (Haustür-Verlauf); Pforte meldet, wie es ausging
+        self.klingelbuch = Klingelbuch(getattr(speicher, "pfad", None) and speicher.pfad.parent / "klingeln.json")
+        self.pforte.ausgang = self._klingel_ausgang
         self.states: dict[str, dict[str, Any]] = {}
         self.registry: dict[str, dict[str, Any]] = {}
         self.geraete: dict[str, str] = {}  # Geräte-ID -> Name (für den Systemzustand)
@@ -392,15 +396,22 @@ class Hub:
             self._modus_pruefen()
         if eid == "sun.sun":
             self.spawn(self.senden_alle({"typ": "modus", **self.modus_daten()}))
-        if self.pforte.laeuft and self._haustuer_geoeffnet(eid, alt, neu):
-            # Haustür geöffnet (Knopf oder Schloss), auch ohne angenommenes Gespräch: Melodie sofort aus,
-            # kein Anrufbeantworter, kein Push
-            self.spawn(self.pforte.uebergeben("Haustür geöffnet"))
+        if self._haustuer_geoeffnet(eid, alt, neu):
+            if self.klingelbuch.tuer_geoeffnet():
+                self.spawn(self.senden_alle({"typ": "klingeln"}))
+            if self.pforte.laeuft:
+                # Haustür geöffnet (Knopf oder Schloss), auch ohne angenommenes Gespräch: Melodie sofort aus,
+                # kein Anrufbeantworter, kein Push
+                self.spawn(self.pforte.uebergeben("Haustür geöffnet"))
         an = neu and neu.get("state") == "on" and (alt or {}).get("state") != "on"
         if an and eid in self.opts.intercom_ausloeser:
             self.ereignis_starten(eid, "Haustür", intercom=True)
-            if not self.gespraeche:  # spricht schon jemand am Panel, bleibt der Türdienst still
+            self.klingelbuch.klingeln()
+            if self.gespraeche:  # spricht schon jemand am Panel, bleibt der Türdienst still
+                self._klingel_ausgang("panel")
+            else:
                 self.pforte.klingeln()
+            self.spawn(self.senden_alle({"typ": "klingeln"}))
         elif an and eid in self.opts.ereignis_ausloeser:
             self.ereignis_starten(eid)
 
@@ -411,6 +422,10 @@ class Hub:
         if eid in (self.opts.haustueroeffner, *HAUSTUER_KNOEPFE):
             return True
         return eid in HAUSTUER_SCHLOESSER and neu.get("state") in ("unlocking", "unlocked", "opening", "open")
+
+    def _klingel_ausgang(self, art: str, **daten: Any) -> None:
+        if self.klingelbuch.ausgang(art, **daten):
+            self.spawn(self.senden_alle({"typ": "klingeln"}))
 
     def jemand_zu_hause(self) -> bool:
         return any((self.states.get(p) or {}).get("state") == "home" for p in self.opts.personen)
@@ -773,6 +788,7 @@ class Hub:
         if not isinstance(angebot, str) or not angebot.startswith("v=0") or len(angebot) > SDP_MAX:
             raise ValueError("SDP-Angebot ungültig")
         await self.pforte.uebergeben()  # Türdienst (Warteansage/Anrufbeantworter) gibt die Leitung ab
+        self._klingel_ausgang("panel")  # auch ohne Türdienst: am Panel angenommen
         kennung = secrets.token_hex(8)
         eintrag: dict[str, Any] = {"ws": ws, "sub": None, "sitzung": None}
         self.gespraeche[kennung] = eintrag

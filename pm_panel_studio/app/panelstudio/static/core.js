@@ -72,6 +72,7 @@
       case "assist": PS.emit("assist", m); break;
       case "pforte": PS.emit("pforte", m); break;
       case "aufnahmen": PS.emit("aufnahmen"); break;
+      case "klingeln": PS.emit("klingeln"); break;
       case "einstellungen":
         PS.einst = m.einstellungen || {};
         document.body.classList.toggle("ohne-animation", PS.einst.animationen === false);

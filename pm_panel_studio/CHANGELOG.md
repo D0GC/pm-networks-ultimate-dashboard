@@ -1,5 +1,18 @@
 # Änderungen
 
+## 2026.10.68 – 2026-10-22
+
+- Sicherheit neu aufgebaut: passt ohne Scrollen auf das Panel. Links Alarmanlage, Zugang und Melder kompakt, in der
+  Mitte der Haustür-Verlauf (scrollt in sich), rechts Kamera und die letzten Aufnahmen.
+- Alarmanlage: aktiver Modus immer sichtbar, animierte Zustandssymbole (Unscharf, Zuhause, Abwesend, Nacht, Countdown
+  beim Scharfschalten, Alarm). Modi daneben; Scharfschalten per Tippen, „Unscharf“ muss gehalten werden. Danach
+  erscheint mittig eine Codetafel: Ziffern blitzen kurz auf, falscher Code schüttelt die Felder, richtiger Code zeigt
+  einen Haken und schließt die Tafel.
+- Haustür-Verlauf: jedes Klingeln mit Ausgang (angenommen am Panel oder in der Ring-App, Nachricht, ohne Nachricht,
+  verpasst), Nachrichten mit Abspielen, animierter Wellenform und Abschrift. Filter mit Anzahl, Gruppen nach Tag,
+  Hinweise „Tür geöffnet“ und „n× geklingelt“, live bei jedem Klingeln.
+- Neues Klingelbuch in der App (`klingeln.json`, Schnittstelle `api/klingeln`).
+
 ## 2026.10.67 – 2026-10-22
 
 - Proxmox: Kachel je VM und Container mit Zustand, IP-Adresse (Tippen kopiert sie), Ringen für CPU und RAM,

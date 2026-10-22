@@ -124,51 +124,105 @@
     r.appendChild(alleKnopf("Alle Lampen", "licht"));
   }
 
-  // ------------------------------------------------------------ Nachrichten an der Haustür (Anrufbeantworter)
-  function nachrichtenBox() {
-    const b = box("Nachrichten an der Haustür");
-    b.classList.add("haustuer-nachrichten");
-    const liste = E('<div class="liste"><div class="leer">Lädt …</div></div>');
-    b.appendChild(liste);
-    const laden = async () => {
-      let n = [];
-      try { const r = await fetch("api/aufnahmen", { cache: "no-store" }); if (r.ok) n = await r.json(); } catch { /* leer */ }
-      b.querySelector("h3 small")?.remove();
-      if (n.length) b.querySelector("h3").insertAdjacentHTML("beforeend", `<small>${n.length === 10 ? "die letzten 10" : n.length}</small>`);
-      liste.innerHTML = n.length ? "" : '<div class="leer">Noch keine Nachrichten.</div>';
-      n.forEach((x) => {
-        const t = x.zeit ? new Date(x.zeit) : null;
-        const wann = t ? `${t.toLocaleDateString("de-DE", { weekday: "short", day: "2-digit", month: "2-digit" })} · ${t.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })}` : x.datei;
-        const z = E(`<div class="zeile">${PS.ic("message-processing-outline")}<span class="n">${PS.esc(x.text ? `„${x.text}“` : "Ohne Abschrift")}<small>${PS.esc(wann)}${x.dauer_s ? ` · ${x.dauer_s} s` : ""}</small></span></div>`);
-        z.appendChild(PS.aufnahmeKnopf(x.datei, x.dauer_s));
+  // ------------------------------------------------------------ Haustür: jedes Klingeln mit Ausgang, Nachrichten darin
+  // Klingelbuch (api/klingeln) und Anrufbeantworter (api/aufnahmen) zusammengeführt; Nachrichten aus der Zeit vor dem
+  // Klingelbuch erscheinen als eigene Einträge. Filter nach Ausgang, Gruppen nach Tag, live bei jedem Klingeln.
+  const HT_ART = {
+    laeuft: ["Es klingelt", "bell-ring-outline", "var(--warn)"],
+    panel: ["Angenommen", "phone-check-outline", "var(--gut)"],
+    app: ["Angenommen", "cellphone-check", "var(--gut)"],
+    nachricht: ["Nachricht hinterlassen", "voicemail", "var(--akzent)"],
+    ohne: ["Ohne Nachricht", "bell-outline", "var(--leise)"],
+    verpasst: ["Verpasst", "phone-missed-outline", "var(--krit)"],
+  };
+  const HT_FILTER = [["alle", "Alle"], ["nachricht", "Nachrichten"], ["angenommen", "Angenommen"], ["ohne", "Ohne"], ["verpasst", "Verpasst"]];
+  const htGruppe = (art) => (art === "panel" || art === "app" ? "angenommen" : art);
+  const htTag = (t) => {
+    const d = new Date(t), h = new Date(); h.setHours(0, 0, 0, 0);
+    const diff = Math.round((h - new Date(d).setHours(0, 0, 0, 0)) / 86400e3);
+    return diff === 0 ? "Heute" : diff === 1 ? "Gestern" : d.toLocaleDateString("de-DE", { weekday: "long", day: "numeric", month: "numeric" });
+  };
+  const htDauer = (s) => (s == null ? "" : `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, "0")}`);
+  let htFilter = "alle";
+  function haustuerBox() {
+    const b = box("Haustür", "Klingeln und Nachrichten");
+    b.classList.add("haustuer-verlauf");
+    const filter = E('<div class="ht-filter" role="group" aria-label="Filter"></div>');
+    const liste = E('<div class="ht-liste"><div class="leer">Lädt …</div></div>');
+    b.append(filter, liste);
+    let eintraege = [];
+    const zeigen = () => {
+      filter.innerHTML = HT_FILTER.map(([k, t]) => {
+        const n = k === "alle" ? eintraege.length : eintraege.filter((e) => htGruppe(e.ausgang) === k).length;
+        return `<button type="button" data-f="${k}" class="${k === htFilter ? "aktiv" : ""}" aria-pressed="${k === htFilter}">${t}<span>${n}</span></button>`;
+      }).join("");
+      const sicht = eintraege.filter((e) => htFilter === "alle" || htGruppe(e.ausgang) === htFilter);
+      liste.innerHTML = sicht.length ? "" : `<div class="leer">${eintraege.length ? "Keine Einträge in dieser Auswahl." : "Noch kein Klingeln aufgezeichnet."}</div>`;
+      let tag = null;
+      sicht.forEach((e, i) => {
+        const t = htTag(e.t * 1000);
+        if (t !== tag) { tag = t; liste.appendChild(E(`<div class="ht-tag">${PS.esc(t)}</div>`)); }
+        const [titel, icon, farbe] = HT_ART[e.ausgang] || HT_ART.verpasst;
+        const unter = {
+          laeuft: "gerade eben",
+          panel: e.tuer && !e.ende ? "Haustür geöffnet" : "am Panel",
+          app: "in der Ring-App",
+          nachricht: `Anrufbeantworter${e.dauer_s ? ` · ${htDauer(e.dauer_s)}` : ""}`,
+          ohne: "Anrufbeantworter lief, nichts gesagt",
+          verpasst: "niemand hat angenommen",
+        }[e.ausgang] || "";
+        const z = E(`<article class="ht-eintrag ${e.ausgang}" style="--c:${farbe};--i:${Math.min(i, 8)}">
+          <span class="ht-ic">${PS.ic(icon)}</span><span class="ht-text"><b>${PS.esc(titel)}</b><small>${PS.esc(unter)}</small></span>
+          <span class="ht-zeit tabular">${PS.uhrzeit(new Date(e.t * 1000))}</span></article>`);
+        if (e.ausgang === "nachricht" && e.datei) {
+          const sp = E(`<div class="ht-abspielen"><div class="ht-wellen" aria-hidden="true">${Array.from({ length: 22 }, (_, k) => `<i style="height:${22 + Math.round(Math.abs(Math.sin(k * 1.7 + e.t)) * 70)}%"></i>`).join("")}</div></div>`);
+          const k = PS.aufnahmeKnopf(e.datei, e.dauer_s); k.classList.add("ht-play");
+          sp.prepend(k); z.appendChild(sp);
+        }
+        if (e.text) z.appendChild(E(`<div class="ht-abschrift">„${PS.esc(e.text)}“</div>`));
+        const marken = [e.tuer ? "Tür geöffnet" : "", e.mal > 1 ? `${e.mal}× geklingelt` : ""].filter(Boolean);
+        if (marken.length) z.appendChild(E(`<div class="ht-marken">${marken.map((m) => `<span>${PS.esc(m)}</span>`).join("")}</div>`));
         liste.appendChild(z);
       });
     };
+    filter.addEventListener("click", (ev) => { const k = ev.target.closest("[data-f]"); if (!k) return; htFilter = k.dataset.f; zeigen(); });
+    const laden = async () => {
+      let kl = [], na = [];
+      try {
+        const [a, c] = await Promise.all([fetch("api/klingeln?anzahl=60", { cache: "no-store" }), fetch("api/aufnahmen?anzahl=40", { cache: "no-store" })]);
+        if (a.ok) kl = await a.json();
+        if (c.ok) na = await c.json();
+      } catch { /* bleibt leer */ }
+      const bekannt = new Set(kl.map((e) => e.datei).filter(Boolean));
+      const alt = na.filter((x) => !bekannt.has(x.datei) && x.zeit).map((x) => ({ id: x.datei, t: Date.parse(x.zeit) / 1000, ausgang: "nachricht", datei: x.datei, dauer_s: x.dauer_s, text: x.text }));
+      // Abschrift aus der Aufnahmenliste ergänzen, falls das Klingelbuch sie nicht hat
+      const jeDatei = new Map(na.map((x) => [x.datei, x]));
+      kl.forEach((e) => { const x = jeDatei.get(e.datei); if (x && !e.text) e.text = x.text; });
+      eintraege = [...kl, ...alt].sort((x, y) => y.t - x.t);
+      b.querySelector("h3 small").textContent = eintraege.length ? `${eintraege.filter((e) => htTag(e.t * 1000) === "Heute").length} heute` : "Klingeln und Nachrichten";
+      zeigen();
+    };
     laden();
-    nachrichtenNeu = () => { if (b.isConnected) laden(); };
+    htNeu = () => { if (b.isConnected) laden(); };
     return b;
   }
-  // Neue Nachricht: offene Liste nachladen (ein Hörer für alle Seitenaufbauten)
-  let nachrichtenNeu = null;
-  PS.on("aufnahmen", () => { if (nachrichtenNeu) nachrichtenNeu(); });
+  // Klingeln oder neue Nachricht: offenen Verlauf nachladen (ein Hörer für alle Seitenaufbauten)
+  let htNeu = null;
+  PS.on("aufnahmen", () => { if (htNeu) htNeu(); });
+  PS.on("klingeln", () => { if (htNeu) htNeu(); });
+  PS.haustuerBox = haustuerBox;
 
   // ------------------------------------------------------------ Sicherheit
+  // Drei Spalten, die ohne Scrollen auf das Panel passen (Surface Go 2): links Alarmanlage und Zugang, in der Mitte
+  // der Haustür-Verlauf (scrollt in sich), Melder kompakt links unten, rechts Kamera und die letzten Aufnahmen
   function sicherheit(el) {
     const [l, m, r] = seite(el, "sicherheit");
+    m.parentElement.classList.add("sicherheit-seite");
     const alarm = alle().filter(dom("alarm_control_panel")).filter(PS.sichtbar);
     alarm.slice(0, 1).forEach((a) => l.appendChild(PS.alarmSteuerung(a)));
     const zugang = PS.zugang(alle().filter(dom("lock")));
     if (zugang.length) { const b = box("Zugang"); b.appendChild(raster(zugang)); l.appendChild(b); }
-    l.appendChild(nachrichtenBox());
-    const bs = (k) => alle().filter((e) => e.startsWith("binary_sensor.") && PS.sichtbar(e) && !PS.nichtDa(e) && k.includes(PS.a(e).device_class));
-    const kontakte = bs(["door", "window", "opening", "garage_door"]).sort((x, y) => (PS.s(y) === "on") - (PS.s(x) === "on") || nameSort(x, y));
-    const offen = kontakte.filter((e) => PS.s(e) === "on").length;
-    const b2 = box("Türen und Fenster", offen ? `${offen} offen` : "alles zu");
-    b2.appendChild(raster(kontakte.slice(0, 9), "mini r3"));
-    const bew = bs(["motion", "occupancy", "presence"]).sort((x, y) => (PS.s(y) === "on") - (PS.s(x) === "on") || (Date.parse(PS.st(y).lc) || 0) - (Date.parse(PS.st(x).lc) || 0));
-    b2.appendChild(E('<h3 class="unter"><span>Bewegung</span></h3>'));
-    b2.appendChild(raster(bew.slice(0, 6), "mini r3"));
-    m.appendChild(b2);
+    m.appendChild(haustuerBox());
     const kam = PS.opt.ereignis_kamera && PS.z[PS.opt.ereignis_kamera] ? PS.opt.ereignis_kamera : alle().find((e) => dom("camera")(e) && PS.sichtbar(e));
     if (kam) {
       const b3 = box(PS.name(kam), "antippen für Live");
@@ -177,15 +231,24 @@
       b3.appendChild(k); r.appendChild(b3);
       setTimeout(() => PS.kameraVorschau(k.querySelector("img"), kam), 50);
     }
-    r.appendChild(aufnahmenBox());
-    const b4 = box("Letzte Ereignisse");
-    const liste = E('<div class="liste"><div class="leer">Wird geladen …</div></div>');
-    b4.appendChild(liste); r.appendChild(b4);
-    const relevant = new Set([...kontakte, ...bew, ...zugang, ...alarm, ...(PS.opt.ereignis_ausloeser || [])]);
-    PS.anfrage({ typ: "rest", pfad: `logbook/${new Date(Date.now() - 12 * 3600e3).toISOString()}` }).then((res) => {
-      const ev = (res || []).filter((x) => relevant.has(x.entity_id)).slice(-6).reverse();
-      liste.innerHTML = ev.map((x) => `<div class="zeile">${PS.z[x.entity_id] ? PS.icon(x.entity_id) : PS.ic("history")}<span class="n">${PS.esc(x.name || x.entity_id)}<small>${PS.esc(x.message || PS.text(x.entity_id, x.state))}</small></span><span class="w">${PS.uhrzeit(new Date(x.when))}</span></div>`).join("") || '<div class="leer">Keine Ereignisse in den letzten 12 Stunden.</div>';
-    }).catch(() => { liste.innerHTML = '<div class="leer">Protokoll nicht verfügbar.</div>'; });
+    // Melder kompakt: nur Offenes und die letzte Bewegung, der Rest steht unter „Alle Melder“
+    const bs = (k) => alle().filter((e) => e.startsWith("binary_sensor.") && PS.sichtbar(e) && !PS.nichtDa(e) && k.includes(PS.a(e).device_class));
+    const kontakte = bs(["door", "window", "opening", "garage_door"]);
+    const offen = kontakte.filter((e) => PS.s(e) === "on");
+    const bew = bs(["motion", "occupancy", "presence"]).sort((x, y) => (PS.s(y) === "on") - (PS.s(x) === "on") || (Date.parse(PS.st(y).lc) || 0) - (Date.parse(PS.st(x).lc) || 0));
+    const b2 = box("Melder", offen.length ? `${offen.length} offen` : "alles zu");
+    b2.classList.add("melder-kompakt");
+    b2.appendChild(E(`<div class="mk-zeile ${offen.length ? "warn" : "ok"}">${PS.ic(offen.length ? "door-open" : "door-closed-lock")}<span>${offen.length
+      ? PS.esc(offen.slice(0, 3).map((e) => PS.kurzname(e)).join(", ") + (offen.length > 3 ? ` und ${offen.length - 3} weitere` : ""))
+      : `Alle ${kontakte.length} Türen und Fenster zu`}</span></div>`));
+    bew.slice(0, 2).forEach((e) => {
+      const an = PS.s(e) === "on";
+      const z = E(`<div class="mk-zeile ${an ? "an" : ""}" data-eid="${PS.esc(e)}">${PS.ic(an ? "motion-sensor" : "motion-sensor-off")}<span>${PS.esc(PS.kurzname(e))}</span><small>${an ? "Bewegung" : PS.esc(PS.zeitRelativ(PS.st(e).lc))}</small></div>`);
+      z.addEventListener("click", () => PS.mehrInfos(e));
+      b2.appendChild(z);
+    });
+    l.appendChild(b2);
+    r.appendChild(aufnahmenBox(3));
     r.appendChild(alleKnopf("Alle Melder und Kameras", "sicherheit"));
   }
 
@@ -205,7 +268,7 @@
     return diff === 0 ? "Heute" : diff === 1 ? "Gestern" : d.toLocaleDateString("de-DE", { weekday: "short", day: "numeric", month: "numeric" });
   };
   async function tagLaden(t) { const r = await PS.anfrage({ typ: "aufnahmen", tag: t.id }); return ((r || {}).aufnahmen || []).slice().reverse(); }
-  function aufnahmenBox() {
+  function aufnahmenBox(anzahl = 5) {
     const b = box("Aufnahmen", "antippen zum Abspielen");
     const liste = E('<div class="liste"><div class="leer">Wird geladen …</div></div>');
     b.appendChild(liste);
@@ -213,9 +276,9 @@
       const kam = ((res || {}).kameras || [])[0];
       if (!kam || !kam.tage.length) { liste.innerHTML = '<div class="leer">Keine Aufnahmen gefunden.</div>'; return; }
       const zeilen = [];
-      for (const t of kam.tage.slice(0, 2)) { (await tagLaden(t)).forEach((a) => zeilen.push([a, tagName(t.titel)])); if (zeilen.length >= 5) break; }
+      for (const t of kam.tage.slice(0, 2)) { (await tagLaden(t)).forEach((a) => zeilen.push([a, tagName(t.titel)])); if (zeilen.length >= anzahl) break; }
       liste.innerHTML = zeilen.length ? "" : '<div class="leer">Heute und gestern keine Aufnahmen.</div>';
-      zeilen.slice(0, 5).forEach(([a, tag]) => liste.appendChild(aufnahmeZeile(a, tag)));
+      zeilen.slice(0, anzahl).forEach(([a, tag]) => liste.appendChild(aufnahmeZeile(a, tag)));
       b.appendChild(knopf("Alle Aufnahmen", "filmstrip-box-multiple", () => PS.unterseite(`Aufnahmen · ${kam.titel}`, (el) => aufnahmenSeite(el, kam)), "r-alles"));
     }).catch(() => { liste.innerHTML = '<div class="leer">Aufnahmen nicht verfügbar.</div>'; });
     return b;

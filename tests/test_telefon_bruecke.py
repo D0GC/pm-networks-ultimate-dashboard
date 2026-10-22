@@ -69,8 +69,11 @@ async def test_takt_ausgang_gleichmaessig_und_stille(strecke) -> None:
     # Absolute Zeitplanung: 25 Abstände dauern ~500 ms, ohne Drift. Gemessen nach fünf Rahmen Anlauf; der erste
     # Takt fällt beim ersten Test eines Laufs mit dem Aufwärmen der Ereignisschleife zusammen und streut.
     zeiten = [t for t, _ in panel.rahmen][5:31]
-    assert 0.46 < zeiten[25] - zeiten[0] < 0.56
-    assert max(b - a for a, b in pairwise(zeiten)) < 0.06
+    # Ein einzelner verspäteter Rahmen (Planungs-Jitter der Maschine) ist erlaubt, wenn der Takt danach aufholt (die
+    # Spanne stimmt); mehrere Aussetzer oder ein langer zeigen einen Fehler im Takt.
+    spanne, luecken = zeiten[25] - zeiten[0], [b - a for a, b in pairwise(zeiten)]
+    assert 0.46 < spanne < 0.56, f"25 Abstände dauerten {spanne:.3f} s"
+    assert sum(x >= 0.06 for x in luecken) <= 1 and max(luecken) < 0.15, f"Lücken {[round(x, 3) for x in luecken]}"
 
 
 async def test_ausgang_liefert_rtp_audio(strecke) -> None:

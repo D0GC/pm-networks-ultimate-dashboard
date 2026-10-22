@@ -1,0 +1,167 @@
+/* PM Panel Studio – Alarmanlage (alarm.js): Zustand mit animiertem Symbol, Moduswahl, Codetafel als Pop-up */
+.alarm2{--al-farbe:var(--lavender);gap:1rem;position:relative;overflow:hidden}
+.alarm2::before{content:"";position:absolute;inset:-30% -30% auto auto;width:80%;aspect-ratio:1;border-radius:50%;
+  background:radial-gradient(closest-side,color-mix(in srgb,var(--al-farbe) 26%,transparent),transparent 70%);opacity:.8;pointer-events:none;transition:background .8s}
+.al-zustand{position:relative;display:flex;align-items:center;gap:1.1rem;min-width:0}
+.al-symbol{width:7.5rem;height:7.5rem;flex:none}
+.al-svg{width:100%;height:100%;overflow:visible;font-family:inherit}
+.al-text{display:flex;flex-direction:column;gap:.25rem;min-width:0}
+.al-name{font-size:1.7rem;font-weight:600;line-height:1.1;color:var(--cloud)}
+.al-unter{color:var(--lavender);font-size:1rem}
+.al-seit{color:var(--leise);font-size:.85rem}
+.al-wechsel{animation:al-wechsel .7s cubic-bezier(.2,1.5,.35,1)}
+@keyframes al-wechsel{0%{transform:scale(.6) rotate(-8deg);opacity:0}100%{transform:none;opacity:1}}
+.al-modi{position:relative;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.6rem}
+.al-modus{all:unset;box-sizing:border-box;cursor:pointer;position:relative;overflow:hidden;display:flex;align-items:center;gap:.7rem;padding:.75rem .85rem;min-height:3.6rem;
+  border-radius:var(--r-innen,1rem);background:var(--flaeche-tief);border:1px solid var(--linie);transition:transform .25s cubic-bezier(.2,1.5,.35,1),border-color .3s,background .3s;
+  -webkit-user-select:none;user-select:none}
+.al-modus:active{transform:scale(.97)}
+.al-modus:focus-visible{outline:2px solid var(--cloud);outline-offset:2px}
+.al-modus > .mdi{font-size:1.6rem;color:var(--c);flex:none;transition:transform .4s cubic-bezier(.2,1.5,.35,1)}
+.al-modus span{display:flex;flex-direction:column;min-width:0}
+.al-modus b{font-size:1rem;font-weight:600}
+.al-modus small{font-size:.78rem;color:var(--leise);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.al-modus.aktiv{border-color:color-mix(in srgb,var(--c) 55%,transparent);background:color-mix(in srgb,var(--c) 12%,var(--flaeche-tief))}
+.al-modus.aktiv > .mdi{transform:scale(1.12)}
+.al-marke{position:absolute;top:.4rem;right:.5rem;font-style:normal;font-size:.68rem;font-weight:700;padding:.1rem .45rem;border-radius:99px;
+  background:color-mix(in srgb,var(--c) 20%,transparent);color:var(--c);animation:al-marke .45s cubic-bezier(.2,1.5,.35,1)}
+@keyframes al-marke{from{transform:scale(.4);opacity:0}}
+.al-modus.al-halten.haelt > .mdi{animation:al-zittern .15s linear infinite}
+@keyframes al-zittern{50%{transform:translateX(1px)}}
+.alarm2[data-zustand="ausgeloest"] .al-modus.al-halten{border-color:var(--krit);animation:al-ruf 1.4s ease-in-out infinite}
+@keyframes al-ruf{50%{box-shadow:0 0 0 4px color-mix(in srgb,var(--krit) 30%,transparent)}}
+
+/* Bewegungen der Symbole */
+.al-atmen{animation:al-atmen 3.2s ease-in-out infinite;transform-origin:90px 90px}
+@keyframes al-atmen{0%,100%{transform:scale(1)}50%{transform:scale(1.04)}}
+.al-buegel{transform-box:fill-box;transform-origin:right bottom;animation:al-buegel 3.2s ease-in-out infinite}
+@keyframes al-buegel{0%,100%{transform:rotate(0)}50%{transform:rotate(-10deg)}}
+.al-welle{fill:none;stroke-width:2;transform-origin:90px 90px;animation:al-welle 2.6s ease-out infinite}
+.al-welle.b{animation-delay:1.3s}
+.al-welle.schnell{animation-duration:1.2s}.al-welle.schnell.b{animation-delay:.6s}
+@keyframes al-welle{0%{transform:scale(.55);opacity:.8}100%{transform:scale(1.25);opacity:0}}
+.al-radar{transform-origin:90px 90px;animation:al-drehen 3s linear infinite}
+@keyframes al-drehen{to{transform:rotate(360deg)}}
+.al-stern{transform-box:fill-box;transform-origin:center;animation:al-funkeln 2.4s ease-in-out infinite}
+.al-stern:nth-of-type(2){animation-delay:.8s}.al-stern:nth-of-type(3){animation-delay:1.6s}
+@keyframes al-funkeln{0%,100%{opacity:.15;transform:scale(.6)}50%{opacity:1;transform:scale(1)}}
+.al-einrasten{transform-box:fill-box;transform-origin:center bottom;animation:al-einrasten .6s cubic-bezier(.2,1.5,.35,1)}
+@keyframes al-einrasten{0%{transform:translateY(-8px)}100%{transform:none}}
+.al-countdown{transform:rotate(-90deg);transform-origin:90px 90px;transition:stroke-dashoffset 1s linear}
+.al-kreisen{animation:al-kreisen 1.4s linear infinite}
+@keyframes al-kreisen{to{transform:rotate(270deg)}}
+.al-zittern{transform-origin:90px 90px;animation:al-zittern2 .5s ease-in-out infinite}
+@keyframes al-zittern2{0%,100%{transform:rotate(0)}25%{transform:rotate(-4deg)}75%{transform:rotate(4deg)}}
+.al-blinken{animation:al-blinken 1s steps(2) infinite}
+@keyframes al-blinken{50%{opacity:.25}}
+
+/* Codetafel */
+.ct-grund{position:fixed;inset:0;z-index:400;display:grid;place-items:center;background:rgba(10,8,30,.55);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
+  opacity:0;transition:opacity .3s}
+.ct-grund.offen{opacity:1}
+.ct-tafel{width:min(23rem,calc(100vw - 2rem));padding:1.5rem 1.4rem 1.1rem;border-radius:1.8rem;background:var(--glas-fest,#1b1744);border:1px solid var(--linie-stark);
+  box-shadow:0 2.5rem 5rem -1.2rem rgba(0,0,0,.8),inset 0 1px 0 rgba(255,255,255,.12);transform:scale(.7) translateY(2rem);opacity:0;
+  transition:transform .5s cubic-bezier(.2,1.5,.35,1),opacity .25s;display:flex;flex-direction:column}
+.ct-grund.offen .ct-tafel{transform:none;opacity:1}
+.ct-grund.schliesst{opacity:0}
+.ct-grund.schliesst .ct-tafel{transform:scale(.85);opacity:0;transition:transform .35s ease-in,opacity .3s}
+.ct-kopf{display:flex;flex-direction:column;align-items:center;gap:.4rem;text-align:center}
+.ct-symbol{width:3.6rem;height:3.6rem}
+.ct-kopf b{font-size:1.25rem;font-weight:600}
+.ct-kopf small{color:var(--leise)}
+.ct-felder{display:flex;justify-content:center;gap:.7rem;margin:1.3rem 0 1rem;min-height:2.8rem;align-items:center}
+.ct-felder.fehler{animation:ct-fehler .45s ease-in-out}
+@keyframes ct-fehler{20%{transform:translateX(-12px)}40%{transform:translateX(10px)}60%{transform:translateX(-7px)}80%{transform:translateX(4px)}}
+.ct-feld{position:relative;width:2.5rem;height:2.8rem;border-radius:.75rem;border:1.5px solid var(--linie-stark);display:grid;place-items:center;transition:border-color .3s,background .3s}
+.ct-feld i{width:.75rem;height:.75rem;border-radius:50%;background:var(--cloud);transform:scale(0);transition:transform .35s cubic-bezier(.2,1.5,.35,1)}
+.ct-feld.voll i{transform:scale(1)}
+.ct-feld.zeigt i{transform:scale(0)}
+.ct-feld span{position:absolute;font-size:1.4rem;font-weight:600;opacity:0}
+.ct-feld.zeigt span{animation:ct-ziffer .55s ease forwards}
+@keyframes ct-ziffer{0%{opacity:0;transform:translateY(10px) scale(.6)}30%{opacity:1;transform:none}75%{opacity:1;transform:none}100%{opacity:0;transform:translateY(-6px) scale(.7)}}
+.ct-feld.neu{animation:ct-plopp .35s cubic-bezier(.2,1.5,.35,1)}
+@keyframes ct-plopp{0%{transform:scale(.8)}100%{transform:none}}
+.ct-felder.fehler .ct-feld{border-color:var(--krit)}.ct-felder.fehler .ct-feld i{background:var(--krit)}
+.ct-felder.ok .ct-feld{border-color:var(--gut);background:rgba(95,211,160,.12)}.ct-felder.ok .ct-feld i{background:var(--gut)}
+.ct-grund.prueft .ct-felder .ct-feld i{animation:ct-warten 1s ease-in-out infinite}
+.ct-grund.prueft .ct-feld:nth-child(2) i{animation-delay:.1s}.ct-grund.prueft .ct-feld:nth-child(3) i{animation-delay:.2s}.ct-grund.prueft .ct-feld:nth-child(4) i{animation-delay:.3s}
+@keyframes ct-warten{50%{transform:translateY(-5px)}}
+.ct-haken{display:none;justify-content:center;margin:-.3rem 0 .3rem}
+.ct-grund.geschafft .ct-haken{display:flex}
+.ct-haken svg{width:3.2rem;height:3.2rem}
+.ct-haken circle{stroke:var(--gut);stroke-width:3;fill:none;stroke-dasharray:160;stroke-dashoffset:160;animation:ct-zeichnen .5s ease forwards}
+.ct-haken path{stroke:var(--gut);stroke-width:4;fill:none;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:40;stroke-dashoffset:40;animation:ct-zeichnen .35s .35s ease forwards}
+@keyframes ct-zeichnen{to{stroke-dashoffset:0}}
+.ct-meldung{text-align:center;min-height:1.4em;font-size:.95rem;margin:-.3rem 0 .8rem;color:var(--leise);transition:color .3s}
+.ct-meldung.fehler{color:var(--krit)}.ct-meldung.ok{color:var(--gut)}
+.ct-tasten{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.6rem}
+.ct-taste{all:unset;box-sizing:border-box;cursor:pointer;position:relative;overflow:hidden;height:3.9rem;border-radius:1.1rem;display:grid;place-items:center;font-size:1.6rem;font-weight:500;
+  background:rgba(197,192,211,.08);border:1px solid var(--linie);transition:transform .15s cubic-bezier(.2,1.5,.35,1),background .2s;color:var(--cloud)}
+.ct-taste:active{transform:scale(.92);background:rgba(197,192,211,.16)}
+.ct-taste:focus-visible{outline:2px solid var(--cloud)}
+.ct-taste.leise{color:var(--leise)}
+.ct-taste.ok{background:var(--purple);border-color:transparent;color:#fff}
+.ct-taste .mdi{font-size:1.6rem}
+.ct-riffel{position:absolute;width:10px;height:10px;border-radius:50%;background:rgba(255,255,255,.35);transform:scale(0);animation:ct-riffel .5s ease-out forwards;pointer-events:none}
+@keyframes ct-riffel{to{transform:scale(14);opacity:0}}
+.ct-abbrechen{all:unset;cursor:pointer;align-self:center;margin-top:.8rem;padding:.6rem 1.2rem;border-radius:.9rem;color:var(--lavender);font-weight:600}
+.ct-abbrechen:hover{background:rgba(197,192,211,.08)}
+body.ohne-animation .alarm2 *,body.ohne-animation .ct-grund *{animation:none!important}
+@media (prefers-reduced-motion:reduce){.alarm2 *,.ct-grund *{animation:none!important}}
+
+/* Sicherheitsseite: passt ohne Scrollen auf das Panel; nur der Haustür-Verlauf scrollt in sich */
+.raum-ansicht.sicherheit-seite{grid-template-columns:34% minmax(0,1fr) 24%}
+.sicherheit-seite > .r-spalte{gap:1rem}
+.sicherheit-seite > .r-spalte:nth-child(2){overflow:hidden}
+.sicherheit-seite .alarm2{padding:1.1rem;gap:.85rem}
+.sicherheit-seite .al-symbol{width:6rem;height:6rem}
+.sicherheit-seite .al-modus{min-height:3.2rem;padding:.6rem .75rem}
+.sicherheit-seite .kamera{aspect-ratio:16/10}
+.haustuer-verlauf{flex:1;min-height:0;gap:.7rem}
+.ht-filter{display:flex;gap:.35rem;flex-wrap:wrap}
+.ht-filter button{all:unset;cursor:pointer;display:inline-flex;align-items:center;gap:.4rem;padding:.35rem .65rem;border-radius:99px;font-size:.82rem;
+  background:var(--flaeche-tief);border:1px solid var(--linie);color:var(--lavender);transition:background .25s,border-color .25s,color .25s}
+.ht-filter button span{font-size:.72rem;font-weight:700;min-width:1.2em;text-align:center;padding:0 .3rem;border-radius:99px;background:rgba(197,192,211,.12)}
+.ht-filter button.aktiv{background:color-mix(in srgb,var(--akzent) 18%,var(--flaeche-tief));border-color:color-mix(in srgb,var(--akzent) 55%,transparent);color:var(--cloud)}
+.ht-filter button:focus-visible{outline:2px solid var(--cloud);outline-offset:2px}
+.ht-liste{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:var(--violet) transparent;display:flex;flex-direction:column;gap:.5rem;padding-right:.2rem}
+.ht-liste .leer{color:var(--leise);padding:1rem 0;text-align:center}
+.ht-tag{position:sticky;top:0;z-index:1;font-size:.72rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--leise);padding:.5rem 0 .2rem;
+  background:linear-gradient(var(--flaeche) 70%,transparent)}
+.ht-eintrag{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;column-gap:.8rem;row-gap:.45rem;padding:.65rem .8rem;border-radius:var(--r-innen,1rem);
+  background:var(--flaeche-tief);border:1px solid var(--linie);border-left:3px solid var(--c);animation:ht-rein .45s calc(var(--i) * 40ms) both cubic-bezier(.2,1.2,.35,1)}
+@keyframes ht-rein{from{opacity:0;transform:translateY(8px)}}
+.ht-ic{width:2.4rem;height:2.4rem;border-radius:50%;display:grid;place-items:center;background:color-mix(in srgb,var(--c) 16%,transparent);color:var(--c)}
+.ht-ic .mdi{font-size:1.3rem}
+.ht-text{display:flex;flex-direction:column;min-width:0}
+.ht-text b{font-weight:600;font-size:.98rem}
+.ht-text small{color:var(--leise);font-size:.8rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ht-zeit{color:var(--lavender);font-size:.9rem}
+.ht-abspielen,.ht-abschrift,.ht-marken{grid-column:2/-1}
+.ht-abspielen{display:flex;align-items:center;gap:.7rem}
+.ht-abspielen .ht-play{flex:none}
+.ht-wellen{flex:1;height:1.8rem;display:flex;align-items:center;gap:2px}
+.ht-wellen i{flex:1;border-radius:2px;background:color-mix(in srgb,var(--akzent) 45%,transparent);transform-origin:center;transition:background .3s}
+.ht-abspielen:has(.aktiv) .ht-wellen i{background:var(--akzent);animation:ht-welle .9s ease-in-out infinite}
+.ht-abspielen:has(.aktiv) .ht-wellen i:nth-child(3n){animation-delay:-.3s}.ht-abspielen:has(.aktiv) .ht-wellen i:nth-child(3n+1){animation-delay:-.6s}
+@keyframes ht-welle{50%{transform:scaleY(.35)}}
+.ht-abschrift{font-size:.88rem;color:var(--lavender);line-height:1.4;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.ht-marken{display:flex;gap:.35rem;flex-wrap:wrap}
+.ht-marken span{font-size:.72rem;padding:.12rem .5rem;border-radius:99px;background:rgba(197,192,211,.1);color:var(--lavender)}
+.ht-eintrag.laeuft .ht-ic{animation:ht-klingeln 1s ease-in-out infinite}
+.ht-eintrag.laeuft .ht-ic .mdi{animation:ht-glocke .5s ease-in-out infinite alternate}
+@keyframes ht-klingeln{50%{box-shadow:0 0 0 7px color-mix(in srgb,var(--c) 22%,transparent)}}
+@keyframes ht-glocke{from{transform:rotate(-14deg)}to{transform:rotate(14deg)}}
+.ht-eintrag.verpasst .ht-ic .mdi{animation:ht-wackeln 3s ease-in-out 1}
+@keyframes ht-wackeln{0%,30%,100%{transform:none}10%{transform:rotate(-10deg)}20%{transform:rotate(10deg)}}
+.melder-kompakt{gap:.5rem}
+.mk-zeile{display:flex;align-items:center;gap:.6rem;padding:.5rem .65rem;border-radius:var(--r-innen,1rem);background:var(--flaeche-tief);font-size:.9rem;cursor:pointer;min-width:0}
+.mk-zeile > span{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mk-zeile small{color:var(--leise);white-space:nowrap}
+.mk-zeile .mdi{font-size:1.25rem;color:var(--leise)}
+.mk-zeile.ok .mdi{color:var(--gut)}
+.mk-zeile.warn .mdi{color:var(--warn);animation:ht-wackeln 2.4s ease-in-out infinite}
+.mk-zeile.an .mdi{color:var(--akzent);animation:ht-puls 1.6s ease-in-out infinite}
+@keyframes ht-puls{50%{transform:scale(1.18);opacity:.7}}
+body.ohne-animation .haustuer-verlauf *,body.ohne-animation .melder-kompakt *{animation:none!important}
+@media (prefers-reduced-motion:reduce){.haustuer-verlauf *,.melder-kompakt *{animation:none!important}}
