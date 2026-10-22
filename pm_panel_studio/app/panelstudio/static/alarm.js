@@ -70,31 +70,29 @@
   const ICON = { zuhause: "shield-home", abwesend: "shield-lock", nacht: "shield-moon", unscharf: "shield-off-outline" };
 
   // ------------------------------------------------------------ Codetafel (Pop-up mitten im Bild)
+  // Wie die iPhone-Sperre: sechs Punkte füllen sich, beim letzten wird automatisch geprüft. Falsch schüttelt die Punkte,
+  // richtig färbt sie nacheinander grün, zeichnet einen Haken und schließt die Tafel.
+  // Optionen: klasse (z. B. „ct-alarm“), fest (Hintergrund schließt nicht), abbrechen (Text), beimSchliessen.
+  const STELLEN = 6;
   let tafel = null;
-  PS.codeTafel = ({ titel, unter = "Code eingeben", symbol = "", pruefen }) => {
+  PS.codeTafel = ({ titel, unter = "Code eingeben", symbol = "", pruefen, stellen = STELLEN, klasse = "", fest = false, abbrechen = "Abbrechen", beimSchliessen = null }) => {
     if (tafel) tafel.schliessen(true);
-    const g = E(`<div class="ct-grund" role="dialog" aria-modal="true" aria-label="${PS.esc(titel)}"><div class="ct-tafel">
-      <div class="ct-kopf"><div class="ct-symbol">${symbol}</div><b>${PS.esc(titel)}</b><small>${PS.esc(unter)}</small></div>
-      <div class="ct-felder" aria-live="polite"></div>
+    const g = E(`<div class="ct-grund ${klasse}" role="dialog" aria-modal="true" aria-label="${PS.esc(titel)}"><div class="ct-tafel">
+      <div class="ct-kopf"><div class="ct-symbol">${symbol}</div><b>${PS.esc(titel)}</b><small class="ct-unter">${PS.esc(unter)}</small></div>
+      <div class="ct-punkte" aria-live="polite">${Array.from({ length: stellen }, (_, i) => `<i style="--k:${i}"></i>`).join("")}</div>
       <div class="ct-haken"><svg viewBox="0 0 54 54" aria-hidden="true"><circle cx="27" cy="27" r="24"/><path d="M16 28 l7 7 l15 -15"/></svg></div>
       <div class="ct-meldung">&nbsp;</div>
       <div class="ct-tasten"></div>
-      <button type="button" class="ct-abbrechen">Abbrechen</button></div></div>`);
-    const felder = g.querySelector(".ct-felder"), meldung = g.querySelector(".ct-meldung"), tasten = g.querySelector(".ct-tasten");
+      <button type="button" class="ct-abbrechen">${PS.esc(abbrechen)}</button></div></div>`);
+    const punkte = g.querySelector(".ct-punkte"), meldung = g.querySelector(".ct-meldung"), tasten = g.querySelector(".ct-tasten");
     let code = "", sperre = false;
-    const FELDER = 8;
     const zeigen = (neu) => {
-      felder.innerHTML = "";
-      const n = Math.max(4, code.length);
-      for (let i = 0; i < Math.min(FELDER, n); i++) {
-        const f = E(`<div class="ct-feld${i < code.length ? " voll" : ""}"><i></i><span></span></div>`);
-        if (i === neu) { f.querySelector("span").textContent = code[i]; f.classList.add("zeigt", "neu"); setTimeout(() => f.classList.remove("zeigt"), 550); }
-        felder.appendChild(f);
-      }
+      [...punkte.children].forEach((p, i) => {
+        p.classList.toggle("voll", i < code.length);
+        if (i === neu) { p.classList.remove("neu"); void p.offsetWidth; p.classList.add("neu"); }
+      });
     };
-    const melden = (text, art = "") => { meldung.textContent = text || " "; meldung.className = `ct-meldung ${art}`; };
-    const ziffer = (z) => { if (sperre || code.length >= FELDER) return; code += z; zeigen(code.length - 1); melden(""); };
-    const loeschen = () => { if (sperre) return; code = code.slice(0, -1); zeigen(-1); };
+    const melden = (text, art = "") => { meldung.textContent = text || " "; meldung.className = `ct-meldung ${art}`; };
     const bestaetigen = async () => {
       if (sperre || !code) return;
       sperre = true; g.classList.add("prueft"); melden("Wird geprüft …");
@@ -102,21 +100,29 @@
       try { const r = await pruefen(code); ok = r === true; text = typeof r === "string" ? r : ""; } catch (e) { text = e && e.message ? e.message : ""; }
       g.classList.remove("prueft");
       if (ok) {
-        felder.classList.add("ok"); g.classList.add("geschafft"); melden("Code richtig", "ok");
-        setTimeout(() => schliessen(), 1000);
+        punkte.classList.add("ok"); g.classList.add("geschafft"); melden("Code richtig", "ok");
+        setTimeout(() => schliessen(), 1100);
       } else {
-        felder.classList.add("fehler"); melden(text || "Falscher Code", "fehler");
-        setTimeout(() => { felder.classList.remove("fehler"); code = ""; zeigen(-1); sperre = false; }, 700);
+        punkte.classList.add("fehler"); melden(text || "Falscher Code", "fehler");
+        if (navigator.vibrate) try { navigator.vibrate(120); } catch { /* ohne */ }
+        setTimeout(() => { punkte.classList.remove("fehler"); code = ""; zeigen(-1); sperre = false; }, 750);
       }
     };
-    ["1", "2", "3", "4", "5", "6", "7", "8", "9", "⌫", "0", "✓"].forEach((z) => {
-      const b = E(`<button type="button" class="ct-taste${z === "⌫" ? " leise" : z === "✓" ? " ok" : ""}" aria-label="${z === "⌫" ? "Löschen" : z === "✓" ? "Bestätigen" : `Ziffer ${z}`}">${z === "⌫" ? PS.ic("backspace-outline") : z === "✓" ? PS.ic("check") : z}</button>`);
+    const ziffer = (z) => {
+      if (sperre || code.length >= stellen) return;
+      code += z; zeigen(code.length - 1); melden("");
+      if (code.length === stellen) setTimeout(bestaetigen, 180);  // letzter Punkt sichtbar, dann prüfen
+    };
+    const loeschen = () => { if (sperre) return; code = code.slice(0, -1); zeigen(-1); };
+    ["1", "2", "3", "4", "5", "6", "7", "8", "9", "", "0", "⌫"].forEach((z) => {
+      if (!z) { tasten.appendChild(E('<span aria-hidden="true"></span>')); return; }
+      const b = E(`<button type="button" class="ct-taste${z === "⌫" ? " leise" : ""}" aria-label="${z === "⌫" ? "Löschen" : `Ziffer ${z}`}">${z === "⌫" ? PS.ic("backspace-outline") : z}</button>`);
       b.addEventListener("pointerdown", (e) => {
         const r = b.getBoundingClientRect(), w = document.createElement("span");
         w.className = "ct-riffel"; w.style.left = `${e.clientX - r.left - 5}px`; w.style.top = `${e.clientY - r.top - 5}px`;
         b.appendChild(w); setTimeout(() => w.remove(), 520);
       });
-      b.addEventListener("click", () => (z === "⌫" ? loeschen() : z === "✓" ? bestaetigen() : ziffer(z)));
+      b.addEventListener("click", () => (z === "⌫" ? loeschen() : ziffer(z)));
       tasten.appendChild(b);
     });
     const taste = (e) => {
@@ -127,20 +133,28 @@
       else return;
       e.preventDefault();
     };
+    let zu = false;
     function schliessen(sofort) {
+      if (zu) return;
+      zu = true;
       document.removeEventListener("keydown", taste, true);
       if (tafel && tafel.g === g) tafel = null;
+      if (beimSchliessen) try { beimSchliessen(g.classList.contains("geschafft")); } catch { /* egal */ }
       if (sofort) { g.remove(); return; }
       g.classList.add("schliesst");
       setTimeout(() => g.remove(), 340);
     }
     g.querySelector(".ct-abbrechen").addEventListener("click", () => schliessen());
-    g.addEventListener("click", (e) => { if (e.target === g) schliessen(); });
+    if (!fest) g.addEventListener("click", (e) => { if (e.target === g) schliessen(); });
     document.addEventListener("keydown", taste, true);
-    zeigen(-1);
     document.body.appendChild(g);
     requestAnimationFrame(() => requestAnimationFrame(() => g.classList.add("offen")));
-    tafel = { g, schliessen };
+    tafel = {
+      g, schliessen,
+      symbol: (html) => { g.querySelector(".ct-symbol").innerHTML = html; },
+      unter: (text) => { g.querySelector(".ct-unter").textContent = text; },
+      laeuft: () => !sperre && !g.classList.contains("geschafft"),
+    };
     return tafel;
   };
 
@@ -202,7 +216,7 @@
           if (aktiv) return;
           const ziel = (n) => ["arming", "pending", zst].includes(n);
           if (brauchtCode() && a().code_arm_required !== false) {
-            PS.codeTafel({ titel: `Scharf · ${titel}`, unter: "Code eingeben und bestätigen", symbol: PS.alarmSymbol(art, FARBE[art]), pruefen: (code) => ausfuehren(eid, dienst, code, ziel) });
+            PS.codeTafel({ titel: `Scharf · ${titel}`, symbol: PS.alarmSymbol(art, FARBE[art]), pruefen: (code) => ausfuehren(eid, dienst, code, ziel) });
           } else ausfuehren(eid, dienst, "", ziel).then((r) => { if (r !== true) PS.toast(r, true); });
         });
       });
@@ -220,6 +234,47 @@
     el.aktualisieren();
     return el;
   };
+  // ------------------------------------------------------------ Meldung am Panel: Eingangsverzögerung und Alarm
+  // Steht die Anlage in der Eingangsverzögerung (pending), weckt das Panel und zeigt mittig die Codetafel mit
+  // ablaufendem Countdown; bei Auslösung (triggered) dieselbe Tafel rot mit pulsierendem Symbol. Richtiger Code
+  // schaltet unscharf. „Ausblenden“ gilt bis zum nächsten Zustandswechsel. Nur an den Panels, nicht in der Admin-Ansicht.
+  const alarmEid = () => (PS.opt.alarm_entitaet && PS.z[PS.opt.alarm_entitaet] ? PS.opt.alarm_entitaet : Object.keys(PS.z).find((e) => e.startsWith("alarm_control_panel.") && PS.sichtbar(e)));
+  const MELDEN = { pending: ["Eingangsverzögerung", "ct-warn"], triggered: ["Alarm ausgelöst", "ct-alarm"] };
+  let melder = null, meldeZustand = null, ausgeblendet = null, meldeTakt = null;
+  const meldeUnter = (eid) => {
+    if (PS.s(eid) === "triggered") return `${PS.a(eid).changed_by ? `durch ${PS.a(eid).changed_by} · ` : ""}Code eingeben zum Unscharfschalten`;
+    const r = restzeit(eid).rest;
+    return r != null ? `noch ${Math.max(0, Math.ceil(r))} s · Code eingeben, sonst Alarm` : "Code eingeben, sonst Alarm";
+  };
+  const meldeSymbol = (eid) => { const [art, , , farbe] = zustand(eid), { rest, gesamt } = restzeit(eid); return PS.alarmSymbol(art, farbe, rest, gesamt); };
+  function meldungPruefen() {
+    if (document.body.classList.contains("admin")) return;
+    const eid = alarmEid(); if (!eid) return;
+    const s = PS.s(eid);
+    if (s !== meldeZustand) { ausgeblendet = null; }
+    const war = meldeZustand; meldeZustand = s;
+    if (!MELDEN[s]) {
+      clearInterval(meldeTakt); meldeTakt = null;
+      if (melder && melder.laeuft()) melder.schliessen();
+      melder = null;
+      return;
+    }
+    if (ausgeblendet === s) return;
+    if (melder && war === s) return;  // läuft schon
+    if (melder) { const alt = melder; melder = null; alt.schliessen(true); }
+    document.body.classList.remove("ruhe");
+    try { window.dispatchEvent(new Event("pointerdown")); } catch { /* weckt das Panel */ }
+    const [titel, klasse] = MELDEN[s];
+    const t = PS.codeTafel({ titel, unter: meldeUnter(eid), symbol: meldeSymbol(eid), klasse: `ct-melder ${klasse}`, fest: true, abbrechen: "Ausblenden",
+      pruefen: (code) => ausfuehren(eid, "alarm_disarm", code, (n) => n === "disarmed"),
+      beimSchliessen: (geschafft) => { if (melder === t) { melder = null; if (!geschafft) ausgeblendet = s; } clearInterval(meldeTakt); meldeTakt = null; } });
+    melder = t;
+    clearInterval(meldeTakt);
+    meldeTakt = setInterval(() => { if (melder !== t) return; t.unter(meldeUnter(eid)); if (PS.s(eid) === "pending") t.symbol(meldeSymbol(eid)); }, 1000);
+  }
+  PS.on("diff", (ids) => { const e = alarmEid(); if (e && ids.has(e)) meldungPruefen(); });
+  PS.on("init", meldungPruefen);
+
   // ------------------------------------------------------------ Feed-Karten der Startseite: Alarmanlage und Haustür
   // Gleiche Symbole und Bewegungen wie auf der Sicherheitsseite. start.js holt die Karten über PS.sicherheitKarten()
   // und baut den Feed bei jeder Änderung über PS.feedNeu() neu auf.
@@ -239,7 +294,6 @@
   };
   PS.tuerSymbol = (art, farbe) => `<svg viewBox="0 0 180 180" aria-hidden="true" class="al-svg ts-svg">${(TUER[art] || TUER.klingelt)(farbe)}</svg>`;
 
-  const alarmEid = () => (PS.opt.alarm_entitaet && PS.z[PS.opt.alarm_entitaet] ? PS.opt.alarm_entitaet : Object.keys(PS.z).find((e) => e.startsWith("alarm_control_panel.") && PS.sichtbar(e)));
   const KARTE_UNSCHARF_S = 10 * 60;  // nach dem Entschärfen kurz bestätigen, dann verschwindet die Karte
   function alarmKarte() {
     const eid = alarmEid(); if (!eid) return null;

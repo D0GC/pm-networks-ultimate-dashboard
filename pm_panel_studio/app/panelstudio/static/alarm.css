@@ -59,7 +59,7 @@
 .ct-grund{position:fixed;inset:0;z-index:400;display:grid;place-items:center;background:rgba(10,8,30,.55);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
   opacity:0;transition:opacity .3s}
 .ct-grund.offen{opacity:1}
-.ct-tafel{width:min(23rem,calc(100vw - 2rem));padding:1.5rem 1.4rem 1.1rem;border-radius:1.8rem;background:var(--glas-fest,#1b1744);border:1px solid var(--linie-stark);
+.ct-tafel{width:min(22rem,calc(100vw - 2rem));padding:1.5rem 1.4rem 1.1rem;border-radius:1.8rem;background:var(--glas-fest,#1b1744);border:1px solid var(--linie-stark);
   box-shadow:0 2.5rem 5rem -1.2rem rgba(0,0,0,.8),inset 0 1px 0 rgba(255,255,255,.12);transform:scale(.7) translateY(2rem);opacity:0;
   transition:transform .5s cubic-bezier(.2,1.5,.35,1),opacity .25s;display:flex;flex-direction:column}
 .ct-grund.offen .ct-tafel{transform:none;opacity:1}
@@ -69,23 +69,20 @@
 .ct-symbol{width:3.6rem;height:3.6rem}
 .ct-kopf b{font-size:1.25rem;font-weight:600}
 .ct-kopf small{color:var(--leise)}
-.ct-felder{display:flex;justify-content:center;gap:.7rem;margin:1.3rem 0 1rem;min-height:2.8rem;align-items:center}
-.ct-felder.fehler{animation:ct-fehler .45s ease-in-out}
-@keyframes ct-fehler{20%{transform:translateX(-12px)}40%{transform:translateX(10px)}60%{transform:translateX(-7px)}80%{transform:translateX(4px)}}
-.ct-feld{position:relative;width:2.5rem;height:2.8rem;border-radius:.75rem;border:1.5px solid var(--linie-stark);display:grid;place-items:center;transition:border-color .3s,background .3s}
-.ct-feld i{width:.75rem;height:.75rem;border-radius:50%;background:var(--cloud);transform:scale(0);transition:transform .35s cubic-bezier(.2,1.5,.35,1)}
-.ct-feld.voll i{transform:scale(1)}
-.ct-feld.zeigt i{transform:scale(0)}
-.ct-feld span{position:absolute;font-size:1.4rem;font-weight:600;opacity:0}
-.ct-feld.zeigt span{animation:ct-ziffer .55s ease forwards}
-@keyframes ct-ziffer{0%{opacity:0;transform:translateY(10px) scale(.6)}30%{opacity:1;transform:none}75%{opacity:1;transform:none}100%{opacity:0;transform:translateY(-6px) scale(.7)}}
-.ct-feld.neu{animation:ct-plopp .35s cubic-bezier(.2,1.5,.35,1)}
-@keyframes ct-plopp{0%{transform:scale(.8)}100%{transform:none}}
-.ct-felder.fehler .ct-feld{border-color:var(--krit)}.ct-felder.fehler .ct-feld i{background:var(--krit)}
-.ct-felder.ok .ct-feld{border-color:var(--gut);background:rgba(95,211,160,.12)}.ct-felder.ok .ct-feld i{background:var(--gut)}
-.ct-grund.prueft .ct-felder .ct-feld i{animation:ct-warten 1s ease-in-out infinite}
-.ct-grund.prueft .ct-feld:nth-child(2) i{animation-delay:.1s}.ct-grund.prueft .ct-feld:nth-child(3) i{animation-delay:.2s}.ct-grund.prueft .ct-feld:nth-child(4) i{animation-delay:.3s}
-@keyframes ct-warten{50%{transform:translateY(-5px)}}
+.ct-punkte{display:flex;justify-content:center;gap:1.1rem;margin:1.4rem 0 1rem;height:1.6rem;align-items:center}
+.ct-punkte i{width:.95rem;height:.95rem;border-radius:50%;border:1.5px solid var(--cloud);position:relative;transition:border-color .3s}
+.ct-punkte i::after{content:"";position:absolute;inset:-1.5px;border-radius:50%;background:var(--cloud);transform:scale(0);transition:transform .18s ease-out,background .3s}
+.ct-punkte i.voll::after{transform:scale(1)}
+.ct-punkte i.neu{animation:ct-plopp .32s cubic-bezier(.34,1.8,.64,1)}
+@keyframes ct-plopp{0%{transform:scale(1)}40%{transform:scale(1.45)}100%{transform:none}}
+.ct-punkte.fehler{animation:ct-fehler .5s ease-in-out}
+@keyframes ct-fehler{15%{transform:translateX(-14px)}35%{transform:translateX(12px)}55%{transform:translateX(-8px)}75%{transform:translateX(5px)}}
+.ct-punkte.fehler i{border-color:var(--krit)}.ct-punkte.fehler i::after{background:var(--krit)}
+.ct-punkte.ok i{border-color:var(--gut)}
+.ct-punkte.ok i::after{background:var(--gut);transition-delay:calc(var(--k) * 60ms)}
+.ct-punkte.ok i{animation:ct-plopp .35s calc(var(--k) * 60ms) cubic-bezier(.34,1.8,.64,1)}
+.ct-grund.prueft .ct-punkte i{animation:ct-warten 1s ease-in-out infinite;animation-delay:calc(var(--k) * 90ms)}
+@keyframes ct-warten{50%{transform:translateY(-6px)}}
 .ct-haken{display:none;justify-content:center;margin:-.3rem 0 .3rem}
 .ct-grund.geschafft .ct-haken{display:flex}
 .ct-haken svg{width:3.2rem;height:3.2rem}
@@ -94,20 +91,27 @@
 @keyframes ct-zeichnen{to{stroke-dashoffset:0}}
 .ct-meldung{text-align:center;min-height:1.4em;font-size:.95rem;margin:-.3rem 0 .8rem;color:var(--leise);transition:color .3s}
 .ct-meldung.fehler{color:var(--krit)}.ct-meldung.ok{color:var(--gut)}
-.ct-tasten{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.6rem}
-.ct-taste{all:unset;box-sizing:border-box;cursor:pointer;position:relative;overflow:hidden;height:3.9rem;border-radius:1.1rem;display:grid;place-items:center;font-size:1.6rem;font-weight:500;
+.ct-tasten{display:grid;grid-template-columns:repeat(3,4.6rem);justify-content:center;gap:.85rem 1.4rem}
+.ct-taste{all:unset;box-sizing:border-box;cursor:pointer;position:relative;overflow:hidden;width:4.6rem;height:4.6rem;border-radius:50%;display:grid;place-items:center;font-size:1.9rem;font-weight:400;
   background:rgba(197,192,211,.08);border:1px solid var(--linie);transition:transform .15s cubic-bezier(.2,1.5,.35,1),background .2s;color:var(--cloud)}
 .ct-taste:active{transform:scale(.92);background:rgba(197,192,211,.16)}
 .ct-taste:focus-visible{outline:2px solid var(--cloud)}
-.ct-taste.leise{color:var(--leise)}
-.ct-taste.ok{background:var(--purple);border-color:transparent;color:#fff}
+.ct-taste.leise{color:var(--lavender);background:none;border-color:transparent}
 .ct-taste .mdi{font-size:1.6rem}
 .ct-riffel{position:absolute;width:10px;height:10px;border-radius:50%;background:rgba(255,255,255,.35);transform:scale(0);animation:ct-riffel .5s ease-out forwards;pointer-events:none}
 @keyframes ct-riffel{to{transform:scale(14);opacity:0}}
 .ct-abbrechen{all:unset;cursor:pointer;align-self:center;margin-top:.8rem;padding:.6rem 1.2rem;border-radius:.9rem;color:var(--lavender);font-weight:600}
 .ct-abbrechen:hover{background:rgba(197,192,211,.08)}
-body.ohne-animation .alarm2 *,body.ohne-animation .ct-grund *{animation:none!important}
-@media (prefers-reduced-motion:reduce){.alarm2 *,.ct-grund *{animation:none!important}}
+/* Meldung bei Eingangsverzögerung und Alarm */
+.ct-melder .ct-symbol{width:5.2rem;height:5.2rem}
+.ct-melder.ct-warn .ct-tafel{border-color:color-mix(in srgb,var(--warn) 55%,transparent);box-shadow:0 0 0 1px color-mix(in srgb,var(--warn) 30%,transparent),0 2.5rem 5rem -1.2rem rgba(0,0,0,.8)}
+.ct-melder.ct-warn .ct-unter{color:var(--warn)}
+.ct-melder.ct-alarm{background:rgba(60,8,20,.6);animation:ct-alarmgrund 1.2s ease-in-out infinite}
+@keyframes ct-alarmgrund{50%{background:rgba(110,14,34,.55)}}
+.ct-melder.ct-alarm .ct-tafel{border-color:var(--krit);animation:al-ruf 1.2s ease-in-out infinite}
+.ct-melder.ct-alarm .ct-kopf b{color:var(--krit)}
+body.ohne-animation .alarm2 *,body.ohne-animation .ct-grund *,body.ohne-animation .ct-grund{animation:none!important}
+@media (prefers-reduced-motion:reduce){.alarm2 *,.ct-grund *,.ct-grund{animation:none!important}}
 
 /* Sicherheitsseite: passt ohne Scrollen auf das Panel; nur der Haustür-Verlauf scrollt in sich */
 .raum-ansicht.sicherheit-seite{grid-template-columns:34% minmax(0,1fr) 24%}

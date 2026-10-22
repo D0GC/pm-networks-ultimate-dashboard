@@ -1,5 +1,13 @@
 # Änderungen
 
+## 2026.10.70 – 2026-10-22
+
+- Codetafel wie die iPhone-Sperre: sechs Punkte statt Kästen, runde Tasten, Prüfung startet automatisch nach der
+  sechsten Ziffer. Falscher Code schüttelt die Punkte rot, richtiger färbt sie nacheinander grün und zeigt einen Haken.
+- Meldung am Panel bei Eingangsverzögerung: Panel wacht auf, mittig die Codetafel mit ablaufendem Countdown-Symbol
+  und Restzeit. Bei Auslösung dieselbe Tafel rot mit pulsierendem Hintergrund und Alarmsymbol. Richtiger Code schaltet
+  unscharf; „Ausblenden“ gilt bis zum nächsten Zustandswechsel. Nur an den Panels, nicht in der Admin-Ansicht.
+
 ## 2026.10.69 – 2026-10-22
 
 - Feed der Startseite: neue Karten für die Alarmanlage und die Haustür mit denselben animierten Symbolen wie auf der
