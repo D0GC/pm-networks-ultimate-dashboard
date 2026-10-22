@@ -1,5 +1,11 @@
 # Änderungen
 
+## 2026.10.60 – 2026-10-22
+
+- Netzwerk: Laufleiste wie unter „Throughput“ in UniFi, im Startblock und auf der Seite. Je Abfrage ein
+  Download-Balken, Upload als Linie darüber; die Leiste gleitet stetig nach links, die Skala folgt weich der Spitze.
+  Auf der Seite ersetzt sie die bisherige Verlaufskurve und zeigt weiterhin den Ping gestrichelt.
+
 ## 2026.10.59 – 2026-10-22
 
 - Netzwerk: Durchsatz-Diagnose (Knopf am Ende der Netzwerkseite, nur Administratoren). Zeigt alle Durchsatz- und

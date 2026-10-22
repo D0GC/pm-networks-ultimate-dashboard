@@ -397,7 +397,8 @@ body.admin .r-box h3{gap:.6rem;flex-wrap:wrap}
 .nz-flussbahn .mdi{font-size:1.3rem}
 .nz-flussbahn canvas{flex:1;min-width:0;height:2.2rem}
 .nz-flussbahn.nz-gross canvas{height:3.2rem}
-.nz-verlauf{width:100%;height:5.5rem;color:var(--leise);display:block}
+.nz-lauf{width:100%;height:2.6rem;color:var(--leise);display:block}
+.nz-lauf.nz-gross{height:6rem}
 
 /* Mauerwerk: feine Rasterzeilen, die Spannweite je Block setzt admin.js nach dessen Höhe */
 .as-raster.mauer,.as-seitenraster.mauer{grid-auto-rows:6px;align-items:start}
