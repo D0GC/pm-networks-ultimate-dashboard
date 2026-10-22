@@ -128,7 +128,8 @@ def admin_html() -> str:
     html = html.replace("<title>PM Panel Flur</title>", "<title>PM Dashboard</title>", 1)
     html = html.replace("</head>", '<link rel="stylesheet" href="static/admin.css">\n</head>', 1)
     skripte = "".join(
-        f'<script src="static/{n}.js"></script>\n' for n in ("admin", "admin-dateien", "admin-verwaltung", "admin-netz")
+        f'<script src="static/{n}.js"></script>\n'
+        for n in ("admin", "admin-dateien", "admin-verwaltung", "admin-netz", "admin-server")
     )
     return html.replace("</body>", skripte + "</body>", 1)
 

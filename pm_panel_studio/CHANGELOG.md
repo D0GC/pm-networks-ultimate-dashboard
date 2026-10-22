@@ -1,5 +1,17 @@
 # Änderungen
 
+## 2026.10.66 – 2026-10-22
+
+- Neue Seiten „Proxmox“ und „HA-Host“ in der Admin-Ansicht, dazu je ein Block für die Startseite. Quelle sind die
+  Integrationen Proxmox VE und System Monitor in Home Assistant.
+  - Proxmox: Knoten mit CPU- und RAM-Ring, Laufzeit, Update, Neustart und Herunterfahren (halten); Speicher mit
+    Belegung; VMs und Container mit Zustand, CPU- und RAM-Balken, Laufzeit und Start, Neustart, Herunterfahren.
+  - HA-Host (Raspberry Pi): Ringe für CPU, RAM, Temperatur und Speicher; Last, Swap, freier Speicher, Laufzeit,
+    Netzteilprüfung und anstehende Updates.
+  - Lebendig wie das Netzwerk: Ringe gleiten auf neue Werte, Zahlen rollen, Kurven der letzten Stunden laufen stetig
+    nach links, ein Puls zeigt jede neue Messung. Neue Werte kommen im Takt der Integrationen.
+- Die Startseite bekommt beide Blöcke einmalig dazu; sie lassen sich wie alle Blöcke verschieben oder ausblenden.
+
 ## 2026.10.65 – 2026-10-22
 
 - Startseite im Flur frei anordnen: neue Seite „Flur-Startseite“ in der Admin-Ansicht zeigt das Flur-Panel in seiner
