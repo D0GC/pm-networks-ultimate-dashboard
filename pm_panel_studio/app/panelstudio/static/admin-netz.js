@@ -85,11 +85,12 @@
       b.querySelector("h3 small").textContent = i && i.isp ? i.isp : "";
       b.appendChild(E(`<div class="nz-status ${z.online == null ? "" : z.online ? "ok" : "krit"}">${PS.ic(z.online == null ? "web" : z.online ? "web-check" : "web-off")}<b>${z.online == null ? "Internet: Zustand unbekannt" : z.online ? "Internet verbunden" : "Internet gestört"}</b>${i && i.latenz_ms != null ? `<span class="tabular">${PS.zahl(i.latenz_ms, 0)} ms</span>` : ""}</div>`));
       if (i) {
+        // Groß: Live-Werte; darunter das letzte Speedtest-Ergebnis
         b.appendChild(E(`<div class="nz-werte">
-          <div><small>Ping</small><b class="tabular">${i.ping_ms != null ? PS.zahl(i.ping_ms, 0) : "–"}<i>ms</i></b></div>
-          <div><small>Download</small><b class="tabular">${mbit(i.down_mbit)}<i>Mbit/s</i></b></div>
-          <div><small>Upload</small><b class="tabular">${mbit(i.up_mbit)}<i>Mbit/s</i></b></div></div>`));
-        b.appendChild(E(`<div class="nz-zeile">${PS.ic("swap-vertical")}<span>Jetzt ↓ ${rate(i.rx_bps)} · ↑ ${rate(i.tx_bps)} Mbit/s</span></div>`));
+          <div><small>Ping jetzt</small><b class="tabular">${i.latenz_ms != null ? PS.zahl(i.latenz_ms, 0) : "–"}<i>ms</i></b></div>
+          <div><small>Download jetzt</small><b class="tabular">${rate(i.rx_bps)}<i>Mbit/s</i></b></div>
+          <div><small>Upload jetzt</small><b class="tabular">${rate(i.tx_bps)}<i>Mbit/s</i></b></div></div>`));
+        b.appendChild(E(`<div class="nz-zeile">${PS.ic("speedometer")}<span>Speedtest: ↓ ${mbit(i.down_mbit)} · ↑ ${mbit(i.up_mbit)} Mbit/s · ${i.ping_ms != null ? PS.zahl(i.ping_ms, 0) : "–"} ms${i.speedtest_zeit ? ` · ${PS.esc(PS.zeitRelativ(new Date(i.speedtest_zeit * 1000).toISOString()))}` : ""}</span></div>`));
       }
       b.appendChild(E(`<div class="nz-zeile">${PS.ic("devices")}<span>${z.clients} Clients · ${z.geraete.length - z.aus.length}/${z.geraete.length} UniFi-Geräte online</span></div>`));
       z.aus.forEach((g) => b.appendChild(E(`<div class="nz-zeile krit">${PS.ic("lan-disconnect")}<span>${PS.esc(g.name)} offline</span></div>`)));
@@ -121,12 +122,11 @@
         bi.appendChild(E(`<div class="nz-status ${z.online == null ? "" : z.online ? "ok" : "krit"}">${PS.ic(z.online == null ? "web" : z.online ? "web-check" : "web-off")}<b>${z.online == null ? "Zustand unbekannt" : z.online ? "Verbunden" : "Gestört"}</b>${i && i.wan_ip ? `<span class="tabular">${PS.esc(i.wan_ip)}</span>` : ""}</div>`));
         if (i) {
           bi.appendChild(E(`<div class="nz-werte nz-gross">
-            <div><small>Latenz jetzt</small><b class="tabular">${i.latenz_ms != null ? PS.zahl(i.latenz_ms, 0) : "–"}<i>ms</i></b></div>
-            <div><small>Ping (Speedtest)</small><b class="tabular">${i.ping_ms != null ? PS.zahl(i.ping_ms, 0) : "–"}<i>ms</i></b></div>
-            <div><small>Download</small><b class="tabular">${mbit(i.down_mbit)}<i>Mbit/s</i></b></div>
-            <div><small>Upload</small><b class="tabular">${mbit(i.up_mbit)}<i>Mbit/s</i></b></div></div>`));
+            <div><small>Ping jetzt</small><b class="tabular">${i.latenz_ms != null ? PS.zahl(i.latenz_ms, 0) : "–"}<i>ms</i></b></div>
+            <div><small>Download jetzt</small><b class="tabular">${rate(i.rx_bps)}<i>Mbit/s</i></b></div>
+            <div><small>Upload jetzt</small><b class="tabular">${rate(i.tx_bps)}<i>Mbit/s</i></b></div></div>`));
           bi.appendChild(E(`<dl class="as-werte">
-            <dt>Durchsatz jetzt</dt><dd class="tabular">↓ ${rate(i.rx_bps)} · ↑ ${rate(i.tx_bps)} Mbit/s</dd>
+            <dt>Speedtest</dt><dd class="tabular">↓ ${mbit(i.down_mbit)} · ↑ ${mbit(i.up_mbit)} Mbit/s · Ping ${i.ping_ms != null ? PS.zahl(i.ping_ms, 0) : "–"} ms</dd>
             <dt>Letzter Speedtest</dt><dd>${i.speedtest_zeit ? PS.esc(PS.zeitRelativ(new Date(i.speedtest_zeit * 1000).toISOString())) : "noch keiner"}</dd>
             <dt>Verbunden seit</dt><dd>${dauer(i.uptime)}</dd>
             ${i.ausfaelle != null ? `<dt>Ausfälle</dt><dd class="tabular">${PS.zahl(i.ausfaelle, 0)}</dd>` : ""}</dl>`));
