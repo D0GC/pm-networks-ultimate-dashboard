@@ -224,6 +224,7 @@
     if (zugang.length) { const b = box("Zugang"); b.appendChild(raster(zugang)); l.appendChild(b); }
     m.appendChild(haustuerBox());
     const kam = PS.opt.ereignis_kamera && PS.z[PS.opt.ereignis_kamera] ? PS.opt.ereignis_kamera : alle().find((e) => dom("camera")(e) && PS.sichtbar(e));
+    // rechts: Kamerabild oben wie bisher, darunter der Verlauf der Wohnungstür
     if (kam) {
       const b3 = box(PS.name(kam), "antippen für Live");
       const k = E(`<div class="kamera"><img alt=""><span>${PS.esc(PS.name(kam))}</span></div>`);
@@ -248,7 +249,7 @@
       b2.appendChild(z);
     });
     l.appendChild(b2);
-    r.appendChild(aufnahmenBox(3));
+    r.appendChild(wohnungstuerBox(kam));
     r.appendChild(alleKnopf("Alle Melder und Kameras", "sicherheit"));
   }
 
@@ -267,6 +268,91 @@
     const diff = Math.round((h - d) / 86400e3);
     return diff === 0 ? "Heute" : diff === 1 ? "Gestern" : d.toLocaleDateString("de-DE", { weekday: "short", day: "numeric", month: "numeric" });
   };
+  // Wohnungstür wie der Haustür-Verlauf: Aufnahmen der Kamera (Person, Bewegung …) mit Filtern und Tagesgruppen,
+  // dazu oben live, solange die Kamera gerade eine Person oder Bewegung erkennt. Antippen spielt die Aufnahme ab.
+  const WT_ART = {
+    person: ["Person", "walk", "var(--warn)"], klingel: ["Klingel", "doorbell", "var(--warn)"], gesicht: ["Gesicht", "face-recognition", "var(--warn)"],
+    bewegung: ["Bewegung", "motion-sensor", "var(--akzent)"], fahrzeug: ["Fahrzeug", "car", "var(--info)"], tier: ["Tier", "paw", "var(--gut)"],
+    paket: ["Paket", "package-variant-closed", "#e3a35d"], aufnahme: ["Aufnahme", "filmstrip", "var(--leise)"],
+  };
+  const WT_SCHLUESSEL = { Person: "person", Klingel: "klingel", Gesicht: "gesicht", Bewegung: "bewegung", Fahrzeug: "fahrzeug", Tier: "tier", Paket: "paket" };
+  let wtFilter = "alle", wtNeu = null;
+  function wohnungstuerBox(kamEid) {
+    const b = box("Wohnungstür", "Aufnahmen und Erkennungen");
+    b.classList.add("haustuer-verlauf", "wohnungstuer-verlauf");
+    const live = E('<div class="wt-live" hidden></div>');
+    const filter = E('<div class="ht-filter" role="group" aria-label="Filter"></div>');
+    const liste = E('<div class="ht-liste"><div class="leer">Lädt …</div></div>');
+    b.append(live, filter, liste);
+    // Erkennungssensoren der Kamera (Reolink: binary_sensor.<kamera>_person, _bewegung …) über das Gerät gefunden
+    const geraet = kamEid && PS.reg[kamEid] && PS.reg[kamEid].d;
+    const praefix = kamEid ? "binary_sensor." + kamEid.split(".")[1].split("_")[0] + "_" : null;
+    const melder = alle().filter((e) => e.startsWith("binary_sensor.") && ((geraet && PS.reg[e] && PS.reg[e].d === geraet) || (praefix && e.startsWith(praefix))) && /person|bewegung|motion|fahrzeug|vehicle|tier|pet|animal|paket|package|besucher|visitor/i.test(e));
+    const liveZeigen = () => {
+      const an = melder.filter((e) => PS.s(e) === "on");
+      live.hidden = !an.length;
+      if (!an.length) { live.innerHTML = ""; return; }
+      const person = an.find((e) => /person|besucher|visitor/i.test(e));
+      const [titel, icon, farbe] = person ? WT_ART.person : WT_ART.bewegung;
+      live.innerHTML = `<article class="ht-eintrag laeuft" style="--c:${farbe};--i:0"><span class="ht-ic">${PS.ic(icon)}</span><span class="ht-text"><b>${person ? "Person an der Tür" : "Bewegung an der Tür"}</b><small>gerade erkannt · antippen für Live</small></span><span class="ht-zeit tabular">jetzt</span></article>`;
+      live.firstElementChild.addEventListener("click", () => kamEid && PS.mehrInfos(kamEid));
+    };
+    let eintraege = [];
+    const zeigen = () => {
+      const arten = [...new Set(eintraege.flatMap((e) => e.arten))];
+      if (wtFilter !== "alle" && !arten.includes(wtFilter)) wtFilter = "alle";
+      filter.innerHTML = [["alle", "Alle", eintraege.length], ...Object.keys(WT_ART).filter((k) => arten.includes(k)).map((k) => [k, WT_ART[k][0], eintraege.filter((e) => e.arten.includes(k)).length])]
+        .map(([k, t, n]) => `<button type="button" data-f="${k}" class="${k === wtFilter ? "aktiv" : ""}" aria-pressed="${k === wtFilter}">${t}<span>${n}</span></button>`).join("");
+      const sicht = eintraege.filter((e) => wtFilter === "alle" || e.arten.includes(wtFilter));
+      liste.innerHTML = sicht.length ? "" : `<div class="leer">${eintraege.length ? "Keine Aufnahmen in dieser Auswahl." : "Heute und gestern keine Aufnahmen."}</div>`;
+      let tag = null;
+      sicht.forEach((e, i) => {
+        if (e.tag !== tag) { tag = e.tag; liste.appendChild(E(`<div class="ht-tag">${PS.esc(tag)}</div>`)); }
+        const haupt = e.arten[0] || "aufnahme";
+        const [titel, icon, farbe] = WT_ART[haupt];
+        const z = E(`<article class="ht-eintrag wt-eintrag ${haupt}" style="--c:${farbe};--i:${Math.min(i, 8)}">
+          <span class="ht-ic">${PS.ic(icon)}</span><span class="ht-text"><b>${PS.esc(e.arten.map((k) => WT_ART[k][0]).join(" und ") || titel)}</b><small>${PS.esc(e.dauer)}</small></span>
+          <span class="ht-zeit tabular">${PS.esc(e.uhr)}</span><span class="wt-play">${PS.ic("play-circle-outline")}</span></article>`);
+        z.addEventListener("click", () => PS.aufnahmeZeigen(`${e.arten.map((k) => WT_ART[k][0]).join(", ") || "Aufnahme"} · ${e.uhr}`, e.tag, e.id));
+        liste.appendChild(z);
+      });
+    };
+    filter.addEventListener("click", (ev) => { const k = ev.target.closest("[data-f]"); if (!k) return; wtFilter = k.dataset.f; zeigen(); });
+    const laden = async () => {
+      try {
+        const res = await PS.anfrage({ typ: "aufnahmen" });
+        const kam = ((res || {}).kameras || [])[0];
+        if (!kam || !kam.tage.length) { eintraege = []; zeigen(); return; }
+        const neu = [];
+        for (const t of kam.tage.slice(0, 2)) {
+          for (const a of await tagLaden(t)) {
+            const [uhr, dauer, ...roh] = String(a.titel || "").split(" ");
+            const sek = (dauer || "").split(":").reduce((x, y) => x * 60 + Number(y || 0), 0);
+            const arten = [...new Set(roh.map((x) => WT_SCHLUESSEL[ART[x.toLowerCase()] || x]).filter(Boolean))]
+              .sort((x, y) => Object.keys(WT_ART).indexOf(x) - Object.keys(WT_ART).indexOf(y));
+            neu.push({ id: a.id, tag: tagName(t.titel), uhr: (uhr || "").slice(0, 5), arten, dauer: sek >= 60 ? `${Math.floor(sek / 60)} min ${sek % 60} s` : `${sek} s` });
+          }
+        }
+        eintraege = neu;
+        const personen = eintraege.filter((e) => e.tag === "Heute" && e.arten.includes("person")).length;
+        b.querySelector("h3 small").textContent = personen === 1 ? "1 Person heute" : `${personen} Personen heute`;
+        zeigen();
+        if (kam && !b.querySelector(".r-alles")) b.appendChild(knopf("Alle Aufnahmen", "filmstrip-box-multiple", () => PS.unterseite(`Aufnahmen · ${kam.titel}`, (el) => aufnahmenSeite(el, kam)), "r-alles"));
+      } catch { liste.innerHTML = '<div class="leer">Aufnahmen nicht verfügbar.</div>'; }
+    };
+    liveZeigen(); laden();
+    let warte = null;
+    wtNeu = (ids) => {
+      if (!b.isConnected) { wtNeu = null; return; }
+      const geaendert = melder.filter((e) => ids.has(e));
+      if (!geaendert.length) return;
+      liveZeigen();
+      // Erkennung vorbei: die Aufnahme liegt kurz danach in der Medienquelle
+      if (geaendert.some((e) => PS.s(e) === "off")) { clearTimeout(warte); warte = setTimeout(laden, 20000); }
+    };
+    return b;
+  }
+  PS.on("diff", (ids) => { if (wtNeu) wtNeu(ids); });
   async function tagLaden(t) { const r = await PS.anfrage({ typ: "aufnahmen", tag: t.id }); return ((r || {}).aufnahmen || []).slice().reverse(); }
   function aufnahmenBox(anzahl = 5) {
     const b = box("Aufnahmen", "antippen zum Abspielen");

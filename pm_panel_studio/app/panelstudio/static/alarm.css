@@ -114,7 +114,7 @@ body.ohne-animation .alarm2 *,body.ohne-animation .ct-grund *,body.ohne-animatio
 @media (prefers-reduced-motion:reduce){.alarm2 *,.ct-grund *,.ct-grund{animation:none!important}}
 
 /* Sicherheitsseite: passt ohne Scrollen auf das Panel; nur der Haustür-Verlauf scrollt in sich */
-.raum-ansicht.sicherheit-seite{grid-template-columns:34% minmax(0,1fr) 24%}
+.raum-ansicht.sicherheit-seite{grid-template-columns:31% minmax(0,1fr) 30%}
 .sicherheit-seite > .r-spalte{gap:1rem}
 .sicherheit-seite > .r-spalte:nth-child(2){overflow:hidden}
 .sicherheit-seite .alarm2{padding:1.1rem;gap:.85rem}
@@ -187,3 +187,62 @@ body.ohne-animation .haustuer-verlauf *,body.ohne-animation .melder-kompakt *{an
 .ts-punkt{transform-box:fill-box;transform-origin:center;animation:ht-puls 1.6s ease-in-out infinite}
 body.ohne-animation .karte .al-svg *{animation:none!important}
 @media (prefers-reduced-motion:reduce){.karte .al-svg *{animation:none!important}}
+
+/* Klingel-Pop-up: bewegte Bilder für Klingeln, Sprechen und Tür öffnen (start.js szenenBauen) */
+.ereignis-szene{position:absolute;inset:0;display:grid;place-items:center;pointer-events:none;padding-bottom:4.5rem}
+.sz{display:none;flex-direction:column;align-items:center;gap:1rem;font-size:1.6rem;font-weight:600;text-align:center}
+.sz-bild{position:relative;display:grid;place-items:center}
+.sz svg{display:block;overflow:visible}
+.bild:not(.mit-kamera) .sz-klingeln{display:flex;color:var(--warn)}
+body.gespraech .sz-klingeln,body.tuer-auf .sz-klingeln{display:none!important}
+body.gespraech:not(.tuer-auf) .sz-sprechen{display:flex;color:var(--cloud)}
+body.tuer-auf .sz-tuer{display:flex;color:var(--gut);animation:sz-rein .45s cubic-bezier(.34,1.56,.64,1)}
+@keyframes sz-rein{from{opacity:0;transform:scale(.85)}}
+.mit-kamera .ereignis-szene .sz{background:rgba(15,12,42,.78);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);padding:1.2rem 1.8rem;border-radius:1.6rem;font-size:1.2rem}
+body.gespraech:not(.tuer-auf) .mit-kamera .ereignis-szene{place-items:start end;padding:4.2rem 1.6rem 0 0}
+.mit-kamera .sz-sprechen .sz-bild svg{width:12rem}
+/* Klingeln */
+.sz-klingeln .al-svg{width:13rem;height:13rem}
+.sz-welle{position:absolute;width:11rem;height:11rem;border-radius:50%;border:2px solid var(--warn);opacity:0;animation:sz-welle 2.4s ease-out infinite}
+.sz-welle.b{animation-delay:.8s}.sz-welle.c{animation-delay:1.6s}
+@keyframes sz-welle{0%{transform:scale(.6);opacity:.7}100%{transform:scale(1.9);opacity:0}}
+/* Sprechen */
+.sz-sprechen svg{width:22rem}
+.sz-linie{fill:none;stroke:currentColor;stroke-width:4;stroke-linecap:round;stroke-linejoin:round}
+.sz-flaeche{fill:color-mix(in srgb,var(--akzent) 30%,transparent)}
+.sz-punkt-fest{fill:currentColor}
+.sz-punkt{fill:var(--akzent);opacity:.2;animation:sz-punkt 1.1s ease-in-out infinite}
+@keyframes sz-punkt{0%,100%{opacity:.2;transform:none}40%{opacity:1}}
+.sz .sz-mikro,.sz .sz-text-mikro{display:none}
+body.gespraech-verbunden .sz .sz-mikro,body.gespraech-verbunden .sz .sz-text-mikro{display:block}
+body.gespraech-verbunden .sz .sz-verbinden,body.gespraech-verbunden .sz .sz-text-verbinden{display:none}
+.sz-kapsel{fill:color-mix(in srgb,var(--akzent) 25%,transparent)}
+.sz-schall{fill:none;stroke:var(--akzent);stroke-width:4;stroke-linecap:round;animation:ts-schall 1.2s ease-out infinite}
+.sz-schall.b{animation-delay:.6s}
+.sz-pegel{fill:var(--akzent);transform-box:fill-box;transform-origin:center bottom;animation:sz-pegel .8s ease-in-out infinite alternate}
+@keyframes sz-pegel{from{transform:scaleY(.3)}to{transform:scaleY(1.6)}}
+/* Tür öffnen */
+.sz-tuer svg{width:22rem}
+.sz-tuer .sz-linie{stroke:var(--cloud)}
+.sz-flaeche-tuer{fill:#4a3a86;stroke:var(--cloud);stroke-width:3}
+.sz-fluegel{transform-box:fill-box;transform-origin:left center;animation:sz-fluegel 1.1s .45s cubic-bezier(.3,.7,.3,1) both}
+@keyframes sz-fluegel{from{transform:none}to{transform:scaleX(.32) skewY(6deg)}}
+.sz-licht{fill:rgba(255,226,160,.35);opacity:0;animation:sz-licht 1s .7s ease-out forwards}
+@keyframes sz-licht{to{opacity:1}}
+.sz-buegel{transform-box:fill-box;transform-origin:right bottom;animation:sz-buegel .4s ease-out forwards}
+@keyframes sz-buegel{to{transform:translateY(-6px) rotate(-25deg)}}
+.sz-kreis{fill:none;stroke:var(--gut);stroke-width:4;stroke-dasharray:170;stroke-dashoffset:170;animation:ct-zeichnen .5s 1.3s ease forwards}
+.sz-hakenstrich{fill:none;stroke:var(--gut);stroke-width:5;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:40;stroke-dashoffset:40;animation:ct-zeichnen .35s 1.7s ease forwards}
+body.ohne-animation .ereignis-szene *{animation-duration:0s!important;animation-delay:0s!important;animation-iteration-count:1!important}
+@media (prefers-reduced-motion:reduce){.ereignis-szene *{animation-duration:0s!important;animation-delay:0s!important;animation-iteration-count:1!important}}
+
+/* Wohnungstür-Verlauf (Aufnahmen der Kamera) */
+.sicherheit-seite > .r-spalte:nth-child(3){overflow:hidden}
+.wohnungstuer-verlauf .ht-eintrag{grid-template-columns:auto minmax(0,1fr) auto auto;cursor:pointer}
+.wt-play{color:var(--leise);font-size:1.3rem;display:grid}
+.wt-eintrag:active{transform:scale(.98)}
+.wt-eintrag.person .ht-ic .mdi{animation:sz-gehen 1s ease-in-out 2}
+.wt-live .ht-eintrag{cursor:pointer}
+.wt-live .ht-ic .mdi{animation:sz-gehen 1s ease-in-out infinite!important}
+@keyframes sz-gehen{0%,100%{transform:translateX(-2px) rotate(-4deg)}50%{transform:translateX(2px) translateY(-2px) rotate(4deg)}}
+.wt-eintrag.bewegung .ht-ic{animation:ht-klingeln 1.6s ease-in-out 1}

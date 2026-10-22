@@ -26,6 +26,7 @@
     const s = $("#intercom-status");
     if (s) { s.textContent = text || ""; s.hidden = !text; }
     document.body.classList.toggle("gespraech", !!aktiv);
+    document.body.classList.toggle("gespraech-verbunden", !!aktiv && /Verbunden|antwortet/.test(text || ""));
     if (aktiv && PS.klingelStopp) PS.klingelStopp();  // das Mikrofon soll den Klingelton nicht aufnehmen
   }
 

@@ -1,5 +1,16 @@
 # Änderungen
 
+## 2026.10.71 – 2026-10-22
+
+- Sicherheit: Wohnungstür-Verlauf wie bei der Haustür. Kamerabild bleibt oben, darunter die Aufnahmen von heute und
+  gestern mit Filtern (Person, Bewegung, Fahrzeug …), Tagesgruppen und animierten Symbolen. Erkennt die Kamera gerade
+  eine Person oder Bewegung, steht oben ein pulsierender Live-Eintrag; danach wird die neue Aufnahme nachgeladen.
+- PC und andere Rechner: Beim Hochfahren glimmt das Symbol auf und ein Ladebalken läuft, beim Herunterfahren wird das
+  Bild dunkel. Läuft der Rechner, flimmert der Bildschirm leicht.
+- Klingel-Pop-up mit bewegten Bildern: Glocke mit Schallwellen beim Klingeln, beim Sprechen erst der Verbindungsaufbau,
+  dann ein Mikrofon mit Pegel, beim Öffnen springt das Schloss auf, die Tür schwingt, Licht fällt herein, ein Haken
+  bestätigt. Mit Kamera erscheinen Sprechen und Öffnen als Einblendung über dem Livebild.
+
 ## 2026.10.70 – 2026-10-22
 
 - Codetafel wie die iPhone-Sperre: sechs Punkte statt Kästen, runde Tasten, Prüfung startet automatisch nach der
