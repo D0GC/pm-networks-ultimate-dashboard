@@ -1,0 +1,104 @@
+/* PM Panel Studio – animierte Symbole. Jedes Symbol trägt seinen Namen (PS.ic → data-ic). Bewegt wird nur, was gerade
+   aktiv ist: eingeschaltete Kacheln, Chips der Raumkarten, Symbole in Feed-Karten, Haushaltsgeräte (fertig, Fehler), heizende
+   Thermostate und der eben gewählte Dock-Eintrag. Nur transform und opacity; aus mit „Animationen aus“ und bei
+   reduzierter Bewegung. */
+
+/* Wo Symbole sich bewegen dürfen */
+:is(.kachel.an,.chip,.karte .ring .innen,.gross[data-klima]:has(.ring:not(.kalt)) .titel) > .mdi[data-ic]{
+  --sym-dauer:2.4s;transform-origin:50% 50%;will-change:transform}
+
+/* Licht: ruhiges Glimmen mit warmem Schein */
+:is(.kachel.an,.chip,.karte .ring .innen) > .mdi:is([data-ic^="lightbulb"],[data-ic^="ceiling-light"],[data-ic^="lamp"],[data-ic^="floor-lamp"],[data-ic^="desk-lamp"],
+  [data-ic^="led-strip"],[data-ic^="wall-sconce"],[data-ic^="string-lights"],[data-ic^="light-"],[data-ic^="track-light"],[data-ic^="outdoor-lamp"],[data-ic^="coach-lamp"]){
+  text-shadow:0 0 .55em rgba(255,214,140,.55);animation:sym-glimmen 3.6s ease-in-out infinite}
+@keyframes sym-glimmen{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.82;transform:scale(1.04)}}
+
+/* Ventilator, Lüfter: dreht */
+:is(.kachel.an,.chip,.karte .ring .innen) > .mdi:is([data-ic="fan"],[data-ic^="fan-speed"],[data-ic^="ceiling-fan"],[data-ic^="fan-chevron"],[data-ic="air-purifier"],[data-ic^="hvac"]){
+  animation:sym-drehen 1.6s linear infinite}
+@keyframes sym-drehen{to{transform:rotate(360deg)}}
+
+/* Kälte, Klimaanlage: langsam drehend */
+:is(.kachel.an,.chip,.karte .ring .innen) > .mdi:is([data-ic^="snowflake"],[data-ic^="air-conditioner"]){animation:sym-drehen 9s linear infinite}
+
+/* Waschmaschine, Trockner, Spüler: Trommel ruckelt in Schüben */
+:is(.kachel.an,.chip,.karte .ring .innen) > .mdi:is([data-ic^="washing-machine"],[data-ic^="tumble-dryer"],[data-ic^="dishwasher"]){
+  animation:sym-ruckeln 1.8s ease-in-out infinite}
+@keyframes sym-ruckeln{0%,55%,100%{transform:none}62%{transform:rotate(-4deg) translateY(-1px)}70%{transform:rotate(4deg)}78%{transform:rotate(-3deg) translateY(-1px)}86%{transform:rotate(2deg)}}
+
+/* Saug- und Mähroboter: fährt hin und her */
+:is(.kachel.an,.chip,.karte .ring .innen) > .mdi:is([data-ic^="robot-vacuum"],[data-ic^="robot-mower"]){
+  animation:sym-fahren 3s ease-in-out infinite}
+@keyframes sym-fahren{0%,100%{transform:translateX(-8%) rotate(-4deg)}50%{transform:translateX(8%) rotate(4deg)}}
+
+/* Heizen, Feuer, Kohle, Boiler: Flackern von unten */
+:is(.kachel.an,.chip,.karte .ring .innen,.gross[data-klima]:has(.ring:not(.kalt)) .titel) > .mdi:is([data-ic^="fire"],[data-ic^="radiator"],[data-ic^="heat"],[data-ic^="water-boiler"],
+  [data-ic^="thermostat"],[data-ic^="campfire"],[data-ic^="kettle"],[data-ic^="heating-coil"]){
+  transform-origin:50% 90%;animation:sym-flackern 1.3s ease-in-out infinite}
+@keyframes sym-flackern{0%,100%{transform:scale(1,1);opacity:1}30%{transform:scale(.96,1.08);opacity:.85}60%{transform:scale(1.03,.95)}80%{transform:scale(.98,1.05);opacity:.92}}
+
+/* Medien, Musik, Fernseher: Takt */
+:is(.kachel.an,.chip,.karte .ring .innen) > .mdi:is([data-ic^="speaker"],[data-ic^="music"],[data-ic^="television"],[data-ic^="cast"],[data-ic="play"],[data-ic^="play-"],
+  [data-ic^="radio"],[data-ic^="spotify"],[data-ic^="volume-high"],[data-ic^="headphones"],[data-ic^="soundbar"]){
+  animation:sym-takt .9s ease-in-out infinite}
+@keyframes sym-takt{0%,100%{transform:scale(1)}20%{transform:scale(1.12)}40%{transform:scale(.98)}}
+
+/* Offene Türen, Fenster, Tore: schwingen leicht */
+:is(.kachel.an,.chip,.karte .ring .innen) > .mdi:is([data-ic^="door-open"],[data-ic^="window-open"],[data-ic^="garage-open"],[data-ic^="gate-open"],[data-ic^="door-sliding-open"]){
+  transform-origin:20% 50%;animation:sym-schwingen 2.8s ease-in-out infinite}
+@keyframes sym-schwingen{0%,100%{transform:none}50%{transform:perspective(20em) rotateY(-28deg)}}
+
+/* Rollladen offen: gleitet */
+:is(.kachel.an,.chip) > .mdi:is([data-ic^="window-shutter-open"],[data-ic^="blinds-open"],[data-ic^="roller-shade"],[data-ic^="curtains"]){animation:sym-gleiten 3.2s ease-in-out infinite}
+@keyframes sym-gleiten{0%,100%{transform:none}50%{transform:translateY(-10%)}}
+
+/* Schloss offen: kurzes Rütteln, dann Ruhe */
+:is(.kachel.an,.chip,.karte .ring .innen) > .mdi:is([data-ic^="lock-open"]){animation:sym-ruetteln 3.4s ease-in-out infinite}
+@keyframes sym-ruetteln{0%,84%,100%{transform:none}87%{transform:rotate(-12deg)}91%{transform:rotate(10deg)}95%{transform:rotate(-6deg)}}
+
+/* Bewegung, Anwesenheit: Puls */
+:is(.kachel.an,.chip,.karte .ring .innen) > .mdi:is([data-ic^="motion"],[data-ic="run"],[data-ic^="walk"],[data-ic^="account-search"],[data-ic^="home-account"]){
+  animation:sym-puls 1.6s ease-in-out infinite}
+@keyframes sym-puls{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.14);opacity:.7}}
+
+/* Strom, Steckdose, Laden: Aufblitzen */
+:is(.kachel.an,.chip,.karte .ring .innen) > .mdi:is([data-ic^="power-plug"],[data-ic^="power-socket"],[data-ic^="flash"],[data-ic^="lightning-bolt"],[data-ic^="ev-station"],
+  [data-ic^="battery-charging"],[data-ic^="ev-plug"]){animation:sym-blitz 2.6s ease-in-out infinite}
+@keyframes sym-blitz{0%,70%,100%{opacity:1;transform:none}76%{opacity:.35}82%{opacity:1;transform:scale(1.1)}88%{opacity:.6}}
+
+/* Wasser, Dusche, Whirlpool, Kaffee: wippt */
+:is(.kachel.an,.chip,.karte .ring .innen) > .mdi:is([data-ic^="shower"],[data-ic^="water"],[data-ic^="hot-tub"],[data-ic^="sprinkler"],[data-ic^="coffee"],[data-ic^="pot-steam"],
+  [data-ic^="air-humidifier"],[data-ic^="spray"]){animation:sym-wippen 1.8s ease-in-out infinite}
+@keyframes sym-wippen{0%,100%{transform:translateY(0)}50%{transform:translateY(-7%)}}
+
+/* Klingel, Sirene, Meldung: läutet in Schüben */
+:is(.kachel.an,.chip,.karte .ring .innen) > .mdi:is([data-ic^="bell"],[data-ic^="doorbell"],[data-ic^="bullhorn"],[data-ic^="alarm-light"],[data-ic^="siren"]){
+  transform-origin:50% 10%;animation:sym-laeuten 2.6s ease-in-out infinite}
+@keyframes sym-laeuten{0%,60%,100%{transform:none}66%{transform:rotate(16deg)}72%{transform:rotate(-14deg)}78%{transform:rotate(9deg)}84%{transform:rotate(-5deg)}}
+
+/* Alarmanlage scharf, Schutzschild: atmet */
+:is(.kachel.an,.chip,.karte .ring .innen) > .mdi:is([data-ic^="shield"]){animation:sym-atmen 3.2s ease-in-out infinite}
+@keyframes sym-atmen{0%,100%{transform:scale(1)}50%{transform:scale(1.07)}}
+
+/* Kamera: schwenkt */
+:is(.kachel.an,.chip,.karte .ring .innen) > .mdi:is([data-ic="cctv"],[data-ic^="webcam"],[data-ic^="video"]){transform-origin:80% 40%;animation:sym-schwenken 4s ease-in-out infinite}
+@keyframes sym-schwenken{0%,100%{transform:rotate(-10deg)}50%{transform:rotate(10deg)}}
+
+/* Feed-Karten: Müll, Pakete, Pollen, fertig */
+.karte .ring .innen > .mdi:is([data-ic^="trash-can"],[data-ic^="package"],[data-ic^="flower"]){animation:sym-wippen 2.2s ease-in-out infinite}
+.karte .ring .innen > .mdi:is([data-ic^="check-circle"],[data-ic^="leaf"]){animation:sym-atmen 3.6s ease-in-out infinite}
+.karte .ring .innen > .mdi:is([data-ic^="calendar"],[data-ic^="car"]){animation:sym-puls 3s ease-in-out infinite}
+
+/* Haushaltsgeräte fertig: kurzer Hüpfer beim Wechsel */
+.hh-geraet[data-z="fertig"] .hh-rest > .mdi{animation:sym-hupf .7s cubic-bezier(.34,1.56,.64,1) 2}
+.hh-geraet[data-z="fehler"] .hh-rest > .mdi{animation:sym-ruetteln 2.4s ease-in-out infinite}
+
+/* Dock: der eben geöffnete Eintrag hüpft einmal */
+.dock button.aktiv > .mdi{animation:sym-hupf .6s cubic-bezier(.34,1.56,.64,1)}
+@keyframes sym-hupf{0%{transform:scale(1)}35%{transform:scale(1.25) translateY(-12%)}100%{transform:none}}
+
+/* Kachel wird eingeschaltet: Symbol springt einmal an, dann läuft die Dauerbewegung */
+.kachel.an > .mdi[data-ic]{animation-delay:.15s}
+
+body.ohne-animation .mdi[data-ic]{animation:none!important}
+@media (prefers-reduced-motion:reduce){.mdi[data-ic]{animation:none!important}}

@@ -1,5 +1,17 @@
 # Änderungen
 
+## 2026.10.69 – 2026-10-22
+
+- Feed der Startseite: neue Karten für die Alarmanlage und die Haustür mit denselben animierten Symbolen wie auf der
+  Sicherheitsseite. Alarm ausgelöst und Vorlauf mit Countdown stehen ganz vorn, scharf läuft ruhig mit, nach dem
+  Entschärfen bestätigt eine Karte zehn Minuten lang. Haustür: „Es klingelt“ mit läutender Glocke (Ring läuft bis zum
+  Verpasst ab), ungehörte Nachrichten mit Abschrift, „Anhören“ und „Erledigt“, verpasstes Klingeln mit „Erledigt“.
+  Antippen öffnet die Sicherheitsseite. Beide Karten lassen sich in den Einstellungen ausblenden.
+- Animierte Symbole auf allen Seiten, nur solange etwas aktiv ist: Licht glimmt, Ventilator dreht, Waschmaschine und
+  Spüler ruckeln, Saugroboter fährt, Heizung und Thermostat flackern, Medien im Takt, offene Türen und Fenster schwingen,
+  offenes Schloss rüttelt, Bewegung pulsiert, Klingel läutet, Alarmanlage atmet, Kamera schwenkt. Dazu die Symbole der
+  Feed-Karten, die Chips der Raumkarten und ein Hüpfer im Dock. „Animationen aus“ und reduzierte Bewegung schalten alles ab.
+
 ## 2026.10.68 – 2026-10-22
 
 - Sicherheit neu aufgebaut: passt ohne Scrollen auf das Panel. Links Alarmanlage, Zugang und Melder kompakt, in der

@@ -165,3 +165,21 @@ body.ohne-animation .alarm2 *,body.ohne-animation .ct-grund *{animation:none!imp
 @keyframes ht-puls{50%{transform:scale(1.18);opacity:.7}}
 body.ohne-animation .haustuer-verlauf *,body.ohne-animation .melder-kompakt *{animation:none!important}
 @media (prefers-reduced-motion:reduce){.haustuer-verlauf *,.melder-kompakt *{animation:none!important}}
+
+/* Feed-Karten der Startseite (Alarmanlage, Haustür): Symbol im Ring */
+.karte .ring .innen .al-svg{width:min(9.5rem,100%);height:auto;aspect-ratio:1;display:block;margin:0 auto;transform:none}
+.karte .ring .innen .al-svg+.einheit{margin-top:.1rem}
+.ts-svg{overflow:visible}
+.ts-glocke{transform-origin:90px 36px;animation:ts-laeuten .9s ease-in-out infinite}
+@keyframes ts-laeuten{0%,100%{transform:rotate(0)}15%{transform:rotate(14deg)}35%{transform:rotate(-12deg)}55%{transform:rotate(8deg)}75%{transform:rotate(-4deg)}}
+.ts-kloeppel{transform-box:fill-box;transform-origin:center;animation:ts-kloeppel .9s ease-in-out infinite}
+@keyframes ts-kloeppel{15%{transform:translateX(-6px)}35%{transform:translateX(6px)}}
+.ts-schall path{fill:none;stroke:var(--warn);stroke-width:4;stroke-linecap:round;animation:ts-schall .9s ease-out infinite}
+.ts-schall path.b{animation-delay:.25s}
+@keyframes ts-schall{0%{opacity:0}30%{opacity:1}100%{opacity:0}}
+.ts-spule{transform-box:fill-box;transform-origin:center;stroke-dasharray:8 6;animation:al-drehen 2.4s linear infinite}
+.ts-pegel rect{transform-box:fill-box;transform-origin:center;animation:ht-welle .9s ease-in-out infinite}
+.ts-wackeln{transform-origin:90px 38px;animation:ht-wackeln 3.2s ease-in-out infinite}
+.ts-punkt{transform-box:fill-box;transform-origin:center;animation:ht-puls 1.6s ease-in-out infinite}
+body.ohne-animation .karte .al-svg *{animation:none!important}
+@media (prefers-reduced-motion:reduce){.karte .al-svg *{animation:none!important}}

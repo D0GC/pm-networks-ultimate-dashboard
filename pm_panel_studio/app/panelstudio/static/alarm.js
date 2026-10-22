@@ -220,4 +220,116 @@
     el.aktualisieren();
     return el;
   };
+  // ------------------------------------------------------------ Feed-Karten der Startseite: Alarmanlage und Haustür
+  // Gleiche Symbole und Bewegungen wie auf der Sicherheitsseite. start.js holt die Karten über PS.sicherheitKarten()
+  // und baut den Feed bei jeder Änderung über PS.feedNeu() neu auf.
+  const TUER = {
+    klingelt: (f) => `<g class="ts-schall"><path d="M38 58 Q24 82 38 106" /><path d="M142 58 Q156 82 142 106" />
+      <path class="b" d="M24 46 Q4 82 24 118" /><path class="b" d="M156 46 Q176 82 156 118" /></g>
+      <g class="ts-glocke"><circle cx="90" cy="38" r="6" fill="${f}"/>
+      <path d="M90 42 C69 42 58 58 58 80 V104 L47 120 H133 L122 104 V80 C122 58 111 42 90 42 Z" fill="color-mix(in srgb,${f} 18%,transparent)" stroke="${f}" stroke-width="4" stroke-linejoin="round"/>
+      <circle class="ts-kloeppel" cx="90" cy="131" r="9" fill="${f}"/></g>`,
+    nachricht: (f) => `<g class="ts-band" stroke="${f}" stroke-width="5" fill="none"><circle cx="58" cy="78" r="22"/><circle cx="122" cy="78" r="22"/>
+      <path d="M58 100 H122"/><circle class="ts-spule" cx="58" cy="78" r="7"/><circle class="ts-spule" cx="122" cy="78" r="7"/></g>
+      <g class="ts-pegel" fill="${f}">${[0, 1, 2, 3, 4, 5, 6].map((i) => `<rect x="${51 + i * 12}" y="118" width="6" height="34" rx="3" style="animation-delay:${(-i * 0.13).toFixed(2)}s"/>`).join("")}</g>`,
+    verpasst: (f) => `<g class="ts-wackeln"><circle cx="90" cy="40" r="6" fill="${f}"/>
+      <path d="M90 44 C69 44 58 60 58 82 V106 L47 122 H133 L122 106 V82 C122 60 111 44 90 44 Z" fill="color-mix(in srgb,${f} 14%,transparent)" stroke="${f}" stroke-width="4" stroke-linejoin="round"/>
+      <circle cx="90" cy="133" r="9" fill="${f}"/><path d="M44 40 L136 144" stroke="${f}" stroke-width="5" stroke-linecap="round"/></g>
+      <circle class="ts-punkt" cx="136" cy="44" r="11" fill="${f}"/>`,
+  };
+  PS.tuerSymbol = (art, farbe) => `<svg viewBox="0 0 180 180" aria-hidden="true" class="al-svg ts-svg">${(TUER[art] || TUER.klingelt)(farbe)}</svg>`;
+
+  const alarmEid = () => (PS.opt.alarm_entitaet && PS.z[PS.opt.alarm_entitaet] ? PS.opt.alarm_entitaet : Object.keys(PS.z).find((e) => e.startsWith("alarm_control_panel.") && PS.sichtbar(e)));
+  const KARTE_UNSCHARF_S = 10 * 60;  // nach dem Entschärfen kurz bestätigen, dann verschwindet die Karte
+  function alarmKarte() {
+    const eid = alarmEid(); if (!eid) return null;
+    const s = PS.s(eid), [art, name, unter, farbe] = zustand(eid);
+    const seit = Date.parse(PS.st(eid).lc), uhr = isFinite(seit) ? PS.uhrzeit(new Date(seit)) : "";
+    const basis = { id: "alarm", art: "praktisch", schluessel: "alarm", titel: name, wert: "", hinweis: "", oeffnen: "sicherheit" };
+    const symbol = (a = art) => `${PS.alarmSymbol(a, farbe)}`;
+    if (s === "triggered") {
+      return { ...basis, relevanz: 100, modell: { kopf: "Alarmanlage", farbe, anteil: 1, glut: true, h2: "Alarm ausgelöst",
+        p: [PS.a(eid).changed_by ? `durch ${PS.a(eid).changed_by}` : "", uhr ? `seit ${uhr}` : ""].filter(Boolean).join(" · "),
+        innen: `${symbol()}<small class="einheit">Alarm</small>`, aktionen: [{ akt: "anlage", text: "Zur Anlage", icon: "shield-alert-outline", klasse: "gut" }] } };
+    }
+    if (art === "wird") {
+      const { rest, gesamt } = restzeit(eid);
+      const r = rest != null ? Math.max(0, Math.ceil(rest)) : null;
+      return { ...basis, relevanz: 95, ...(r != null ? { ende: new Date(Date.now() + r * 1000).toISOString(), dauer_s: gesamt } : {}),
+        modell: { kopf: "Alarmanlage", farbe, anteil: r != null && gesamt ? r / gesamt : 1, h2: name,
+          p: unter || (PS.a(eid).next_state && ZUSTAND[PS.a(eid).next_state] ? `dann ${ZUSTAND[PS.a(eid).next_state][1]}` : ""),
+          ...(r != null ? { zahl: `${Math.floor(r / 60)}:${String(r % 60).padStart(2, "0")}`, einheit: "min" } : { innen: `${symbol()}<small class="einheit">bitte warten</small>` }) } };
+    }
+    if (s === "disarmed") {
+      if (!isFinite(seit) || (Date.now() - seit) / 1000 > KARTE_UNSCHARF_S) return null;
+      return { ...basis, relevanz: 35, modell: { kopf: "Alarmanlage", farbe, anteil: 1, h2: name, p: uhr ? `seit ${uhr} · ${unter}` : unter,
+        innen: `${symbol()}<small class="einheit">unscharf</small>` } };
+    }
+    if (art === "unbekannt") return null;
+    // scharf: ruhig im Hintergrund, mit dem animierten Modus
+    return { ...basis, relevanz: 25, modell: { kopf: "Alarmanlage", farbe, anteil: 1, h2: name, p: uhr ? `seit ${uhr} · ${unter}` : unter,
+      innen: `${symbol()}<small class="einheit">scharf</small>` } };
+  }
+
+  // Haustür: klingelt gerade, dazu höchstens eine Karte für eine ungehörte Nachricht oder ein verpasstes Klingeln. „Erledigt“ merkt sich das Panel selbst.
+  const OFFEN_S = 180, NACHRICHT_S = 12 * 3600, VERPASST_KARTE_S = 3 * 3600;
+  let klingeln = [];
+  const gesehenLesen = () => { try { return Number(localStorage.getItem("ps.haustuer.gesehen")) || 0; } catch { return 0; } };
+  const gesehenSetzen = (t) => { try { localStorage.setItem("ps.haustuer.gesehen", String(t)); } catch { /* nur für diese Sitzung */ } gesehen = t; };
+  let gesehen = gesehenLesen();
+  const feedNeu = () => { if (PS.feedNeu) PS.feedNeu(); };
+  async function klingelnLaden() {
+    try { const r = await fetch("api/klingeln?anzahl=12", { cache: "no-store" }); if (r.ok) klingeln = await r.json(); } catch { /* bleibt beim Stand */ }
+    feedNeu();
+  }
+  function haustuerKarte() {
+    const jetzt = Date.now() / 1000;
+    const art = (e) => (e.ausgang === "laeuft" && jetzt - e.t > OFFEN_S ? "verpasst" : e.ausgang);
+    const basis = (e, extra) => ({ id: `haustuer:${e.id}`, art: "praktisch", schluessel: "haustuer", titel: "Haustür", wert: "", hinweis: "", oeffnen: "sicherheit", _t: e.t, ...extra });
+    const uhr = (e) => PS.uhrzeit(new Date(e.t * 1000));
+    const vor = (e) => { const m = Math.floor((jetzt - e.t) / 60); return m < 1 ? "gerade eben" : m < 60 ? `vor ${m} min` : `vor ${Math.floor(m / 60)} h`; };
+    const erledigt = { akt: "erledigt", text: "Erledigt" };
+    const karten = [];
+    const laeuft = klingeln.find((e) => art(e) === "laeuft");
+    if (laeuft) {
+      karten.push(basis(laeuft, { relevanz: 98, ende: new Date((laeuft.t + OFFEN_S) * 1000).toISOString(), dauer_s: OFFEN_S,
+        modell: { kopf: "Haustür", farbe: "var(--warn)", anteil: 1, glut: true, h2: "Es klingelt", p: `${uhr(laeuft)}${laeuft.mal > 1 ? ` · ${laeuft.mal}× geklingelt` : ""}`,
+          innen: `${PS.tuerSymbol("klingelt", "var(--warn)")}<small class="einheit">jetzt</small>` } }));
+    }
+    const offen = klingeln.filter((e) => e.t > gesehen);
+    const nachrichten = offen.filter((e) => art(e) === "nachricht" && e.datei && jetzt - e.t < NACHRICHT_S);
+    if (nachrichten.length) {
+      const e = nachrichten[0];
+      const text = e.text ? `„${e.text.length > 90 ? e.text.slice(0, 88).trimEnd() + " …" : e.text}“` : `${uhr(e)} · ${vor(e)}`;
+      karten.push(basis(e, { relevanz: 75, datei: e.datei, dauer: e.dauer_s,
+        modell: { kopf: "Haustür", farbe: "var(--akzent)", anteil: Math.max(0.05, 1 - (jetzt - e.t) / NACHRICHT_S),
+          h2: nachrichten.length > 1 ? `${nachrichten.length} neue Nachrichten` : "Neue Nachricht", p: text,
+          innen: `${PS.tuerSymbol("nachricht", "var(--akzent)")}<small class="einheit">${e.dauer_s ? `${Math.floor(e.dauer_s / 60)}:${String(Math.round(e.dauer_s % 60)).padStart(2, "0")}` : uhr(e)}</small>`,
+          aktionen: [{ akt: "anhoeren", text: "Anhören", icon: "play", klasse: "gut" }, erledigt] } }));
+      return karten;
+    }
+    const verpasst = offen.filter((e) => ["verpasst", "ohne"].includes(art(e)) && jetzt - e.t < VERPASST_KARTE_S);
+    if (verpasst.length) {
+      const e = verpasst[0];
+      karten.push(basis(e, { relevanz: 60,
+        modell: { kopf: "Haustür", farbe: "var(--krit)", anteil: Math.max(0.05, 1 - (jetzt - e.t) / VERPASST_KARTE_S),
+          h2: art(e) === "ohne" ? "Geklingelt, keine Nachricht" : "Klingeln verpasst",
+          p: `${uhr(e)} · ${vor(e)}${e.mal > 1 ? ` · ${e.mal}×` : ""}${verpasst.length > 1 ? ` · ${verpasst.length} insgesamt` : ""}`,
+          innen: `${PS.tuerSymbol("verpasst", "var(--krit)")}<small class="einheit">${uhr(e)}</small>`, aktionen: [erledigt] } }));
+    }
+    return karten;
+  }
+  PS.sicherheitKarten = () => {
+    const aus = (PS.einst && PS.einst.karten_aus) || [];
+    return [aus.includes("alarm") ? null : alarmKarte(), ...(aus.includes("haustuer") ? [] : haustuerKarte())].filter(Boolean);
+  };
+  PS.sicherheitAktion = (akt, k, knopf) => {
+    if (akt === "anlage") PS.oeffnen("sicherheit");
+    else if (akt === "erledigt") { gesehenSetzen(Math.max(gesehen, k._t || 0)); feedNeu(); }
+    else if (akt === "anhoeren" && k.datei && PS.aufnahmeSpielen) PS.aufnahmeSpielen(k.datei, k.dauer, knopf);
+  };
+  PS.on("klingeln", klingelnLaden);
+  PS.on("aufnahmen", klingelnLaden);
+  PS.on("init", klingelnLaden);
+  PS.on("diff", (ids) => { const e = alarmEid(); if (e && ids.has(e)) feedNeu(); });
 })();
