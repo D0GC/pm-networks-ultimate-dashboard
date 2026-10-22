@@ -54,6 +54,10 @@
   // ------------------------------------------------------------ Format
   const mbit = (v) => (v == null ? "–" : v >= 100 ? PS.zahl(v, 0) : PS.zahl(v, 1));
   const rate = (bytesProS) => (bytesProS == null ? "–" : mbit((bytesProS * 8) / 1e6));
+  // Live-Rate wie in UniFi: unter 1 Mbit/s in kbit/s, damit kleine Werte nicht als 0 erscheinen
+  const klein = (b) => b != null && (b * 8) / 1e6 < 1;
+  const liveRate = (b) => (b == null ? "–" : klein(b) ? PS.zahl((b * 8) / 1e3, 0) : rate(b));
+  const liveEinheit = (b) => (klein(b) ? "kbit/s" : "Mbit/s");
   const dauer = (s) => {
     if (s == null || !isFinite(s)) return "–";
     const t = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600), m = Math.floor((s % 3600) / 60);
@@ -96,12 +100,14 @@
   const pingZiel = (name) => { const z = ((NETZ.stand && NETZ.stand.ping && NETZ.stand.ping.ziele) || []).find((x) => x.name === name); return z ? z.ms : null; };
   const pingMs = () => (NETZ.stand && NETZ.stand.ping && NETZ.stand.ping.ms != null ? NETZ.stand.ping.ms : null);
   const LIVE = {
-    rx: (i) => rate(i.rx_bps),
-    tx: (i) => rate(i.tx_bps),
+    rx: (i) => liveRate(i.rx_bps),
+    tx: (i) => liveRate(i.tx_bps),
     lat: (i) => { const p = pingMs() ?? i.latenz_ms; return p != null ? PS.zahl(p, p < 10 ? 1 : 0) : "–"; },
   };
   const TEXTE = {
     speedtest: speedtestText,
+    rxEinheit: (i) => liveEinheit(i.rx_bps),
+    txEinheit: (i) => liveEinheit(i.tx_bps),
     gateway: (i) => (i.latenz_ms != null ? `${PS.zahl(i.latenz_ms, 0)} ms` : "–"),
     zuletzt: (i) => (i.speedtest_zeit ? PS.zeitRelativ(new Date(i.speedtest_zeit * 1000).toISOString()) : "noch keiner"),
   };
@@ -244,8 +250,8 @@
   const liveTeil = (gross) => E(`<div class="nz-live">
     <div class="nz-werte${gross ? " nz-gross" : ""}">
       <div class="nz-ping"><small>Ping Ø jetzt</small><b class="tabular"><span data-netz="lat"></span><i>ms</i></b></div>
-      <div class="nz-rx"><small>Download jetzt</small><b class="tabular"><span data-netz="rx"></span><i>Mbit/s</i></b></div>
-      <div class="nz-tx"><small>Upload jetzt</small><b class="tabular"><span data-netz="tx"></span><i>Mbit/s</i></b></div></div>
+      <div class="nz-rx"><small>Download jetzt</small><b class="tabular"><span data-netz="rx"></span><i data-netz-text="rxEinheit">Mbit/s</i></b></div>
+      <div class="nz-tx"><small>Upload jetzt</small><b class="tabular"><span data-netz="tx"></span><i data-netz-text="txEinheit">Mbit/s</i></b></div></div>
     ${gross ? `<div class="nz-pings">${PING_ZIELE.map((n) => `<div><small>${n}</small><b class="tabular"><span data-netz="ping:${n}"></span><i>ms</i></b></div>`).join("")}</div>` : ""}
     <div class="nz-flussbahn${gross ? " nz-gross" : ""}"><span title="Internet">${PS.ic("web")}</span><canvas class="nz-fluss"></canvas><span title="Zuhause">${PS.ic("home-outline")}</span></div>
     ${gross ? '<canvas class="nz-verlauf"></canvas>' : ""}</div>`);
