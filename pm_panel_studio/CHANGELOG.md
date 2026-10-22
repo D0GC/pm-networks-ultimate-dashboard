@@ -1,5 +1,12 @@
 # Änderungen
 
+## 2026.10.56 – 2026-10-22
+
+- Live-Ping: Die App misst den Ping selbst alle drei Sekunden (Dauer des TCP-Verbindungsaufbaus zu 1.1.1.1 und
+  8.8.8.8, der schnellere zählt), solange Netzwerkseite oder Startblock zu sehen sind. Die Latenz des Gateways, die
+  UniFi nur in längeren Abständen erneuert, steht auf der Seite zum Vergleich.
+- Durchsatzverlauf zeigt den Ping als gestrichelte Linie auf eigener Skala.
+
 ## 2026.10.55 – 2026-10-22
 
 - Netzwerk live: Seite und Startblock fragen alle drei Sekunden beim Gateway nach, solange sie zu sehen sind. Ping,

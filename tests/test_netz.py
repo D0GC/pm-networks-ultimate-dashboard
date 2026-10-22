@@ -111,3 +111,12 @@ async def test_abgewiesen_meldet_fehler(aiohttp_server):
     async with aiohttp.ClientSession() as s:
         st = await netz.Unifi(s, str(server.make_url("")), schluessel="falsch").stand()
         assert st["quelle"] is None and "verweigert" in st["fehler"]
+
+
+async def test_live_ping_misst_verbindungsaufbau(aiohttp_server):
+    server = await aiohttp_server(web.Application())
+    ping = netz.Ping((("127.0.0.1", server.port), ("127.0.0.1", 1)))
+    w = await ping.messen()
+    assert w["ziel"] == "127.0.0.1" and 0 <= w["ms"] < 2000
+    assert await ping.messen() is w  # aus dem Zwischenspeicher
+    assert await netz.Ping((("127.0.0.1", 1),)).messen() == {"ms": None, "ziel": None}

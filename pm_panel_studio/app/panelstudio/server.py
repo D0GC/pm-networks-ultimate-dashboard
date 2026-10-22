@@ -440,6 +440,7 @@ async def token_neu(request: web.Request) -> web.Response:
 
 K_PANEL_APP: web.AppKey[web.Application] = web.AppKey("panel_app")
 K_NETZ: web.AppKey[list] = web.AppKey("netz")
+K_PING: web.AppKey[netz.Ping] = web.AppKey("ping")
 
 
 def _unifi(request: web.Request) -> netz.Unifi:
@@ -460,8 +461,10 @@ def _unifi(request: web.Request) -> netz.Unifi:
 
 
 async def netz_stand(request: web.Request) -> web.Response:
-    """Netzwerkstatus vom UniFi-Gateway (nur Ingress); ohne Zugangsdaten {"quelle": null}."""
-    return web.json_response(await _unifi(request).stand(request.query.get("neu") == "1"))
+    """Netzwerkstatus vom UniFi-Gateway (nur Ingress; ohne Zugangsdaten {"quelle": null}) und der eigene Live-Ping."""
+    u = _unifi(request)
+    stand, ping = await asyncio.gather(u.stand(request.query.get("neu") == "1"), request.app[K_PING].messen())
+    return web.json_response({**stand, "ping": ping})
 
 
 async def netz_speedtest(request: web.Request) -> web.Response:
@@ -510,6 +513,7 @@ def create_ingress_app(hub: Hub, token: list[str], networks: list[Any] | None = 
     # Dateimanager nur über Ingress und nur für Administratoren, nie über den Panel-Port
     dateien.routen(app, dateien.AdminPruefung(lambda: hub.client.ws_command({"type": "config/auth/list"})))
     app[K_NETZ] = []
+    app[K_PING] = netz.Ping()
     app.router.add_get("/api/netz", netz_stand)
     app.router.add_post("/api/netz/speedtest", netz_speedtest)
     _gemeinsam(app)

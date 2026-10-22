@@ -8,11 +8,16 @@ deshalb nur bei dieser einen, fest eingestellten Adresse nicht.
 
 Abgefragt wird nur auf Anfrage der Admin-Ansicht: der Gesundheitsbericht höchstens alle 2,5 Sekunden, die Geräteliste
 alle 20 Sekunden (Zwischenspeicher).
+
+Den Ping misst die App selbst (``Ping``): Die Latenz im Gesundheitsbericht erneuert das Gateway nur in eigenen, längeren
+Abständen. Gemessen wird die Dauer eines TCP-Verbindungsaufbaus zu festen Zielen auf Port 443 (ICMP bräuchte im
+Container Sonderrechte); zählt der schnellste Treffer. Ziele als Adressen, damit keine Namensauflösung mitgemessen wird.
 """
 
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import time
 from typing import Any
@@ -23,6 +28,8 @@ _LOGGER = logging.getLogger(__name__)
 
 FRISCH_S = 2.5  # Gesundheitsbericht (Live-Durchsatz, Latenz)
 GERAETE_S = 20  # Geräteliste ändert sich selten
+PING_ZIELE = (("1.1.1.1", 443), ("8.8.8.8", 443))
+PING_FRIST_S = 2.0
 TYPEN = {"ugw": "gateway", "udm": "gateway", "uxg": "gateway", "usw": "switch", "uap": "ap"}
 
 
@@ -189,3 +196,36 @@ class Unifi:
         """Speedtest am Gateway starten; das Ergebnis erscheint nach etwa einer Minute im Gesundheitsbericht."""
         await self._api("POST", "cmd/devmgr", {"cmd": "speedtest"})
         self._zeit = 0.0
+
+
+async def _verbindungszeit(host: str, port: int) -> float | None:
+    anfang = time.perf_counter()
+    try:
+        _, schreiber = await asyncio.wait_for(asyncio.open_connection(host, port), PING_FRIST_S)
+    except (OSError, TimeoutError):
+        return None
+    dauer = (time.perf_counter() - anfang) * 1000
+    schreiber.close()
+    with contextlib.suppress(OSError):
+        await schreiber.wait_closed()
+    return dauer
+
+
+class Ping:
+    """Live-Ping: höchstens alle 2,5 Sekunden eine Messung, sonst der letzte Wert."""
+
+    def __init__(self, ziele: tuple[tuple[str, int], ...] = PING_ZIELE) -> None:
+        self.ziele = ziele
+        self._wert: dict[str, Any] | None = None
+        self._zeit = 0.0
+        self._sperre = asyncio.Lock()
+
+    async def messen(self) -> dict[str, Any] | None:
+        async with self._sperre:
+            if self._wert is not None and time.monotonic() - self._zeit < FRISCH_S:
+                return self._wert
+            zeiten = await asyncio.gather(*(_verbindungszeit(h, p) for h, p in self.ziele))
+            treffer = [(z, h) for z, (h, _) in zip(zeiten, self.ziele, strict=True) if z is not None]
+            self._wert = {"ms": round(min(treffer)[0], 1), "ziel": min(treffer)[1]} if treffer else {"ms": None, "ziel": None}
+            self._zeit = time.monotonic()
+            return self._wert
