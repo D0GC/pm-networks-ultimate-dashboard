@@ -1,5 +1,10 @@
 # Änderungen
 
+## 2026.10.54 – 2026-10-22
+
+- Netzwerk (Seite und Startblock): Die großen Felder zeigen die Live-Werte (Ping, Download und Upload jetzt); das
+  letzte Speedtest-Ergebnis steht darunter.
+
 ## 2026.10.53 – 2026-10-21
 
 - Neu: Seite „Netzwerk“ und Block „Netzwerk“ auf der Startseite (wird einmalig angehängt). Direkt vom UniFi-Gateway:
