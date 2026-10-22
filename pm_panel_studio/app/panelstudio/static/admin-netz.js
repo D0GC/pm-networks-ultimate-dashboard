@@ -90,7 +90,10 @@
     while (v.length && v[0].t < u.zeit - VERLAUF_S) v.shift();
   }
   const speedtestText = (i) => `Speedtest: ↓ ${mbit(i.down_mbit)} · ↑ ${mbit(i.up_mbit)} Mbit/s · ${i.ping_ms != null ? PS.zahl(i.ping_ms, 0) : "–"} ms${i.speedtest_zeit ? ` · ${PS.zeitRelativ(new Date(i.speedtest_zeit * 1000).toISOString())}` : ""}`;
-  // Eigener Live-Ping des Backends (TCP-Verbindungsaufbau); ohne Messung die Latenz laut Gateway
+  // Eigener Live-Ping des Backends (TCP-Verbindungsaufbau zu Microsoft, Google, Cloudflare; Durchschnitt der
+  // erreichten). Ohne Messung die Latenz laut Gateway.
+  const PING_ZIELE = ["Microsoft", "Google", "Cloudflare"];
+  const pingZiel = (name) => { const z = ((NETZ.stand && NETZ.stand.ping && NETZ.stand.ping.ziele) || []).find((x) => x.name === name); return z ? z.ms : null; };
   const pingMs = () => (NETZ.stand && NETZ.stand.ping && NETZ.stand.ping.ms != null ? NETZ.stand.ping.ms : null);
   const LIVE = {
     rx: (i) => rate(i.rx_bps),
@@ -100,13 +103,16 @@
   const TEXTE = {
     speedtest: speedtestText,
     gateway: (i) => (i.latenz_ms != null ? `${PS.zahl(i.latenz_ms, 0)} ms` : "–"),
-    ziel: () => (NETZ.stand && NETZ.stand.ping && NETZ.stand.ping.ziel ? `zu ${NETZ.stand.ping.ziel}` : "laut Gateway"),
     zuletzt: (i) => (i.speedtest_zeit ? PS.zeitRelativ(new Date(i.speedtest_zeit * 1000).toISOString()) : "noch keiner"),
   };
   function liveSetzen(wurzel = document) {
     const i = unifi() && unifi().internet;
     if (i) {
-      wurzel.querySelectorAll("[data-netz]").forEach((el) => { const t = LIVE[el.dataset.netz](i); if (el._text !== t) { el._text = t; PS.walze(el, t); } });
+      wurzel.querySelectorAll("[data-netz]").forEach((el) => {
+        const k = el.dataset.netz, ms = k.startsWith("ping:") ? pingZiel(k.slice(5)) : null;
+        const t = k.startsWith("ping:") ? (ms != null ? PS.zahl(ms, ms < 10 ? 1 : 0) : "–") : LIVE[k](i);
+        if (el._text !== t) { el._text = t; PS.walze(el, t); }
+      });
       wurzel.querySelectorAll("[data-netz-text]").forEach((el) => { const t = TEXTE[el.dataset.netzText](i); if (el.textContent !== t) el.textContent = t; });
     }
     wurzel.querySelectorAll("canvas.nz-fluss").forEach((cv) => { if (!FLUSS.has(cv)) flussAnmelden(cv); });
@@ -237,9 +243,10 @@
   // Live-Teil: Ping, Download, Upload als Zahlenwalzen, darunter der Netzfluss (auf der Seite zusätzlich der Verlauf)
   const liveTeil = (gross) => E(`<div class="nz-live">
     <div class="nz-werte${gross ? " nz-gross" : ""}">
-      <div class="nz-ping"><small>Ping jetzt <em data-netz-text="ziel"></em></small><b class="tabular"><span data-netz="lat"></span><i>ms</i></b></div>
+      <div class="nz-ping"><small>Ping Ø jetzt</small><b class="tabular"><span data-netz="lat"></span><i>ms</i></b></div>
       <div class="nz-rx"><small>Download jetzt</small><b class="tabular"><span data-netz="rx"></span><i>Mbit/s</i></b></div>
       <div class="nz-tx"><small>Upload jetzt</small><b class="tabular"><span data-netz="tx"></span><i>Mbit/s</i></b></div></div>
+    ${gross ? `<div class="nz-pings">${PING_ZIELE.map((n) => `<div><small>${n}</small><b class="tabular"><span data-netz="ping:${n}"></span><i>ms</i></b></div>`).join("")}</div>` : ""}
     <div class="nz-flussbahn${gross ? " nz-gross" : ""}"><span title="Internet">${PS.ic("web")}</span><canvas class="nz-fluss"></canvas><span title="Zuhause">${PS.ic("home-outline")}</span></div>
     ${gross ? '<canvas class="nz-verlauf"></canvas>' : ""}</div>`);
 

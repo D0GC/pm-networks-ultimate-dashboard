@@ -10,8 +10,8 @@ Abgefragt wird nur auf Anfrage der Admin-Ansicht: der Gesundheitsbericht höchst
 alle 20 Sekunden (Zwischenspeicher).
 
 Den Ping misst die App selbst (``Ping``): Die Latenz im Gesundheitsbericht erneuert das Gateway nur in eigenen, längeren
-Abständen. Gemessen wird die Dauer eines TCP-Verbindungsaufbaus zu festen Zielen auf Port 443 (ICMP bräuchte im
-Container Sonderrechte); zählt der schnellste Treffer. Ziele als Adressen, damit keine Namensauflösung mitgemessen wird.
+Abständen. Gemessen wird wie bei UniFi zu Microsoft, Google und Cloudflare, jeweils die Dauer eines
+TCP-Verbindungsaufbaus auf Port 443 (ICMP bräuchte im Container Sonderrechte); dazu der Durchschnitt der erreichten.
 """
 
 from __future__ import annotations
@@ -19,6 +19,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
+import socket
 import time
 from typing import Any
 
@@ -28,7 +29,9 @@ _LOGGER = logging.getLogger(__name__)
 
 FRISCH_S = 2.5  # Gesundheitsbericht (Live-Durchsatz, Latenz)
 GERAETE_S = 20  # Geräteliste ändert sich selten
-PING_ZIELE = (("1.1.1.1", 443), ("8.8.8.8", 443))
+# Wie UniFi: Microsoft, Google und Cloudflare
+PING_ZIELE = (("Microsoft", "www.microsoft.com", 443), ("Google", "www.google.com", 443), ("Cloudflare", "1.1.1.1", 443))
+ADRESSE_S = 600
 PING_FRIST_S = 2.0
 TYPEN = {"ugw": "gateway", "udm": "gateway", "uxg": "gateway", "usw": "switch", "uap": "ap"}
 
@@ -212,20 +215,40 @@ async def _verbindungszeit(host: str, port: int) -> float | None:
 
 
 class Ping:
-    """Live-Ping: höchstens alle 2,5 Sekunden eine Messung, sonst der letzte Wert."""
+    """Live-Ping zu mehreren Zielen: höchstens alle 2,5 Sekunden eine Messung, sonst der letzte Wert.
 
-    def __init__(self, ziele: tuple[tuple[str, int], ...] = PING_ZIELE) -> None:
+    Namen werden vorab aufgelöst und zehn Minuten behalten, damit die Namensauflösung nicht mitgemessen wird.
+    """
+
+    def __init__(self, ziele: tuple[tuple[str, str, int], ...] = PING_ZIELE) -> None:
         self.ziele = ziele
+        self._adressen: dict[str, tuple[str, float]] = {}
         self._wert: dict[str, Any] | None = None
         self._zeit = 0.0
         self._sperre = asyncio.Lock()
 
-    async def messen(self) -> dict[str, Any] | None:
+    async def _adresse(self, host: str, port: int) -> str | None:
+        bekannt = self._adressen.get(host)
+        if bekannt and time.monotonic() - bekannt[1] < ADRESSE_S:
+            return bekannt[0]
+        try:
+            info = await asyncio.wait_for(asyncio.get_running_loop().getaddrinfo(host, port, type=socket.SOCK_STREAM), 3)
+        except (OSError, TimeoutError):
+            return bekannt[0] if bekannt else None
+        self._adressen[host] = (info[0][4][0], time.monotonic())
+        return info[0][4][0]
+
+    async def _ziel(self, name: str, host: str, port: int) -> dict[str, Any]:
+        adresse = await self._adresse(host, port)
+        ms = await _verbindungszeit(adresse, port) if adresse else None
+        return {"name": name, "ms": None if ms is None else round(ms, 1)}
+
+    async def messen(self) -> dict[str, Any]:
         async with self._sperre:
             if self._wert is not None and time.monotonic() - self._zeit < FRISCH_S:
                 return self._wert
-            zeiten = await asyncio.gather(*(_verbindungszeit(h, p) for h, p in self.ziele))
-            treffer = [(z, h) for z, (h, _) in zip(zeiten, self.ziele, strict=True) if z is not None]
-            self._wert = {"ms": round(min(treffer)[0], 1), "ziel": min(treffer)[1]} if treffer else {"ms": None, "ziel": None}
+            ziele = await asyncio.gather(*(self._ziel(*z) for z in self.ziele))
+            treffer = [z["ms"] for z in ziele if z["ms"] is not None]
+            self._wert = {"ms": round(sum(treffer) / len(treffer), 1) if treffer else None, "ziele": list(ziele)}
             self._zeit = time.monotonic()
             return self._wert
