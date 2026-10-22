@@ -6,8 +6,9 @@ die Geräte in ``stat/device``. Anmeldung mit API-Schlüssel (``X-API-Key``) ode
 (``/api/auth/login``, Cookie und CSRF-Kopfzeile). Das Gateway hat ein selbst signiertes Zertifikat; geprüft wird
 deshalb nur bei dieser einen, fest eingestellten Adresse nicht.
 
-Abgefragt wird nur auf Anfrage der Admin-Ansicht: der Gesundheitsbericht höchstens alle 2,5 Sekunden, die Geräteliste
-alle 20 Sekunden (Zwischenspeicher).
+Abgefragt wird nur auf Anfrage der Admin-Ansicht: Gesundheitsbericht und Gateway höchstens alle 2,5 Sekunden, die
+übrige Geräteliste alle 20 Sekunden (Zwischenspeicher). Der Live-Durchsatz kommt aus den WAN-Schnittstellen des
+Gateways, nicht aus dem Gesundheitsbericht (dort nur ein träger Mittelwert).
 
 Den Ping misst die App selbst (``Ping``): Die Latenz im Gesundheitsbericht erneuert das Gateway nur in eigenen, längeren
 Abständen. Gemessen wird wie bei UniFi zu Microsoft, Google und Cloudflare, jeweils die Dauer eines
@@ -72,11 +73,45 @@ def geraet(d: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def auswerten(health: list[dict[str, Any]], geraete: list[dict[str, Any]]) -> dict[str, Any]:
+def ist_gateway(d: Any) -> bool:
+    return isinstance(d, dict) and TYPEN.get(str(d.get("type"))) == "gateway"
+
+
+def durchsatz(gw: dict[str, Any] | None) -> tuple[float, float, str] | None:
+    """Aktueller WAN-Durchsatz in Byte/s aus dem Gateway-Gerät (wie die UniFi-Oberfläche).
+
+    Die Raten im Gesundheitsbericht sind Mittelwerte über einen längeren Zeitraum und liegen bei kurzen Lastspitzen
+    weit darunter, oft bei 0. Die WAN-Schnittstellen des Gateways (``wan1``, ``wan2`` …) führen die laufende Rate; ohne
+    sie der Uplink.
+    """
+    if not isinstance(gw, dict):
+        return None
+    wans = [
+        w
+        for k, w in sorted(gw.items())
+        if k.startswith("wan") and k[3:].isdigit() and isinstance(w, dict) and w.get("up", True)
+        if _zahl(w.get("rx_bytes-r")) is not None
+    ]
+    if wans:
+        return (
+            sum(_zahl(w.get("rx_bytes-r")) or 0 for w in wans),
+            sum(_zahl(w.get("tx_bytes-r")) or 0 for w in wans),
+            "wan",
+        )
+    up = gw.get("uplink")
+    if isinstance(up, dict) and _zahl(up.get("rx_bytes-r")) is not None:
+        return _zahl(up.get("rx_bytes-r")) or 0, _zahl(up.get("tx_bytes-r")) or 0, "uplink"
+    return None
+
+
+def auswerten(
+    health: list[dict[str, Any]], geraete: list[dict[str, Any]], gateway: dict[str, Any] | None = None
+) -> dict[str, Any]:
     sub = {h.get("subsystem"): h for h in health if isinstance(h, dict)}
     wan, www, lan, wlan = (sub.get(k) or {} for k in ("wan", "www", "lan", "wlan"))
     gw_stats = wan.get("gw_system-stats") or {}
     lastrun = _zahl(www.get("speedtest_lastrun"))
+    rate = durchsatz(gateway or next((d for d in geraete if ist_gateway(d)), None))
     return {
         "internet": {
             "status": www.get("status") or wan.get("status"),
@@ -90,8 +125,9 @@ def auswerten(health: list[dict[str, Any]], geraete: list[dict[str, Any]]) -> di
             "up_mbit": _zahl(www.get("xput_up")),
             "speedtest_zeit": int(lastrun) if lastrun else None,
             "speedtest_status": www.get("speedtest_status"),
-            "rx_bps": _zahl(wan.get("rx_bytes-r")),
-            "tx_bps": _zahl(wan.get("tx_bytes-r")),
+            "rx_bps": rate[0] if rate else _zahl(wan.get("rx_bytes-r")),
+            "tx_bps": rate[1] if rate else _zahl(wan.get("tx_bytes-r")),
+            "durchsatz_quelle": rate[2] if rate else "health",
             "uptime": _zahl(www.get("uptime")) or _zahl(gw_stats.get("uptime")),
             "ausfaelle": _zahl(www.get("drops")),
         },
@@ -182,9 +218,11 @@ class Unifi:
                 if neu or self._geraete is None or time.monotonic() - self._geraete_zeit >= GERAETE_S:
                     health, geraete = await asyncio.gather(self._api("GET", "stat/health"), self._api("GET", "stat/device"))
                     self._geraete, self._geraete_zeit = geraete, time.monotonic()
+                    gateway = None  # steckt frisch in der Liste
                 else:
-                    health, geraete = await self._api("GET", "stat/health"), self._geraete
-                stand = {"quelle": "unifi", "fehler": None, "zeit": int(time.time()), **auswerten(health, geraete)}
+                    geraete = self._geraete
+                    health, gateway = await asyncio.gather(self._api("GET", "stat/health"), self._gateway(geraete))
+                stand = {"quelle": "unifi", "fehler": None, "zeit": int(time.time()), **auswerten(health, geraete, gateway)}
             except (aiohttp.ClientError, TimeoutError, UnifiFehler, ValueError) as err:
                 _LOGGER.warning("UniFi: %s", err)
                 stand = {
@@ -194,6 +232,18 @@ class Unifi:
                 }
             self._stand, self._zeit = stand, time.monotonic()
             return stand
+
+    async def _gateway(self, geraete: list[dict[str, Any]]) -> dict[str, Any] | None:
+        """Das Gateway bei jeder Abfrage frisch (laufender WAN-Durchsatz); die übrige Geräteliste ruht 20 s."""
+        gw = next((d for d in geraete if ist_gateway(d)), None)
+        if not gw or not gw.get("mac"):
+            return gw
+        try:
+            frisch = await self._api("GET", f"stat/device/{gw['mac']}")
+        except (aiohttp.ClientError, TimeoutError, UnifiFehler, ValueError) as err:
+            _LOGGER.debug("UniFi: Gateway nicht einzeln abrufbar: %s", err)
+            return gw
+        return next((d for d in frisch if ist_gateway(d)), gw)
 
     async def speedtest(self) -> None:
         """Speedtest am Gateway starten; das Ergebnis erscheint nach etwa einer Minute im Gesundheitsbericht."""

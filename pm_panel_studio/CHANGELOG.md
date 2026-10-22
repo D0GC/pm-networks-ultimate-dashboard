@@ -1,5 +1,12 @@
 # Änderungen
 
+## 2026.10.58 – 2026-10-22
+
+- Netzwerk: Download und Upload kommen jetzt aus den WAN-Schnittstellen des Gateways (wie in der UniFi-Oberfläche),
+  das Gateway wird dafür bei jeder Abfrage einzeln geholt. Der Gesundheitsbericht lieferte nur einen trägen
+  Mittelwert, der weit unter dem tatsächlichen Durchsatz lag und oft 0 zeigte.
+- Raten unter 1 Mbit/s erscheinen in kbit/s statt als 0.
+
 ## 2026.10.57 – 2026-10-22
 
 - Live-Ping wie bei UniFi zu Microsoft, Google und Cloudflare (TCP-Verbindungsaufbau auf Port 443, Namen vorab

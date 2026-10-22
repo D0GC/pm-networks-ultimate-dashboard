@@ -122,3 +122,49 @@ async def test_live_ping_misst_verbindungsaufbau(aiohttp_server):
     assert w["ms"] == round((eins["ms"] + zwei["ms"]) / 2, 1)
     assert await ping.messen() is w  # aus dem Zwischenspeicher
     assert (await netz.Ping((("Tot", "127.0.0.1", 1),)).messen())["ms"] is None
+
+
+def test_durchsatz_aus_den_wan_schnittstellen_des_gateways():
+    gw = {
+        "type": "udm",
+        "wan1": {"up": True, "rx_bytes-r": 2_587_500, "tx_bytes-r": 39_875},
+        "wan2": {"up": False, "rx_bytes-r": 999, "tx_bytes-r": 999},
+        "uplink": {"rx_bytes-r": 1, "tx_bytes-r": 1},
+    }
+    assert netz.durchsatz(gw) == (2_587_500, 39_875, "wan")
+    assert netz.durchsatz({"type": "udm", "uplink": {"rx_bytes-r": 5, "tx_bytes-r": 6}}) == (5, 6, "uplink")
+    assert netz.durchsatz({"type": "udm"}) is None
+    # Gerät schlägt den trägen Mittelwert im Gesundheitsbericht
+    i = netz.auswerten(HEALTH, [GERAETE[0], gw])["internet"]
+    assert i["rx_bps"] == 2_587_500 and i["durchsatz_quelle"] == "wan"
+    assert netz.auswerten(HEALTH, GERAETE)["internet"]["durchsatz_quelle"] == "health"
+
+
+async def test_gateway_wird_bei_jeder_abfrage_frisch_geholt(aiohttp_server):
+    abrufe = {"liste": 0, "gateway": 0}
+    gw = {"name": "GW", "type": "udm", "mac": "aa:bb", "state": 1, "wan1": {"up": True, "rx_bytes-r": 100, "tx_bytes-r": 10}}
+
+    async def health(_r):
+        return web.json_response({"data": HEALTH})
+
+    async def liste(_r):
+        abrufe["liste"] += 1
+        return web.json_response({"data": [gw]})
+
+    async def einzeln(r):
+        abrufe["gateway"] += 1
+        assert r.match_info["mac"] == "aa:bb"
+        return web.json_response({"data": [{**gw, "wan1": {"up": True, "rx_bytes-r": 5000, "tx_bytes-r": 70}}]})
+
+    app = web.Application()
+    app.router.add_get("/proxy/network/api/s/default/stat/health", health)
+    app.router.add_get("/proxy/network/api/s/default/stat/device", liste)
+    app.router.add_get("/proxy/network/api/s/default/stat/device/{mac}", einzeln)
+    server = await aiohttp_server(app)
+    async with aiohttp.ClientSession() as s:
+        u = netz.Unifi(s, str(server.make_url("")), schluessel="x")
+        assert (await u.stand())["internet"]["rx_bps"] == 100  # frische Liste, kein Einzelabruf
+        u._zeit = 0.0
+        st = await u.stand()
+        assert st["internet"]["rx_bps"] == 5000 and st["internet"]["tx_bps"] == 70
+        assert abrufe == {"liste": 1, "gateway": 1}
