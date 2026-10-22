@@ -77,6 +77,12 @@ configuration:
   unifi_site:
     name: "UniFi: site"
     description: "Site id, usually default."
+  proxmox_adresse:
+    name: "Proxmox: address"
+    description: "Address of Proxmox VE with port, e.g. https://192.168.5.10:8006."
+  proxmox_token:
+    name: "Proxmox: API token (read only)"
+    description: "Format user@realm!name=secret. Create in Proxmox under Datacenter → Permissions → API Tokens; role PVEAuditor is enough, for VM IP addresses add VM.Monitor (Proxmox 8) or VM.GuestAgent.Audit (Proxmox 9), guest agent required. Empty = Home Assistant data only."
   log_level:
     name: Log level
     description: debug, info, warning or error.

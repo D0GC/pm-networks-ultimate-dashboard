@@ -1,5 +1,16 @@
 # Änderungen
 
+## 2026.10.67 – 2026-10-22
+
+- Proxmox: Kachel je VM und Container mit Zustand, IP-Adresse (Tippen kopiert sie), Ringen für CPU und RAM,
+  CPU- und RAM-Verlauf, Laufzeit, Arbeitsspeicher und Kernen. Starten per Tippen, Neustart und Herunterfahren per
+  Halten; hinter „…“ Hart stoppen, Zurücksetzen (beide halten), Anhalten, Ruhezustand, Snapshot und „In Proxmox
+  öffnen“.
+- IP-Adressen kommen aus Proxmox (Container-Schnittstellen, Gast-Agent der VMs), sonst aus UniFi über den Hostnamen.
+- Neue App-Optionen „Proxmox: Adresse“ und „Proxmox: API-Token“ (nur lesend, Rolle PVEAuditor; für VM-Adressen
+  zusätzlich das Recht für den Gast-Agenten). Mit Token kommen Werte und Netzrate alle fünf Sekunden direkt von
+  Proxmox; ohne Token bleibt alles bei den Daten aus Home Assistant. Das Token verlässt die App nicht.
+
 ## 2026.10.66 – 2026-10-22
 
 - Neue Seiten „Proxmox“ und „HA-Host“ in der Admin-Ansicht, dazu je ein Block für die Startseite. Quelle sind die

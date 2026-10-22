@@ -250,3 +250,11 @@ def test_layouts_grenzen_und_flur():
     assert e.layouts["max:raeume/Büro|Geräte|raster0"] == ["1:9:max"]
     assert e.layouts["flur:teile"] == ["1:0:uhr", "3:0:kacheln", "9:0:gruss"]
     assert e.layouts["flur:spalten"] == ["1:31:links", "1:27:rechts"]
+
+
+def test_proxmox_token_bleibt_privat():
+    o = Options.from_dict({"proxmox_adresse": "https://192.168.5.10:8006", "proxmox_token": "ha@pve!panel=geheim"})
+    d = o.public()
+    assert "proxmox_token" not in d and "geheim" not in str(d)
+    assert d["proxmox"] is True and d["proxmox_ui"] == "https://192.168.5.10:8006"
+    assert Options.from_dict({}).public()["proxmox"] is False

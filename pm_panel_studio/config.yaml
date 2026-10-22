@@ -1,5 +1,5 @@
 name: PM Panel Studio
-version: "2026.10.66"
+version: "2026.10.67"
 slug: pm_panel_studio
 description: >-
   Wandpanel-Oberfläche für den Flur: rotierende Hinweiskarten mit Ringtimern, Ruhe- und Wachzustand,
@@ -82,6 +82,8 @@ options:
   unifi_benutzer: ""
   unifi_kennwort: ""
   unifi_site: default
+  proxmox_adresse: https://192.168.5.10:8006
+  proxmox_token: ""
   log_level: info
 schema:
   hinweise_entitaet: str?
@@ -114,4 +116,6 @@ schema:
   unifi_benutzer: str?
   unifi_kennwort: password?
   unifi_site: str?
+  proxmox_adresse: str?
+  proxmox_token: password?
   log_level: list(debug|info|warning|error)

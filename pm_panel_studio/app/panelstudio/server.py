@@ -20,7 +20,7 @@ from typing import Any
 import aiohttp
 from aiohttp import web
 
-from . import __version__, dateien, eigene_app, netz
+from . import __version__, dateien, eigene_app, netz, proxmox
 from .config import DATA_DIR, EinstellungsSpeicher, Options
 from .ha_client import HAClient, HAError
 from .hub import BILD_ERLAUBT, Hub
@@ -443,6 +443,7 @@ K_PANEL_APP: web.AppKey[web.Application] = web.AppKey("panel_app")
 K_NETZ: web.AppKey[list] = web.AppKey("netz")
 K_PING: web.AppKey[netz.Ping] = web.AppKey("ping")
 K_ADMIN: web.AppKey[dateien.AdminPruefung] = web.AppKey("admin")
+K_PROXMOX: web.AppKey[list] = web.AppKey("proxmox")
 
 
 def _unifi(request: web.Request) -> netz.Unifi:
@@ -472,6 +473,15 @@ async def netz_stand(request: web.Request) -> web.Response:
     u = _unifi(request)
     stand, ping = await asyncio.gather(u.stand(request.query.get("neu") == "1"), request.app[K_PING].messen())
     return web.json_response({**stand, "ping": ping})
+
+
+async def proxmox_stand(request: web.Request) -> web.Response:
+    """Gäste von Proxmox VE mit Werten und IP-Adressen (nur Ingress); ohne API-Token {"quelle": null}."""
+    halter = request.app[K_PROXMOX]
+    if not halter:
+        o = request.app[K_HUB].opts
+        halter.append(proxmox.Proxmox(request.app[K_HUB].client.session, o.proxmox_adresse, o.proxmox_token))
+    return web.json_response(await halter[0].stand())
 
 
 async def netz_diagnose(request: web.Request) -> web.Response:
@@ -533,10 +543,12 @@ def create_ingress_app(hub: Hub, token: list[str], networks: list[Any] | None = 
     app[K_ADMIN] = ist_admin
     app[K_NETZ] = []
     app[K_PING] = netz.Ping()
+    app[K_PROXMOX] = []
     app.on_cleanup.append(_netz_schliessen)
     app.router.add_get("/api/netz", netz_stand)
     app.router.add_post("/api/netz/speedtest", netz_speedtest)
     app.router.add_get("/api/netz/diagnose", netz_diagnose)
+    app.router.add_get("/api/proxmox", proxmox_stand)
     _gemeinsam(app)
     return app
 

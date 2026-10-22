@@ -95,16 +95,53 @@
     if ([...ids].some((e) => beobachtet.has(e))) liveSetzen();
   });
 
+  // ------------------------------------------------------------ Proxmox direkt (optional, App-Option „Proxmox: API-Token“)
+  // Liefert IP-Adressen und Werte im Abstand weniger Sekunden; ohne Token bleiben die Werte aus Home Assistant.
+  const PX = { stand: null, vorher: new Map(), raten: new Map(), laeuft: null };
+  async function pxLaden() {
+    if (!PS.opt || !PS.opt.proxmox || PX.laeuft) return PX.laeuft;
+    PX.laeuft = (async () => {
+      try {
+        const r = await fetch("api/proxmox", { cache: "no-store" });
+        if (!r.ok) return;
+        const st = await r.json(), jetzt = Date.now();
+        (st.gaeste || []).forEach((g) => {
+          const v = PX.vorher.get(g.vmid);
+          if (v && g.netin != null && v.netin != null && jetzt - v.t > 500 && g.netin >= v.netin) {
+            const s2 = (jetzt - v.t) / 1000;
+            PX.raten.set(g.vmid, { rx: (g.netin - v.netin) / s2, tx: Math.max(0, (g.netout - v.netout) / s2) });
+          }
+          PX.vorher.set(g.vmid, { t: jetzt, netin: g.netin, netout: g.netout });
+        });
+        PX.stand = st;
+      } catch { /* bleibt beim letzten Stand */ } finally { PX.laeuft = null; }
+    })();
+    return PX.laeuft;
+  }
+  const pxGast = (name) => (PX.stand && PX.stand.gaeste || []).find((g) => String(g.name).toLowerCase() === String(name).toLowerCase()) || null;
+  const rate = (bps) => { const m = (bps * 8) / 1e6; return m >= 1 ? `${PS.zahl(m, m >= 100 ? 0 : 1)} Mbit/s` : `${PS.zahl(m * 1000, 0)} kbit/s`; };
+  // IP-Adresse: Proxmox (Container-Schnittstellen, Gast-Agent der VM), sonst UniFi-Client mit gleichem Hostnamen
+  const norm = (t) => String(t || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+  function ipText(name) {
+    const g = pxGast(name);
+    if (g && g.ips && g.ips.length) return { text: g.ips.join(", "), quelle: "laut Proxmox" };
+    const n = norm(name);
+    const t = Object.keys(PS.z).find((e) => e.startsWith("device_tracker.") && PS.a(e).ip
+      && [PS.a(e).host_name, PS.a(e).hostname, PS.name(e).split(" ")[0]].some((x) => x && norm(x) === n));
+    return t ? { text: PS.a(t).ip, quelle: "laut UniFi (Hostname)" } : { text: "–", quelle: PS.opt && PS.opt.proxmox ? "Proxmox liefert keine Adresse (Gast-Agent nötig)" : "Keine Adresse bekannt" };
+  }
+
   // ------------------------------------------------------------ Lebendige Bausteine
   const beobachtet = new Set();
   const FORMAT = {
     pct: (v) => PS.zahl(v, v >= 10 ? 0 : 1), grad: (v) => PS.zahl(v, 1), last: (v) => PS.zahl(v, 2), gb: (v) => gb(v),
   };
   // Ring mit Wert in der Mitte; Anteil aus Wert/Max, gleitet bei jeder Messung (CSS-Übergang am Ring)
-  const ring = (titel, eid, farbe, max = 100, fmt = "pct", einheitText = "%") => {
+  const ring = (titel, eid, farbe, max = 100, fmt = "pct", einheitText = "%", px = "") => {
     if (eid) beobachtet.add(eid);
-    return `<div class="ring r-ring sv-ring" data-ring="${PS.esc(eid || "")}" data-max="${max}" style="--farbe:${farbe}">${PS.ringSVG(0)}
-      <div class="innen"><b class="tabular"><span data-sv="${PS.esc(eid || "")}" data-fmt="${fmt}"></span><i>${einheitText}</i></b><small>${PS.esc(titel)}</small></div></div>`;
+    const p = px ? ` data-px="${PS.esc(px)}"` : "";
+    return `<div class="ring r-ring sv-ring" data-ring="${PS.esc(eid || "")}"${p} data-max="${max}" style="--farbe:${farbe}">${PS.ringSVG(0)}
+      <div class="innen"><b class="tabular"><span data-sv="${PS.esc(eid || "")}"${p} data-fmt="${fmt}"></span><i>${einheitText}</i></b><small>${PS.esc(titel)}</small></div></div>`;
   };
   // Zahl als Walze
   const wert = (eid, fmt = "pct") => { if (eid) beobachtet.add(eid); return `<span class="tabular" data-sv="${PS.esc(eid || "")}" data-fmt="${fmt}"></span>`; };
@@ -116,21 +153,32 @@
     verlaufLaden(reihen.map((r) => r[0]), Math.ceil(spanneS / 3600) + 0.5);
     return `<canvas class="sv-kurve${gross ? " sv-gross" : ""}" data-spanne="${spanneS}" data-reihen="${PS.esc(reihen.filter((r) => r[0]).map((r) => r.join("|")).join(";"))}"></canvas>`;
   };
+  // Wert eines Elements: aus Proxmox direkt (data-px „Name|Feld“), sonst aus Home Assistant
+  const wertVon = (el, eid) => {
+    if (el.dataset.px) { const [n, f] = el.dataset.px.split("|"), g = pxGast(n); if (g && g[f] != null) return g[f]; }
+    return zahl(eid);
+  };
   function liveSetzen(wurzel = document) {
     wurzel.querySelectorAll("[data-sv]").forEach((el) => {
-      const v = zahl(el.dataset.sv), t = v == null ? "–" : (FORMAT[el.dataset.fmt] || FORMAT.pct)(v);
+      const v = wertVon(el, el.dataset.sv), t = v == null ? "–" : (FORMAT[el.dataset.fmt] || FORMAT.pct)(v);
       if (el._t !== t) { el._t = t; PS.walze(el, t); }
     });
     wurzel.querySelectorAll("[data-ring]").forEach((el) => {
-      const v = zahl(el.dataset.ring);
+      const v = wertVon(el, el.dataset.ring);
       PS.ringSetzen(el.querySelector("svg"), v == null ? 0 : v / (+el.dataset.max || 100));
     });
     wurzel.querySelectorAll("[data-balken]").forEach((el) => {
-      const v = zahl(el.dataset.balken);
+      const v = wertVon(el, el.dataset.balken);
       el.firstElementChild.style.width = `${Math.max(0, Math.min(100, v || 0))}%`;
       el.classList.toggle("warn", v >= 80); el.classList.toggle("krit", v >= 92);
     });
     wurzel.querySelectorAll("[data-seit]").forEach((el) => { const t = dauer(seit(el.dataset.seit)); if (el.textContent !== t) el.textContent = t; });
+    wurzel.querySelectorAll("[data-ip]").forEach((el) => { const t = ipText(el.dataset.ip); if (el.textContent !== t.text) { el.textContent = t.text; el.title = t.quelle; } });
+    wurzel.querySelectorAll("[data-netz-px]").forEach((el) => {
+      const g = pxGast(el.dataset.netzPx), rt = g && PX.raten.get(g.vmid);
+      const t = rt ? `↓ ${rate(rt.rx)} · ↑ ${rate(rt.tx)}` : "–";
+      if (el.textContent !== t) el.textContent = t;
+    });
     kurvenStarten();
   }
 
@@ -195,20 +243,55 @@
   const puls = (text) => `<span class="sv-puls" title="Neue Messung"><i></i>${PS.esc(text || "")}</span>`;
 
   // ------------------------------------------------------------ Proxmox
-  const gastZeile = (g) => {
-    const laeuft = PS.s(g.status) === "running";
-    const z = E(`<table><tr class="${laeuft ? "" : "aus"}"><td><span class="sv-gast"><i class="sv-punkt${laeuft ? " an" : ""}"></i><b>${PS.esc(g.name)}</b></span></td>
-      <td class="vw-status"><i class="${laeuft ? "ok" : "aus"}">${laeuft ? "läuft" : PS.esc(PS.text(g.status))}</i></td>
-      <td class="sv-zelle">${g.cpu ? `${balken(g.cpu, "var(--info)")}<small>${wert(g.cpu)} %</small>` : "–"}</td>
-      <td class="sv-zelle">${g.ram ? `${balken(g.ram, "var(--akzent)")}<small>${wert(g.ram)} %${g.ramMax ? ` von ${gb(zahl(g.ramMax))} GiB` : ""}</small>` : "–"}</td>
-      <td class="tabular">${laeuft && g.laufzeit ? `<span data-seit="${PS.esc(g.laufzeit)}"></span>` : "–"}</td><td class="sv-tasten"></td></tr></table>`).querySelector("tr");
-    const t = z.querySelector(".sv-tasten");
+  // Kachel je VM und Container: Zustand, IP-Adresse (kopierbar), Ringe für CPU und RAM, CPU-Verlauf, Laufzeit, Netz;
+  // Starten per Tippen, Neustart und Herunterfahren per Halten, weitere Befehle hinter „Mehr“
+  const MEHR = [
+    [/_stoppen$/, "Hart stoppen", "stop-circle-outline", true], [/_anhalten$/, "Anhalten", "pause", false],
+    [/_in_ruhezustand_versetzen$/, "Ruhezustand", "sleep", false], [/_zurucksetzen$/, "Zurücksetzen", "backup-restore", true],
+    [/_snapshot_erstellen$/, "Snapshot erstellen", "camera-plus-outline", false],
+  ];
+  const ZUSTAND = { running: "läuft", stopped: "gestoppt", suspended: "angehalten", paused: "pausiert", unknown: "unbekannt" };
+  function gastKachel(g) {
+    const laeuft = PS.s(g.status) === "running", px = pxGast(g.name);
+    const art = px ? (px.art === "lxc" ? "Container" : "VM") : g.es.some((e) => /_anhalten$/.test(e)) ? "VM" : "Container";
+    const k = E(`<div class="sv-gk${laeuft ? " an" : ""}">
+      <div class="sv-gk-kopf">${PS.ic(art === "VM" ? "monitor" : "package-variant-closed")}<div><b>${PS.esc(g.name)}</b><small>${art}${px ? ` · ${px.vmid}` : ""}</small></div>
+        <span class="sv-gk-zustand ${laeuft ? "an" : ""}"><i class="sv-punkt${laeuft ? " an" : ""}"></i>${laeuft ? "läuft" : PS.esc(ZUSTAND[PS.s(g.status)] || PS.text(g.status))}</span></div>
+      <button type="button" class="sv-gk-ip" title="Adresse kopieren">${PS.ic("ip-network")}<span data-ip="${PS.esc(g.name)}"></span>${PS.ic("content-copy")}</button>
+      <div class="sv-ringe sv-klein">${ring("CPU", g.cpu, "var(--info)", 100, "pct", "%", `${g.name}|cpu`)}${ring("RAM", g.ram, "var(--akzent)", 100, "pct", "%", `${g.name}|ram`)}</div>
+      ${g.cpu ? kurve([[g.cpu, "--info", 100], [g.ram, "--akzent", 100]], 3600) : ""}
+      <dl class="as-werte">
+        <dt>Läuft seit</dt><dd class="tabular">${laeuft && g.laufzeit ? `<span data-seit="${PS.esc(g.laufzeit)}"></span>` : "–"}</dd>
+        <dt>Arbeitsspeicher</dt><dd class="tabular">${g.ramMax ? `${gb(zahl(g.ramMax))} GiB` : "–"}${px && px.kerne ? ` · ${px.kerne} ${px.kerne === 1 ? "Kern" : "Kerne"}` : ""}</dd>
+        ${PS.opt && PS.opt.proxmox ? `<dt>Netz</dt><dd class="tabular" data-netz-px="${PS.esc(g.name)}">–</dd>` : ""}</dl>
+      <div class="sv-gk-tasten"></div><div class="sv-gk-mehr" hidden></div></div>`);
+    k.querySelector(".sv-gk-ip").addEventListener("click", async () => {
+      const t = ipText(g.name).text;
+      if (t === "–") return;
+      try { await navigator.clipboard.writeText(t.split(",")[0].trim()); PS.toast(`${t.split(",")[0].trim()} kopiert`); } catch { PS.toast(t); }
+    });
     const druck = (eid, text) => PS.dienst("button", "press", { entity_id: eid }).then(() => PS.toast(`${g.name}: ${text}`));
-    if (!laeuft && g.start) { const b = knopf("", "play", () => druck(g.start, "wird gestartet")); b.title = "Starten"; t.appendChild(b); }
-    if (laeuft && g.neu) { const b = knopf("", "restart"); b.title = "Neu starten (halten)"; PS.halten(b, 1000, () => druck(g.neu, "startet neu")); t.appendChild(b); }
-    if (laeuft && g.stopp) { const b = knopf("", "stop", null, "gefahr"); b.title = "Herunterfahren (halten)"; PS.halten(b, 1200, () => druck(g.stopp, "fährt herunter")); t.appendChild(b); }
-    return z;
-  };
+    const tasten = k.querySelector(".sv-gk-tasten"), mehr = k.querySelector(".sv-gk-mehr");
+    if (!laeuft && g.start) tasten.appendChild(knopf("Starten", "play", () => druck(g.start, "wird gestartet"), "primaer"));
+    if (laeuft && g.neu) { const b = knopf("Neustart", "restart"); b.title = "Halten zum Neustarten"; PS.halten(b, 1000, () => druck(g.neu, "startet neu")); tasten.appendChild(b); }
+    if (laeuft && g.stopp) { const b = knopf("Herunterfahren", "power", null, "gefahr"); b.title = "Halten zum Herunterfahren"; PS.halten(b, 1200, () => druck(g.stopp, "fährt herunter")); tasten.appendChild(b); }
+    MEHR.forEach(([re, text, icon, halten]) => {
+      const eid = g.es.find((e) => e.startsWith("button.") && re.test(e) && e !== g.stopp && e !== g.neu && e !== g.start);
+      if (!eid) return;
+      const b = knopf(text, icon, halten ? null : () => druck(eid, text.toLowerCase()), halten ? "gefahr" : "");
+      if (halten) { b.title = "Halten"; PS.halten(b, 1200, () => druck(eid, text.toLowerCase())); }
+      mehr.appendChild(b);
+    });
+    if (PS.opt && PS.opt.proxmox_ui && px) {
+      mehr.appendChild(knopf("In Proxmox öffnen", "open-in-new", () => window.open(`${PS.opt.proxmox_ui.replace(/\/$/, "")}/#v1:0:=${px.art}/${px.vmid}`, "_blank", "noopener")));
+    }
+    if (mehr.children.length) {
+      const b = knopf("", "dots-horizontal", () => { mehr.hidden = !mehr.hidden; b.classList.toggle("aktiv", !mehr.hidden); });
+      b.title = "Weitere Befehle"; tasten.appendChild(b);
+    }
+    return k;
+  }
+
   PS.admin.bloecke.proxmox = {
     titel: "Proxmox", icon: "server",
     render(b) {
@@ -258,15 +341,23 @@
           p.speicher.forEach((x) => s.appendChild(E(`<div class="sv-speicher"><div><b>${PS.esc(x.name.replace(/^Storage\s*/, ""))}</b><small class="tabular">${gb(zahl(x.frei))} GiB frei von ${gb(zahl(x.gesamt))} GiB</small></div>${balken(x.belegt, "var(--gut)")}<span class="tabular">${wert(x.belegt)} %</span></div>`)));
         }
         const t = block("VMs und Container", `${p.laeuft.length} von ${p.gaeste.length} laufen`, 3);
-        const tab = E('<div class="as-tabelle sv-gaeste"><table><thead><tr><th>Name</th><th>Zustand</th><th>CPU</th><th>RAM</th><th>Läuft seit</th><th></th></tr></thead><tbody></tbody></table></div>');
-        p.gaeste.forEach((x) => tab.querySelector("tbody").appendChild(gastZeile(x)));
-        t.appendChild(tab);
+        const raster = E('<div class="sv-gk-raster"></div>');
+        p.gaeste.forEach((x) => raster.appendChild(gastKachel(x)));
+        t.appendChild(raster);
+        if (!(PS.opt && PS.opt.proxmox)) t.appendChild(E(`<div class="nz-zeile">${PS.ic("information-outline")}<span>IP-Adressen kommen über UniFi (Hostname). Für alle Adressen und Werte im Sekundentakt in den App-Optionen „Proxmox: API-Token“ eintragen (nur lesend).</span></div>`));
         g._sig = PS.admin.bloecke.proxmox.signatur();
         requestAnimationFrame(() => liveSetzen(g));
       };
       zeichnen();
-      // Wechselt ein Gast seinen Zustand, die Seite neu aufbauen; Werte laufen sonst an Ort und Stelle
-      const t = setInterval(() => { if (!g.isConnected) { clearInterval(t); return; } if (PS.admin.bloecke.proxmox.signatur() !== g._sig) zeichnen(); }, 3000);
+      pxLaden().then(() => { if (g.isConnected) zeichnen(); });
+      // Wechselt ein Gast seinen Zustand, die Seite neu aufbauen; Werte laufen sonst an Ort und Stelle. Proxmox direkt
+      // (falls eingerichtet) alle 5 s.
+      let n = 0;
+      const t = setInterval(() => {
+        if (!g.isConnected) { clearInterval(t); return; }
+        if (PS.admin.bloecke.proxmox.signatur() !== g._sig) zeichnen();
+        if (++n % 2 === 0) pxLaden().then(() => liveSetzen(g));
+      }, 2500);
     },
   };
 
