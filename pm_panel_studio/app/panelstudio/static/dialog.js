@@ -482,7 +482,9 @@
       el.replaceWith(PS.medienSteuerung(el.dataset.medien, !!el.dataset.gross));
     });
     document.querySelectorAll("[data-alarm]").forEach((el) => {
-      if (!ids.has(el.dataset.alarm) || (el.codeAktiv && el.codeAktiv()) || !PS.z[el.dataset.alarm]) return;
+      if (!ids.has(el.dataset.alarm) || !PS.z[el.dataset.alarm]) return;
+      if (el.aktualisieren) { el.aktualisieren(); return; }  // neue Steuerung (alarm.js): an Ort und Stelle
+      if (el.codeAktiv && el.codeAktiv()) return;
       el.replaceWith(PS.alarmSteuerung(el.dataset.alarm));
     });
   });

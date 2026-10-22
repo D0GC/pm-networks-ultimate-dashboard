@@ -530,6 +530,8 @@ class Pforte:
         self._zuletzt: dict[str, str] = {}
         self.uebernommen = False
         self.verzeichnis: Path | None = None  # fest gesetzt nur in Tests; sonst aus pforte_ordner
+        # Ausgang des Klingelns fürs Klingelbuch (Hub): ``ausgang("app" | "panel" | "nachricht" | "ohne", **daten)``
+        self.ausgang: Callable[..., None] | None = None
         self.stun: str | None = STUN
 
     @property
@@ -589,6 +591,7 @@ class Pforte:
             return
         self.uebernommen = True
         _LOGGER.info("Haustür: %s", grund)
+        self._ausgang("panel")
         task = self._task
         if task is not None:
             task.cancel()
@@ -686,8 +689,14 @@ class Pforte:
         leer.cancel()
         ende.cancel()
 
+    def _ausgang(self, art: str, **daten: Any) -> None:
+        if self.ausgang is not None:
+            with contextlib.suppress(Exception):
+                self.ausgang(art, **daten)
+
     def _uebernommen_durch_ring(self, leitung: Leitung) -> None:
         self.uebernommen = True
+        self._ausgang("app")
         _LOGGER.info("Haustür: Ring hat die Sitzung beendet (%s) – vermutlich in der Ring-App angenommen", leitung.grund)
 
     # ------------------------------------------------------------ Nachricht auswerten
@@ -726,6 +735,10 @@ class Pforte:
                     domain, service, {"title": titel, "message": nachricht, "data": {"group": "haustuer"}}
                 )
         self.meldung(titel, nachricht, Path(datei).name if datei else None)
+        if aufnahme:
+            self._ausgang("nachricht", datei=Path(datei).name if datei else None, dauer_s=dauer, text=text)
+        else:
+            self._ausgang("ohne")
         with contextlib.suppress(HAError):
             await self.client.rest(
                 "POST",

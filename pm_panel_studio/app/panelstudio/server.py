@@ -206,6 +206,15 @@ async def aufnahmen_liste(request: web.Request) -> web.Response:
     return web.json_response(request.app[K_HUB].pforte.aufnahmen(anzahl), headers={"Cache-Control": "no-store"})
 
 
+async def klingeln_liste(request: web.Request) -> web.Response:
+    """Klingelbuch: jedes Klingeln an der Haustür mit Ausgang, neueste zuerst."""
+    try:
+        anzahl = max(1, min(200, int(request.query.get("anzahl", "40"))))
+    except ValueError:
+        anzahl = 40
+    return web.json_response(request.app[K_HUB].klingelbuch.liste(anzahl), headers={"Cache-Control": "no-store"})
+
+
 async def aufnahme_datei(request: web.Request) -> web.StreamResponse:
     pfad = request.app[K_HUB].pforte.aufnahme_pfad(request.query.get("datei", ""))
     if pfad is None:
@@ -516,6 +525,7 @@ def _gemeinsam(app: web.Application) -> None:
     app.router.add_get("/api/bild", bild)
     app.router.add_get("/api/ansage", ansage_ton)
     app.router.add_get("/api/aufnahmen", aufnahmen_liste)
+    app.router.add_get("/api/klingeln", klingeln_liste)
     app.router.add_get("/api/aufnahme", aufnahme_datei)
     app.router.add_get("/api/kamera", kamera)
     app.router.add_get("/api/hls/{pfad:.+}", hls)
