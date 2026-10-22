@@ -218,7 +218,7 @@
     const medien = w.ent.find((e) => e.startsWith("media_player.") && PS.s(e) === "playing");
     if (medien) chips.push(`<span class="chip an">${PS.ic("play")}${PS.esc(PS.kurzname(medien, b.name))}</span>`);
     if (w.klima && PS.a(w.klima).hvac_action === "heating") chips.push(`<span class="chip warn">${PS.ic("fire")}heizt</span>`);
-    const k = E(`<div class="raum" style="--i:${i}"><div class="oben">${PS.ic(b.icon || "texture-box")}<b>${PS.esc(b.name)}</b></div>
+    const k = E(`<div class="raum" data-raum="${PS.esc(b.id)}" style="--i:${i}"><div class="oben">${PS.ic(b.icon || "texture-box")}<b>${PS.esc(b.name)}</b></div>
       <div class="werte">${w.temp != null ? `<span>${PS.ic("thermometer")} ${PS.zahl(w.temp, 1)}°</span>` : ""}${w.feuchte != null ? `<span>${PS.ic("water-percent")} ${PS.zahl(w.feuchte, 0)} %</span>` : ""}</div>
       <div class="chips">${chips.join("")}</div></div>`);
     k.addEventListener("click", () => PS.mitUebergang(k, () => PS.unterseite(b.name, (el) => raumKompakt(el, b.id))));
@@ -250,7 +250,7 @@
         if (empf) el.appendChild(gruppe("Empfehlung", kachelRaster([empf], undefined, true)));
         // Raumklima je Bereich
         const zeilen = bereicheSortiert().map((b) => ({ b, w: PS.raumWerte(b.id) })).filter((x) => x.w.temp != null || x.w.feuchte != null);
-        el.appendChild(gruppe("Raumklima", E(`<div class="liste">${zeilen.map(({ b, w }) => `<div class="zeile" data-b="${PS.esc(b.id)}">${PS.ic(b.icon || "texture-box")}<span class="n">${PS.esc(b.name)}</span><span class="w">${w.temp != null ? PS.zahl(w.temp, 1) + "°" : ""}${w.feuchte != null ? " · " + PS.zahl(w.feuchte, 0) + " %" : ""}</span></div>`).join("")}</div>`)));
+        el.appendChild(gruppe("Raumklima", E(`<div class="liste">${zeilen.map(({ b, w }) => `<div class="zeile" data-b="${PS.esc(b.id)}" data-raum="${PS.esc(b.id)}">${PS.ic(b.icon || "texture-box")}<span class="n">${PS.esc(b.name)}</span><span class="w">${w.temp != null ? PS.zahl(w.temp, 1) + "°" : ""}${w.feuchte != null ? " · " + PS.zahl(w.feuchte, 0) + " %" : ""}</span></div>`).join("")}</div>`)));
         el.querySelectorAll("[data-b]").forEach((z) => z.addEventListener("click", () => PS.module.raeume.unterseite(z.dataset.b)));
         const aussen = ["sensor.aussentemperatur", "sensor.aussenluftfeuchte", "sensor.zuhause_uv_index", "sensor.zuhause_windgeschwindigkeit", "sensor.niederschlag_lokal", "sensor.wetterstation_kohlendioxid", "sensor.wetterstation_atmospharischer_druck"].filter((e) => PS.z[e]);
         if (aussen.length) el.appendChild(gruppe("Außen", kachelRaster(aussen)));

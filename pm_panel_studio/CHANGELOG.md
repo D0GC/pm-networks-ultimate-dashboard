@@ -1,5 +1,14 @@
 # Änderungen
 
+## 2026.10.62 – 2026-10-22
+
+- Anordnen auf allen Seiten (Admin-Ansicht): Knopf „Anordnen“ unten rechts auf jeder Modul- und Unterseite. Kacheln,
+  Räume und Thermostate lassen sich in ihrer Liste ziehen, Boxen und Gruppen an der Überschrift. Die Reihenfolge gilt
+  sofort auf allen Panels, auch im Flur; Räume nutzen die gemeinsame Raumreihenfolge. „Seite zurücksetzen“ stellt die
+  automatische Reihenfolge der Seite wieder her. Bearbeiten nur in der Admin-Ansicht.
+- Startseite der Admin-Ansicht: Blöcke lassen sich im Anpassen-Modus per Ziehen sortieren, in jeder Fensterbreite. Im
+  Hochformat (zwei Spalten) lässt sich die Breite (halb oder voll) ziehen; die Höhe folgt dort dem Inhalt.
+
 ## 2026.10.61 – 2026-10-22
 
 - Admin-Ansicht: Personen und Statuspillen in der Kopfzeile laufen als Band durch wie eine Bauchbinde, sobald sie

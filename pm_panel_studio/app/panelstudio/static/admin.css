@@ -143,6 +143,24 @@ body.admin.offen .admin-start{visibility:hidden}
 /* Anpassen */
 body.anpassen #as-raster .as-block{outline:1px dashed var(--linie-stark);outline-offset:.4rem;border-radius:var(--r-aussen)}
 body.anpassen #as-raster .as-block > .r-box{pointer-events:none;opacity:.75}
+body.anpassen #as-raster .as-block{cursor:grab;touch-action:none}
+/* Ziehen zum Sortieren (Startseite und Anordnen-Modus) */
+.ord-zieht{opacity:.55;transform:scale(.97);z-index:5;cursor:grabbing!important}
+body.ord-ziehen,body.ord-ziehen *{cursor:grabbing!important;user-select:none}
+.ord-knopf{all:unset;cursor:pointer;position:fixed;right:1.6rem;bottom:1.6rem;z-index:60;display:none;align-items:center;gap:.5rem;padding:.7rem 1.1rem;border-radius:99px;
+  font-weight:600;font-size:1rem;color:var(--cloud);background:var(--glas-fest);border:1px solid var(--linie-stark);box-shadow:0 .8rem 2rem -.8rem rgba(0,0,0,.7)}
+.ord-knopf .mdi{font-size:1.3rem}
+body.admin.offen .ord-knopf{display:inline-flex}
+body.anordnen .ord-knopf{display:none!important}
+.ord-leiste{position:fixed;left:50%;bottom:1.4rem;transform:translateX(-50%);z-index:60;display:flex;align-items:center;gap:.8rem;flex-wrap:wrap;justify-content:center;
+  padding:.6rem .8rem .6rem 1.2rem;border-radius:1.2rem;background:var(--glas-fest);border:1px solid var(--linie-stark);box-shadow:0 .8rem 2rem -.8rem rgba(0,0,0,.7);max-width:calc(100vw - 2rem)}
+.ord-leiste[hidden]{display:none}
+.ord-leiste > span{display:inline-flex;align-items:center;gap:.4rem;color:var(--lavender)}
+body.anordnen .ord-liste{outline:1px dashed var(--linie-stark);outline-offset:.35rem;border-radius:.8rem}
+body.anordnen .ord-liste > [data-eid],body.anordnen .ord-liste > [data-raum],body.anordnen .ord-liste > [data-klima]{cursor:grab;touch-action:none}
+body.anordnen .ord-liste > .r-box > h3,body.anordnen .ord-liste > .gruppe > h3{cursor:grab;touch-action:none}
+body.anordnen .ord-liste > .r-box > h3::after,body.anordnen .ord-liste > .gruppe > h3::after{content:"⠿";margin-left:auto;color:var(--leise)}
+body.anordnen #sheet-inhalt{padding-bottom:6rem}
 .as-werkzeug{position:absolute;top:.6rem;right:.6rem;z-index:2;display:flex;gap:.3rem;align-items:center;padding:.3rem;border-radius:.8rem;background:var(--glas-fest);border:1px solid var(--linie-stark);box-shadow:0 .6rem 1.4rem -.6rem rgba(0,0,0,.6)}
 .as-werkzeug button{all:unset;cursor:pointer;min-width:2.2rem;height:2.2rem;display:grid;place-items:center;border-radius:.5rem;font-size:1rem;font-weight:600;color:var(--lavender)}
 .as-werkzeug button .mdi{font-size:1.3rem}

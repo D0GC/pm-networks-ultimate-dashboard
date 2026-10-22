@@ -267,6 +267,29 @@ ADMIN_START = [
 ]
 
 
+REIHENFOLGEN_MAX = 400  # Listen
+REIHENFOLGE_LAENGE = 120  # Einträge je Liste
+
+
+def _kennung(v: Any, laenge: int) -> str:
+    """Freitext-Kennung ohne Steuerzeichen, gekürzt."""
+    return re.sub(r"[\x00-\x1f\x7f]", "", str(v)).strip()[:laenge]
+
+
+def reihenfolgen_pruefen(val: dict[Any, Any]) -> dict[str, list[str]]:
+    aus: dict[str, list[str]] = {}
+    for k, ids in val.items():
+        schluessel = _kennung(k, 200)
+        if not schluessel or not isinstance(ids, list):
+            continue
+        liste = [i for i in dict.fromkeys(_kennung(x, 120) for x in ids) if i][:REIHENFOLGE_LAENGE]
+        if liste:
+            aus[schluessel] = liste
+        if len(aus) >= REIHENFOLGEN_MAX:
+            break
+    return aus
+
+
 @dataclass
 class Einstellungen:
     """Im Editor einstellbar, wirkt sofort auf alle verbundenen Panels."""
@@ -284,6 +307,9 @@ class Einstellungen:
     bereiche_ausblenden: list[str] = field(default_factory=list)
     start_raeume: list[str] = field(default_factory=lambda: ["wohnzimmer", "badezimmer", "schlafzimmer"])
     karten_aus: list[str] = field(default_factory=list)  # Kartenschlüssel, die der Flur nicht zeigt
+    # Eigene Reihenfolge je Liste (Kacheln, Boxen), am PC angeordnet, auf allen Panels gültig:
+    # „Modul/Seitentitel|Boxtitel|Liste“ → Kennungen (Entität, Bereich oder „box:Titel“) in gewünschter Folge
+    reihenfolgen: dict[str, list[str]] = field(default_factory=dict)
     # Startseite der Admin-Ansicht am PC: Blöcke in Reihenfolge, „block:breite“ (1–3 Spalten); fehlende sind aus
     admin_start: list[str] = field(default_factory=lambda: list(ADMIN_START))
     admin_bekannt: list[str] = field(default_factory=lambda: list(ADMIN_BLOECKE))
@@ -477,6 +503,11 @@ class Einstellungen:
                         if _entities([k]) and re.match(r"^input_boolean\.[a-z0-9_]+$", str(v))
                     },
                 }
+            elif key == "reihenfolgen":
+                if not isinstance(val, dict):
+                    abgewiesen.append(key)
+                    continue
+                self.reihenfolgen = reihenfolgen_pruefen(val)
             elif key == "gruss_anrede":
                 if not isinstance(val, dict):
                     abgewiesen.append(key)

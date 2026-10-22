@@ -230,7 +230,7 @@
       ? `${w.temp != null ? `<span class="tabular">${PS.zahl(w.temp, 1)}°</span>` : ""}${w.feuchte != null ? `<small class="tabular">${PS.ic("water-percent")}${PS.zahl(w.feuchte, 0)} %</small>` : ""}`
       : `<small>${w.ent.length} ${w.ent.length === 1 ? "Gerät" : "Geräte"}</small>`;
     const an = lichter.filter((e) => PS.s(e) === "on").length;
-    const k = E(`<div class="as-raum" role="button" tabindex="0">
+    const k = E(`<div class="as-raum" data-raum="${PS.esc(x.id)}" role="button" tabindex="0">
       <div class="kopf">${PS.ic(x.icon || "texture-box")}<span class="n">${PS.esc(x.name)}</span></div>
       <div class="w">${werte}${lichter.length ? `<button type="button" class="licht${an ? " an" : ""}" title="${an ? "Lichter ausschalten" : "Lichter einschalten"}">${PS.ic(an ? "lightbulb-on" : "lightbulb-outline")}<span class="tabular">${an}/${lichter.length}</span></button>` : ""}</div>
       <div class="c">${chips.join("")}</div></div>`);
@@ -516,6 +516,113 @@
     return p;
   }
 
+  // ------------------------------------------------------------ Ziehen zum Sortieren (Maus, Stift, Finger)
+  // Das gezogene Element wandert unter dem Zeiger durch seine Geschwister; erst nach 6 px Weg, damit ein Klick ein
+  // Klick bleibt. Geschwister zählen nur, wenn „gehoert“ sie annimmt.
+  function ziehen(ev, el, gehoert, beiEnde) {
+    if (ev.button > 0) return;
+    const start = { x: ev.clientX, y: ev.clientY }, liste = el.parentElement;
+    let aktiv = false;
+    const bewegen = (e) => {
+      if (!aktiv) {
+        if (Math.hypot(e.clientX - start.x, e.clientY - start.y) < 6) return;
+        aktiv = true; el.classList.add("ord-zieht"); document.body.classList.add("ord-ziehen");
+        try { el.setPointerCapture(e.pointerId); } catch { /* bereits losgelassen */ }
+      }
+      e.preventDefault();
+      PS.letzteBeruehrung = Date.now();
+      const unter = document.elementsFromPoint(e.clientX, e.clientY).find((x) => x !== el && x.parentElement === liste && gehoert(x));
+      if (!unter) return;
+      const kinder = [...liste.children];
+      liste.insertBefore(el, kinder.indexOf(unter) > kinder.indexOf(el) ? unter.nextSibling : unter);
+    };
+    const ende = () => {
+      window.removeEventListener("pointermove", bewegen);
+      window.removeEventListener("pointerup", ende);
+      window.removeEventListener("pointercancel", ende);
+      if (!aktiv) return;
+      el.classList.remove("ord-zieht"); document.body.classList.remove("ord-ziehen");
+      // Den Klick, der dem Loslassen folgt, verschlucken
+      const schlucken = (k) => { k.stopPropagation(); k.preventDefault(); };
+      window.addEventListener("click", schlucken, { capture: true, once: true });
+      setTimeout(() => window.removeEventListener("click", schlucken, true), 50);
+      beiEnde();
+    };
+    window.addEventListener("pointermove", bewegen, { passive: false });
+    window.addEventListener("pointerup", ende);
+    window.addEventListener("pointercancel", ende);
+  }
+
+  // ------------------------------------------------------------ Anordnen: Reihenfolge auf allen Seiten
+  // Nur hier am PC einstellbar; gespeichert in den Einstellungen und damit sofort auf jedem Panel gültig (start.js
+  // wendet sie an). Kacheln, Räume, Thermostate ziehen; Boxen und Gruppen an ihrer Überschrift.
+  const anordnenKnopf = E(`<button type="button" class="ord-knopf" title="Reihenfolge auf dieser Seite anordnen">${PS.ic("drag-variant")}<span>Anordnen</span></button>`);
+  const anordnenLeiste = E(`<div class="ord-leiste" hidden><span>${PS.ic("drag-variant")}Ziehen zum Sortieren · Boxen an der Überschrift</span></div>`);
+  document.body.append(anordnenKnopf, anordnenLeiste);
+  const zuruecksetzen = knopf("Seite zurücksetzen", "restore", async () => {
+    const seite = PS.ordnung.seite() + "|", alt = PS.einst.reihenfolgen || {};
+    const neu = Object.fromEntries(Object.entries(alt).filter(([k]) => !k.startsWith(seite)));
+    await ordnungSpeichern({ reihenfolgen: neu }, "Reihenfolge dieser Seite zurückgesetzt");
+    PS.neuZeichnen();
+  });
+  anordnenLeiste.append(zuruecksetzen, knopf("Fertig", "check", () => anordnen(false), "primaer"));
+  anordnenKnopf.addEventListener("click", () => anordnen(!document.body.classList.contains("anordnen")));
+  function anordnen(an) {
+    document.body.classList.toggle("anordnen", an);
+    anordnenLeiste.hidden = !an;
+    anordnenKnopf.classList.toggle("aktiv", an);
+    listenMarkieren();
+  }
+  function listenMarkieren() {
+    const inhalt = $("#sheet-inhalt");
+    inhalt.querySelectorAll(".ord-liste").forEach((x) => x.classList.remove("ord-liste"));
+    if (!document.body.classList.contains("anordnen")) return;
+    PS.ordnung.listen(inhalt).forEach((c) => c.classList.add("ord-liste"));
+  }
+  let markierenBald = 0;
+  new MutationObserver(() => {
+    if (!document.body.classList.contains("anordnen") || markierenBald) return;
+    markierenBald = requestAnimationFrame(() => { markierenBald = 0; listenMarkieren(); });
+  }).observe($("#sheet-inhalt"), { childList: true, subtree: true });
+  PS.on("seite", () => { if (!document.body.classList.contains("offen")) anordnen(false); });
+  async function ordnungSpeichern(teil, meldung) {
+    try {
+      const r = await fetch("api/einstellungen", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(teil) });
+      if (!r.ok) throw new Error(await r.text());
+      Object.assign(PS.einst, (await r.json()).einstellungen);
+      if (meldung) PS.toast(meldung);
+    } catch (e) { PS.toast("Nicht gespeichert: " + (e.message || e), true); }
+  }
+  const kennbar = (x) => !!PS.ordnung.kennung(x);
+  $("#sheet-inhalt").addEventListener("pointerdown", (ev) => {
+    if (!document.body.classList.contains("anordnen")) return;
+    const listen = new Set($("#sheet-inhalt").querySelectorAll(".ord-liste"));
+    // Überschrift einer Box: die Box ziehen; sonst das innerste kenntliche Element einer Liste
+    const kopf = ev.target.closest(".r-box > h3, .gruppe > h3");
+    let el = kopf && listen.has(kopf.parentElement.parentElement) ? kopf.parentElement : null;
+    for (let x = ev.target; !el && x && x !== ev.currentTarget; x = x.parentElement) {
+      if (listen.has(x.parentElement) && kennbar(x) && !x.matches(".r-box, .gruppe")) el = x;
+    }
+    if (!el) return;
+    ev.preventDefault();
+    const liste = el.parentElement;
+    PS.ordnung.zieht = true;
+    ziehen(ev, el, kennbar, () => {
+      PS.ordnung.zieht = false;
+      const folge = [...liste.children].filter(kennbar).map(PS.ordnung.kennung);
+      if (folge[0].startsWith("raum:")) {
+        const gezeigt = folge.map((x) => x.slice(5)), rest = (PS.einst.bereiche_reihenfolge || []).filter((b) => !gezeigt.includes(b));
+        ordnungSpeichern({ bereiche_reihenfolge: [...gezeigt, ...rest] });
+      } else {
+        ordnungSpeichern({ reihenfolgen: { ...(PS.einst.reihenfolgen || {}), [PS.ordnung.schluessel(liste)]: folge } });
+      }
+    });
+    // ohne Bewegung zurücksetzen
+    window.addEventListener("pointerup", () => { setTimeout(() => { if (!document.body.classList.contains("ord-ziehen")) PS.ordnung.zieht = false; }, 0); }, { once: true });
+  });
+  // Im Anordnen-Modus nichts auslösen
+  $("#sheet-inhalt").addEventListener("click", (ev) => { if (document.body.classList.contains("anordnen")) { ev.stopPropagation(); ev.preventDefault(); } }, true);
+
   // ------------------------------------------------------------ Startseite zeichnen und anpassen
   const bloecke = new Map();  // id → { el, def, sig, timer }
   let anpassen = null;        // Arbeitskopie der Anordnung im Anpassen-Modus
@@ -598,7 +705,19 @@
       bloecke.set(x.id, { el, def: B[x.id] });
       raster.appendChild(el);
       blockZeichnen(x.id);
-      if (anpassen) { el.appendChild(werkzeugBlock(x.id, i, liste.length)); el.appendChild(griff(el, x.id)); }
+      if (anpassen) {
+        el.appendChild(werkzeugBlock(x.id, i, liste.length)); el.appendChild(griff(el, x.id));
+        // Am Block ziehen (der Inhalt ist im Anpassen-Modus stumm): Reihenfolge, in jeder Fensterbreite
+        el.addEventListener("pointerdown", (ev) => {
+          if (ev.target.closest(".as-werkzeug, .as-griff")) return;
+          ev.preventDefault();
+          ziehen(ev, el, (y) => y.classList.contains("as-block"), () => {
+            const neu = [...raster.querySelectorAll(":scope > .as-block")].map((b) => b.dataset.id);
+            anpassen = neu.map((id) => anpassen.find((e) => e.startsWith(id + ":"))).filter(Boolean);
+            startZeichnen();
+          });
+        });
+      }
     });
     if (!liste.length) raster.appendChild(leer("Die Startseite ist leer. Über „Anpassen“ Blöcke hinzufügen."));
     spannen(); vorrat(); werkzeug(); grussZeigen();
@@ -626,7 +745,8 @@
     const zeigen = () => { masse.textContent = `${el.dataset.w} × ${el.dataset.h}`; };
     zeigen();
     g.addEventListener("pointerdown", (ev) => {
-      if (spalten !== 12) { PS.toast("Größen lassen sich im breiten Fenster ziehen."); return; }
+      if (spalten === 1) { PS.toast("In einer Spalte sind alle Blöcke voll breit; die Höhe folgt dem Inhalt."); return; }
+      if (spalten === 2) { schmalZiehen(ev, el, id, g, zeigen); return; }
       ev.preventDefault(); g.setPointerCapture(ev.pointerId); el.classList.add("zieht");
       const raster = $("#as-raster"), st = getComputedStyle(raster);
       const luecke = parseFloat(st.columnGap) || 0, zeile = parseFloat(st.gridAutoRows) || 40;
@@ -649,6 +769,26 @@
       g.addEventListener("pointercancel", ende, { once: true });
     });
     return g;
+  }
+  // Schmal oder hochkant (zwei Spalten): halbe oder volle Breite ziehen; die Höhe folgt dort dem Inhalt. Gespeichert
+  // wird eine passende Breite des breiten Rasters (halb: höchstens 4 von 12, voll: mindestens 6).
+  function schmalZiehen(ev, el, id, g, zeigen) {
+    ev.preventDefault(); g.setPointerCapture(ev.pointerId); el.classList.add("zieht");
+    const raster = $("#as-raster"), r0 = raster.getBoundingClientRect();
+    const bewegen = (e) => {
+      const voll = e.clientX - r0.left > r0.width * 0.62;
+      const w = +el.dataset.w;
+      el.dataset.w = String(voll ? (w >= 6 ? w : 12) : (w >= 6 ? 4 : w));
+      zeigen(); spannen();
+    };
+    const ende = () => {
+      g.removeEventListener("pointermove", bewegen); el.classList.remove("zieht");
+      const l = anpassen, j = l.findIndex((x) => x.startsWith(id + ":"));
+      if (j >= 0) l[j] = eintrag({ id, w: +el.dataset.w, h: +el.dataset.h });
+    };
+    g.addEventListener("pointermove", bewegen);
+    g.addEventListener("pointerup", ende, { once: true });
+    g.addEventListener("pointercancel", ende, { once: true });
   }
   function vorrat() {
     const v = $("#as-vorrat");
