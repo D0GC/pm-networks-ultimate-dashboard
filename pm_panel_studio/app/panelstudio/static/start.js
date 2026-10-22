@@ -1033,7 +1033,8 @@
     const an = !!(e && e.aktiv);
     document.body.classList.toggle("ereignis-an", an);
     const box = $("#ereignis-kamera");
-    if (!an) { PS.klingelStopp(); PS.kameraLiveStoppen(box.parentElement); box._eid = null; if (PS.intercomBeenden) PS.intercomBeenden(); return; }
+    $(".ereignis .bild").classList.toggle("mit-kamera", !!(e && e.kamera));
+    if (!an) { document.body.classList.remove("tuer-auf"); PS.klingelStopp(); PS.kameraLiveStoppen(box.parentElement); box._eid = null; if (PS.intercomBeenden) PS.intercomBeenden(); return; }
     document.body.classList.remove("ruhe");
     $("#ereignis-titel").textContent = e.titel || "Tür";
     // Läuft das Overlay schon mit derselben Kamera, nur den Titel nachführen (kein Neustart des Streams)
@@ -1042,10 +1043,41 @@
       // Ohne Kamera (Haustür): Klingel-Hinweis statt leerer Fläche
       PS.kameraLiveStoppen(box.parentElement); box._eid = null;
       box.classList.remove("kamera", "live", "laeuft");
-      box.innerHTML = `<div class="ereignis-hinweis">${PS.ic(e.intercom ? "doorbell" : "door")}<span>${PS.esc(e.intercom ? "Es klingelt an der Haustür" : e.titel || "Tür")}</span></div>`;
+      box.innerHTML = "";
+      $("#ereignis-szene .sz-klingeln span").textContent = e.intercom ? "Es klingelt an der Haustür" : e.titel || "Tür";
     }
     $("#ereignis-oeffnen").hidden = !e.tueroeffner;
     $("#ereignis-sprechen").hidden = !e.intercom;
+  }
+
+  // Bewegte Bilder im Klingel-Pop-up: klingelt (Glocke mit Schallwellen), Sprechen (erst Verbindungsaufbau, dann
+  // Mikrofon mit Pegel) und Tür öffnen (Schloss springt auf, Tür schwingt, Licht fällt herein, Haken). Ohne Kamera
+  // füllen sie das Bild; mit Kamera liegen Sprechen und Tür öffnen als Einblendung über dem Livebild.
+  function szenenBauen() {
+    const sz = $("#ereignis-szene"); if (!sz || sz.childElementCount) return;
+    const glocke = PS.tuerSymbol ? PS.tuerSymbol("klingelt", "var(--warn)") : PS.ic("doorbell");
+    sz.innerHTML = `
+      <div class="sz sz-klingeln"><div class="sz-bild"><i class="sz-welle"></i><i class="sz-welle b"></i><i class="sz-welle c"></i>${glocke}</div><span>Es klingelt an der Haustür</span></div>
+      <div class="sz sz-sprechen"><div class="sz-bild">
+        <svg viewBox="0 0 320 180" class="sz-verbinden"><rect x="34" y="52" width="58" height="80" rx="10" class="sz-linie"/><rect x="44" y="62" width="38" height="52" rx="4" class="sz-flaeche"/>
+          <rect x="232" y="34" width="54" height="112" rx="8" class="sz-linie"/><circle cx="259" cy="70" r="9" class="sz-linie"/><circle cx="259" cy="108" r="5" class="sz-punkt-fest"/>
+          ${[0, 1, 2, 3, 4].map((i) => `<circle cx="${122 + i * 20}" cy="92" r="5" class="sz-punkt" style="animation-delay:${i * 0.14}s"/>`).join("")}</svg>
+        <svg viewBox="0 0 320 180" class="sz-mikro"><path d="M110 70 Q96 92 110 114 M90 56 Q66 92 90 128" class="sz-schall"/><path d="M210 70 Q224 92 210 114 M230 56 Q254 92 230 128" class="sz-schall b"/>
+          <rect x="140" y="30" width="40" height="76" rx="20" class="sz-linie sz-kapsel"/><path d="M126 86 Q126 124 160 124 Q194 124 194 86 M160 124 V146 M140 146 H180" class="sz-linie"/>
+          ${[0, 1, 2, 3, 4, 5, 6].map((i) => `<rect x="${118 + i * 12}" y="156" width="6" height="18" rx="3" class="sz-pegel" style="animation-delay:${(-i * 0.17).toFixed(2)}s"/>`).join("")}</svg>
+      </div><span class="sz-text-verbinden">Verbinde mit der Haustür …</span><span class="sz-text-mikro">Verbunden · sprechen Sie</span></div>
+      <div class="sz sz-tuer"><div class="sz-bild"><svg viewBox="0 0 320 200">
+        <path d="M120 186 V26 H210 V186" class="sz-linie"/><path d="M128 186 L210 186 L250 200 L88 200 Z" class="sz-licht"/>
+        <g class="sz-fluegel"><rect x="124" y="30" width="82" height="156" rx="3" class="sz-flaeche-tuer"/><circle cx="194" cy="110" r="4.5" class="sz-punkt-fest"/></g>
+        <g class="sz-schloss"><rect x="236" y="70" width="30" height="24" rx="5" class="sz-linie"/><path d="M243 70 V60 a8 8 0 0 1 16 0 V70" class="sz-linie sz-buegel"/></g>
+        <g class="sz-haken"><circle cx="72" cy="80" r="26" class="sz-kreis"/><path d="M60 81 l8 8 l16 -16" class="sz-hakenstrich"/></g></svg></div><span>Haustür geöffnet</span></div>`;
+  }
+  let tuerAufTimer = null;
+  function tuerAufZeigen() {
+    const t = $("#ereignis-szene .sz-tuer > span"); if (t) t.textContent = PS.ereignis && PS.ereignis.intercom ? "Haustür geöffnet" : "Tür geöffnet";
+    document.body.classList.remove("tuer-auf"); void document.body.offsetWidth;
+    document.body.classList.add("tuer-auf");
+    clearTimeout(tuerAufTimer); tuerAufTimer = setTimeout(() => document.body.classList.remove("tuer-auf"), 4500);
   }
 
   // ------------------------------------------------------------ Aufbau
@@ -1124,8 +1156,11 @@
     $("#ereignis-ignorieren").addEventListener("click", () => { PS.anfrage({ typ: "ereignis_ende" }).catch(() => {}); ereignis({ aktiv: false }); });
     PS.halten($("#ereignis-oeffnen"), 2000, () => {
       const oeffner = (PS.ereignis && PS.ereignis.tueroeffner) || PS.opt.tueroeffner;
-      PS.dienst(PS.domain(oeffner), PS.domain(oeffner) === "lock" ? "open" : "press", { entity_id: oeffner }).then(() => PS.toast("Tür geöffnet"));
+      tuerAufZeigen();
+      PS.dienst(PS.domain(oeffner), PS.domain(oeffner) === "lock" ? "open" : "press", { entity_id: oeffner }).then(() => PS.toast("Tür geöffnet"))
+        .catch((err) => { document.body.classList.remove("tuer-auf"); PS.toast((err && err.message) || "Tür nicht geöffnet", true); });
     });
+    szenenBauen();
     setInterval(uhr, 5000);
     setInterval(gruss, 30000);
     setInterval(takt, 1000);

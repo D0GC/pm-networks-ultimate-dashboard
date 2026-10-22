@@ -484,11 +484,12 @@
     const txt = PS.rechner(eid) ? (an ? "Fährt hoch …" : "Fährt herunter …")
       : !an ? "Aus" : PS.domain(eid) === "light" && a.brightness != null ? `${Math.round((a.brightness / 255) * 100)} %` : "An";
     const k = el.querySelector("small"); if (k) k.textContent = txt;
+    if (PS.rechner(eid)) el.dataset.phase = an ? "hoch" : "runter";  // Animation Hoch- bzw. Herunterfahren (symbole.css)
   }
   function optimistischEnde(el) {
     const o = el._opt; if (!o) return;
     clearTimeout(o.warte); clearTimeout(o.frist);
-    el._opt = null; el.classList.remove("wartet");
+    el._opt = null; el.classList.remove("wartet"); delete el.dataset.phase;
     const k = el.querySelector(":scope > .wart-kreis"); if (k) k.remove();
   }
   function optimistischFehl(el, eid, grund) {

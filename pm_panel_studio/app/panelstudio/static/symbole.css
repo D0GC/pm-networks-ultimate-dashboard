@@ -102,3 +102,17 @@
 
 body.ohne-animation .mdi[data-ic]{animation:none!important}
 @media (prefers-reduced-motion:reduce){.mdi[data-ic]{animation:none!important}}
+
+/* Rechner (PC): Hochfahren – Bildschirm glimmt auf, Ladebalken läuft; Herunterfahren – Bild wird dunkel und sinkt.
+   Läuft der PC, flimmert der Bildschirm ganz leicht. */
+.kachel[data-phase] > .wart-kreis{display:none}
+.kachel[data-phase="hoch"] > .mdi{animation:sym-hochfahren 1.6s ease-in-out infinite;text-shadow:0 0 .6em rgba(143,180,255,.6)}
+@keyframes sym-hochfahren{0%{opacity:.35;transform:scale(.92)}45%{opacity:1;transform:scale(1.06)}100%{opacity:.35;transform:scale(.92)}}
+.kachel[data-phase="runter"] > .mdi{animation:sym-runterfahren 2s ease-in infinite}
+@keyframes sym-runterfahren{0%{opacity:1;transform:none}70%{opacity:.25;transform:scaleY(.15) translateY(10%)}100%{opacity:0;transform:scaleY(.05)}}
+.kachel[data-phase] > .balken{width:100%;background:rgba(143,180,255,.14);overflow:hidden;transition:none}
+.kachel[data-phase] > .balken::after{content:"";position:absolute;top:0;bottom:0;width:35%;border-radius:inherit;background:var(--info);animation:sym-laden 1.4s ease-in-out infinite}
+.kachel[data-phase="runter"] > .balken::after{background:var(--leise);animation-direction:reverse}
+@keyframes sym-laden{0%{left:-35%}100%{left:100%}}
+.kachel.an:not([data-phase]) > .mdi:is([data-ic^="desktop"],[data-ic^="laptop"],[data-ic^="monitor"]){animation:sym-flimmern 4s ease-in-out infinite;text-shadow:0 0 .45em rgba(143,180,255,.45)}
+@keyframes sym-flimmern{0%,100%{opacity:1}48%{opacity:1}50%{opacity:.8}52%{opacity:1}}
