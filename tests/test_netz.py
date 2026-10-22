@@ -185,3 +185,21 @@ def test_rate_aus_den_byte_zaehlern_ueber_ein_fenster():
     # Zähler zurückgesetzt: neu beginnen
     assert r.neu(netz.zaehler(gw(130, 10, 10))) is None
     assert netz.zaehler({"type": "udm", "wan1": {"up": True}}) is None
+
+
+def test_durchsatzfelder_fuer_die_diagnose():
+    gw = {
+        "name": "GW",
+        "rx_bytes": 5,
+        "uptime": 9,
+        "up": True,
+        "wan1": {"rx_bytes-r": 1, "tx_bytes": 2, "ip": "x", "stats": {"rx_rate": 3}},
+        "port_table": [{"name": "WAN", "tx_bytes-r": 4}],
+    }
+    assert dict(netz.durchsatzfelder(gw)) == {
+        "rx_bytes": 5,
+        "wan1.rx_bytes-r": 1,
+        "wan1.tx_bytes": 2,
+        "wan1.stats.rx_rate": 3,
+        "port_table[0].tx_bytes-r": 4,
+    }

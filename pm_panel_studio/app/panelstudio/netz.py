@@ -149,6 +149,24 @@ class Zaehlerrate:
         return (probe[1] - alt[1]) / dauer, (probe[2] - alt[2]) / dauer
 
 
+def durchsatzfelder(d: dict[str, Any], pfad: str = "", tiefe: int = 0) -> list[tuple[str, Any]]:
+    """Felder, die nach Durchsatz oder Byte-Zählern aussehen (``bytes``, ``-r``, ``rate``, ``xput``), rekursiv."""
+    aus: list[tuple[str, Any]] = []
+    for k, v in d.items():
+        name = f"{pfad}{k}"
+        if isinstance(v, dict) and tiefe < 2:
+            aus += durchsatzfelder(v, name + ".", tiefe + 1)
+        elif isinstance(v, list) and tiefe < 2 and k in ("port_table", "uplink_table", "wan_table"):
+            for n, e in enumerate(v):
+                if isinstance(e, dict):
+                    aus += durchsatzfelder(e, f"{name}[{n}].", tiefe + 1)
+        elif isinstance(v, (int, float)) and not isinstance(v, bool):
+            kl = k.lower()
+            if "bytes" in kl or kl.endswith("-r") or "rate" in kl or "xput" in kl:
+                aus.append((name, v))
+    return aus
+
+
 def auswerten(
     health: list[dict[str, Any]], geraete: list[dict[str, Any]], gateway: dict[str, Any] | None = None
 ) -> dict[str, Any]:
@@ -207,6 +225,9 @@ class Unifi:
         self._geraete: list[dict[str, Any]] | None = None
         self._geraete_zeit = 0.0
         self._rate = Zaehlerrate()
+        self._roh_gw: dict[str, Any] | None = None
+        self._roh_health: list[dict[str, Any]] = []
+        self._zaehler_rate: tuple[float, float] | None = None
         self._zeit = 0.0
         self._sperre = asyncio.Lock()
 
@@ -269,9 +290,11 @@ class Unifi:
                     geraete = self._geraete
                     health, gateway = await asyncio.gather(self._api("GET", "stat/health"), self._gateway(geraete))
                 stand = {"quelle": "unifi", "fehler": None, "zeit": int(time.time()), **auswerten(health, geraete, gateway)}
-                gw = gateway or next((d for d in geraete if ist_gateway(d)), None)
-                if (rate := self._rate.neu(zaehler(gw))) is not None:
-                    stand["internet"].update(rx_bps=rate[0], tx_bps=rate[1], durchsatz_quelle="zaehler")
+                # Für die Diagnose: Rohdaten und die aus den Zählern berechnete Rate (noch nicht angezeigt, bis am
+                # echten Gateway geklärt ist, welches Feld dem Wert der UniFi-Oberfläche entspricht)
+                self._roh_gw = gateway or next((d for d in geraete if ist_gateway(d)), None)
+                self._roh_health = health
+                self._zaehler_rate = self._rate.neu(zaehler(self._roh_gw))
             except (aiohttp.ClientError, TimeoutError, UnifiFehler, ValueError) as err:
                 _LOGGER.warning("UniFi: %s", err)
                 stand = {
@@ -293,6 +316,24 @@ class Unifi:
             _LOGGER.debug("UniFi: Gateway nicht einzeln abrufbar: %s", err)
             return gw
         return next((d for d in frisch if ist_gateway(d)), gw)
+
+    async def diagnose(self) -> dict[str, Any]:
+        """Alle Durchsatz- und Zählerfelder von Gateway und Gesundheitsbericht, frisch abgefragt (nur Administratoren)."""
+        await self.stand(neu=False)
+        gw = self._roh_gw or {}
+        felder = [{"pfad": f"gateway.{p}", "wert": w} for p, w in durchsatzfelder(gw)]
+        for h in self._roh_health:
+            if isinstance(h, dict) and h.get("subsystem") in ("wan", "www", "lan", "wlan"):
+                felder += [{"pfad": f"health.{h['subsystem']}.{p}", "wert": w} for p, w in durchsatzfelder(h)]
+        z = self._zaehler_rate
+        return {
+            "zeit": int(time.time()),
+            "gateway": gw.get("name") or gw.get("model"),
+            "last_seen": gw.get("last_seen"),
+            "abschnitte": sorted(k for k, v in gw.items() if isinstance(v, dict)),
+            "zaehler_rate": {"rx": z[0], "tx": z[1]} if z else None,
+            "felder": felder,
+        }
 
     async def speedtest(self) -> None:
         """Speedtest am Gateway starten; das Ergebnis erscheint nach etwa einer Minute im Gesundheitsbericht."""

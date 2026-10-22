@@ -393,6 +393,40 @@
       },
     },
   ];
+  // Diagnose: alle Durchsatz- und Zählerfelder des Gateways neben der eigenen Anzeige, damit sich mit der
+  // UniFi-Oberfläche vergleichen lässt, welches Feld deren Wert trägt (nur Administratoren, api/netz/diagnose)
+  const alsRate = (b) => `${mbit((b * 8) / 1e6)} Mbit/s`;
+  const alsMenge = (b) => (b >= 1e9 ? `${PS.zahl(b / 1e9, 2)} GB` : b >= 1e6 ? `${PS.zahl(b / 1e6, 1)} MB` : `${PS.zahl(b, 0)} B`);
+  function diagnoseBlock(g) {
+    const b = box("Durchsatz-Diagnose", "Rohdaten vom Gateway"), w = E('<div class="as-block" style="--breite:3"></div>');
+    w.appendChild(b); g.appendChild(w);
+    b.appendChild(E('<p class="leise">Zum Abgleich mit der UniFi-Oberfläche: Welche Zeile zeigt dort denselben Download und Upload? Die Tabelle erneuert sich alle drei Sekunden.</p>'));
+    const inhalt = E('<div class="nz-diagnose"></div>'); b.appendChild(inhalt);
+    let laeuft = false;
+    const laden = async () => {
+      if (laeuft || !w.isConnected) return;
+      laeuft = true;
+      try {
+        const r = await fetch("api/netz/diagnose", { cache: "no-store" });
+        if (!r.ok) throw new Error(await r.text());
+        const d = await r.json(), i = (unifi() && unifi().internet) || {};
+        const zeile = (feld, wert, deutung, klasse = "") => `<tr class="${klasse}"><td><code>${PS.esc(feld)}</code></td><td class="tabular">${PS.esc(String(wert))}</td><td class="tabular">${PS.esc(deutung)}</td></tr>`;
+        const reihen = [
+          zeile("Anzeige der App", `↓ ${rate(i.rx_bps)} · ↑ ${rate(i.tx_bps)} Mbit/s`, `Quelle: ${i.durchsatz_quelle || "–"}`, "nz-diag-app"),
+          zeile("aus Zählern (20 s)", d.zaehler_rate ? `↓ ${alsRate(d.zaehler_rate.rx)} · ↑ ${alsRate(d.zaehler_rate.tx)}` : "noch keine Messung", "berechnet", "nz-diag-app"),
+          ...d.felder
+            .sort((a, b) => /wan|uplink/i.test(b.pfad) - /wan|uplink/i.test(a.pfad) || a.pfad.localeCompare(b.pfad))
+            .map((f) => zeile(f.pfad, PS.zahl(f.wert, 0), /-r$|rate|xput/i.test(f.pfad) ? (/xput/i.test(f.pfad) ? `${mbit(f.wert)} Mbit/s` : alsRate(f.wert)) : alsMenge(f.wert))),
+        ];
+        inhalt.innerHTML = `<div class="as-tabelle"><table><thead><tr><th>Feld</th><th>Wert</th><th>Gedeutet</th></tr></thead><tbody>${reihen.join("")}</tbody></table></div>
+          <p class="leise">Gateway ${PS.esc(d.gateway || "–")} · Bericht ${d.last_seen ? PS.esc(PS.zeitRelativ(new Date(d.last_seen * 1000).toISOString())) : "–"} · Abschnitte: ${PS.esc(d.abschnitte.join(", ") || "–")}</p>`;
+      } catch (e) { inhalt.innerHTML = `<div class="leer">${PS.esc(e.message || String(e))}</div>`; }
+      laeuft = false;
+    };
+    laden();
+    return { laden, w };
+  }
+
   PS.module.netzwerk = {
     titel: "Netzwerk", icon: "lan",
     async render(el) {
@@ -415,9 +449,18 @@
         });
         liveSetzen(g);
       };
-      seiteNachfuehren = nachfuehren;
+      let diagnose = null;
+      seiteNachfuehren = () => { nachfuehren(); if (diagnose) diagnose.laden(); };
+      // Knopf für die Diagnose am Ende der Seite
+      const dk = E('<div class="as-block" style="--breite:3"></div>');
+      const kn = knopf("Durchsatz-Diagnose anzeigen", "stethoscope", () => {
+        if (diagnose) { diagnose.w.remove(); diagnose = null; kn.querySelector("span").textContent = "Durchsatz-Diagnose anzeigen"; return; }
+        diagnose = diagnoseBlock(g); kn.querySelector("span").textContent = "Durchsatz-Diagnose ausblenden";
+      });
+      dk.appendChild(kn);
       await laden(true); merken();
       nachfuehren();
+      g.appendChild(dk);
     },
   };
   // In die Modulleiste vor „Automationen“
