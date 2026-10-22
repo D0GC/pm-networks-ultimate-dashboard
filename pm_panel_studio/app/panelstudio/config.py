@@ -295,7 +295,7 @@ def layouts_pruefen(val: dict[Any, Any]) -> dict[str, list[str]]:
     """Wie die Reihenfolgen, je Eintrag aber „Breite:Höhe:Kennung“ (Breite 1–12, Höhe 0–200 Zeilen, 0 = nach Inhalt)."""
     aus: dict[str, list[str]] = {}
     for k, eintraege in reihenfolgen_pruefen(val).items():
-        if not k.startswith(("seite:", "liste:", "pos:", "plus:", "minus:")):
+        if not k.startswith(("seite:", "liste:", "pos:", "plus:", "minus:", "max:", "flur:")):
             continue
         gut = []
         for e in eintraege:
@@ -329,7 +329,8 @@ class Einstellungen:
     reihenfolgen: dict[str, list[str]] = field(default_factory=dict)
     # Freies Raster je Seite („seite:Modul/Titel“), Kachelbreiten („liste:…“, „Breite:0:Kennung“) und freie Plätze in
     # Kachelrastern („pos:…“, „Spalte:Zeile:Kennung“), hinzugefügte und entfernte Geräte („plus:…“, „minus:…“,
-    # „0:0:Entität“); Einträge sonst „Breite:Höhe:Kennung“
+    # „0:0:Entität“), Obergrenzen („max:…“, „0:Anzahl:max“), Startseite im Flur („flur:teile“ „Spalte:0:Teil“,
+    # „flur:spalten“ „0:Prozent:links|rechts“); Einträge sonst „Breite:Höhe:Kennung“
     layouts: dict[str, list[str]] = field(default_factory=dict)
     # Inhalt der Raumkarten: Teile in Reihenfolge (fehlende sind aus); leer = alle in Vorgabefolge
     raumkarte: list[str] = field(default_factory=lambda: list(RAUMKARTE_TEILE))

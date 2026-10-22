@@ -104,8 +104,8 @@
     // Häufigste Szenen im ganzen Haus
     const stat = (PS.szenen || {}).stat || {}, h = new Date().getHours();
     const punkte = (e) => { const s = stat[e]; if (!s) return 0; let p = s.n; for (let d = -2; d <= 2; d++) p += (s.h[(h + d + 24) % 24] || 0) * (d === 0 ? 3 : 2); return p; };
-    const szenen = alle().filter((e) => dom("scene")(e) && PS.sichtbar(e) && PS.s(e) !== "unavailable").sort((x, y) => punkte(y) - punkte(x)).slice(0, 6);
-    if (szenen.length) { const b2 = box("Szenen", "am häufigsten"); b2.appendChild(raster(szenen)); l.appendChild(b2); }
+    const szenen = PS.ordnung.auswahl("Szenen", alle().filter((e) => dom("scene")(e) && PS.sichtbar(e) && PS.s(e) !== "unavailable").sort((x, y) => punkte(y) - punkte(x)), 6);
+    if (szenen.ids.length) { const b2 = box("Szenen", "am häufigsten"); b2.appendChild(PS.ordnung.begrenzt(raster(szenen.ids), szenen)); l.appendChild(b2); }
     // Mitte: je Raum eine Kachel (Raumgruppe, sonst die einzige Lampe bzw. Untergruppe)
     const b3 = box("Räume", "Raumgruppen");
     const r3 = E('<div class="raster r-lichter"></div>');
@@ -119,8 +119,8 @@
     });
     b3.appendChild(r3);
     m.appendChild(b3);
-    const auto = alle().filter((e) => dom("automation")(e) && PS.sichtbar(e) && /licht|lamp|light/i.test(e + " " + PS.name(e))).sort(nameSort).slice(0, 6);
-    if (auto.length) { const b4 = box("Automatik"); b4.appendChild(raster(auto)); r.appendChild(b4); }
+    const auto = PS.ordnung.auswahl("Automatik", alle().filter((e) => dom("automation")(e) && PS.sichtbar(e) && /licht|lamp|light/i.test(e + " " + PS.name(e))).sort(nameSort), 6);
+    if (auto.ids.length) { const b4 = box("Automatik"); b4.appendChild(PS.ordnung.begrenzt(raster(auto.ids), auto)); r.appendChild(b4); }
     r.appendChild(alleKnopf("Alle Lampen", "licht"));
   }
 
@@ -543,7 +543,7 @@
     l.appendChild(b1);
     const upd = alle().filter((e) => e.startsWith("update.") && PS.s(e) === "on" && PS.sichtbar(e));
     const b2 = box("Updates", upd.length ? String(upd.length) : "alles aktuell");
-    if (upd.length) b2.appendChild(raster(upd.slice(0, 6)));
+    if (upd.length) { const a = PS.ordnung.auswahl("Updates", upd, 6); b2.appendChild(PS.ordnung.begrenzt(raster(a.ids), a)); }
     m.appendChild(b2);
     const batt = alle().filter((e) => e.startsWith("sensor.") && PS.a(e).device_class === "battery" && isFinite(num(e))).sort((x, y) => num(x) - num(y));
     const b3 = box("Batterien", "schwächste zuerst");

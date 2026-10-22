@@ -175,7 +175,8 @@
   PS.zeitRelativ = (iso) => {
     const t = new Date(iso).getTime(); if (!t) return "";
     const s = Math.round((Date.now() - t) / 1000), z = Math.abs(s), vor = s >= 0;
-    const f = z < 60 ? "gerade eben" : z < 3600 ? `${Math.round(z / 60)} min` : z < 86400 ? `${Math.round(z / 3600)} h` : `${Math.round(z / 86400)} Tagen`;
+    const tage = Math.round(z / 86400);  // „vor einem Tag“, „vor 3 Tagen“, „in einem Tag“
+    const f = z < 60 ? "gerade eben" : z < 3600 ? `${Math.round(z / 60)} min` : z < 86400 ? `${Math.round(z / 3600)} h` : tage === 1 ? "einem Tag" : `${tage} Tagen`;
     return z < 60 ? f : vor ? `vor ${f}` : `in ${f}`;
   };
   PS.uhrzeit = (d) => d.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });

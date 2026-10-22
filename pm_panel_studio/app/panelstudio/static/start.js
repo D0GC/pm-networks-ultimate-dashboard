@@ -844,6 +844,20 @@
     soll.forEach((el) => { if (!el._freiBeob) { el._freiBeob = true; freiBeobachter.observe(el); } });
     freiSpannen(g);
   }
+  // Boxen mit Obergrenze (z. B. „Geräte“ der Raumansicht, sechs Kacheln): vor dem Kürzen nach der eigenen
+  // Reihenfolge sortieren und Entferntes herausnehmen, damit die Auswahl stimmt; die Grenze selbst ist einstellbar
+  // („max:Liste“ → "0:Anzahl:max"). Liefert die Auswahl; das Raster bekommt Grenze und Gesamtzahl als Daten.
+  PS.ordnung.auswahl = (boxTitel, ids, grenze, index = 0) => {
+    const k = `${seitenSchluessel()}|${boxTitel}|raster${index}`, L = PS.einst.layouts || {};
+    const folge = (PS.einst.reihenfolgen || {})[k] || [];
+    const minus = new Set((L["minus:" + k] || []).map(eintragLesen).filter(Boolean).map((x) => x.id));
+    const rang = (e) => { const i = folge.indexOf(e); return i < 0 ? 1e6 : i; };
+    const sortiert = ids.filter((e) => !minus.has(e)).map((e, i) => [e, i]).sort((x, y) => rang(x[0]) - rang(y[0]) || x[1] - y[1]).map((x) => x[0]);
+    const m = (L["max:" + k] || []).map(eintragLesen).filter(Boolean)[0];
+    const n = m ? m.h : grenze;
+    return { ids: sortiert.slice(0, n), alle: sortiert.length, grenze: n };
+  };
+  PS.ordnung.begrenzt = (raster, a) => { if (raster) { raster.dataset.grenze = a.grenze; raster.dataset.alle = a.alle; } return raster; };
   PS.layout = {
     teileVon, teilIds, freiSpannen, eintragLesen,
     // Kachel im Raster: Breite in Spalten und optional fester Platz {w: Spalte, h: Zeile}
@@ -1034,6 +1048,35 @@
     uhr(); wetter(); personen(); statusZeile(); schnellzugriff(); raeumeKurz(); dock(); gruss();
   }
   PS.on("init", () => { alles(); vorhersageLaden(); stuendlichLaden(); termineLaden(); feedAufbauen(); if (stapel.length) PS.neuZeichnen(); });
+
+  // ------------------------------------------------------------ Startseite im Flur frei anordnen (am PC eingestellt)
+  // „flur:spalten“ → ["0:31:links", "0:27:rechts"] (Breite in Prozent; die Mitte nimmt den Rest),
+  // „flur:teile“ → ["Spalte:0:Kennung", …] in Folge (Spalte 1 links, 2 Mitte, 3 rechts, 9 ausgeblendet).
+  // Nur auf dem Panel, nicht in der Admin-Ansicht (dort hängen Uhr, Wetter und Personen in der Kopfzeile).
+  PS.FLUR_TEILE = { uhr: "Uhr", datum: "Datum", wetter: "Wetter", vorschau: "Vorschau", personen: "Personen", status: "Status",
+    gruss: "Begrüßung", karussell: "Karten", punkte: "Kartenpunkte", "glocke-zeile": "Glocke", kacheln: "Schnellzugriff", "raeume-kurz": "Räume" };
+  const FLUR_SPALTEN = () => [$(".start > .spalte.links"), $(".start > .mitte"), $(".start > .spalte.rechts")];
+  PS.flurAnordnen = () => {
+    if (document.body.classList.contains("admin")) return;
+    const L = PS.einst.layouts || {}, start = $(".start"), spalten = FLUR_SPALTEN();
+    if (!start || spalten.some((x) => !x)) return;
+    const breite = Object.fromEntries((L["flur:spalten"] || []).map(eintragLesen).filter(Boolean).map((x) => [x.id, x.h]));
+    start.style.gridTemplateColumns = breite.links || breite.rechts ? `${breite.links || 31}% 1fr ${breite.rechts || 27}%` : "";
+    const teile = (L["flur:teile"] || []).map(eintragLesen).filter((x) => x && PS.FLUR_TEILE[x.id]);
+    Object.keys(PS.FLUR_TEILE).forEach((id) => { const el = document.getElementById(id); if (el) el.classList.remove("flur-aus"); });
+    teile.forEach((x) => {
+      const el = document.getElementById(x.id); if (!el) return;
+      if (x.w === 9) { el.classList.add("flur-aus"); return; }
+      const ziel = spalten[Math.max(0, Math.min(2, x.w - 1))];
+      ziel.appendChild(el);
+    });
+  };
+  PS.on("init", PS.flurAnordnen);
+  PS.on("einstellungen", PS.flurAnordnen);
+  // Eingebettet in die Admin-Ansicht mit ?anordnen=1: Bearbeiten der Flur-Startseite
+  if (/[?&]anordnen=1/.test(location.search) && window.top !== window) {
+    const sk = document.createElement("script"); sk.src = "static/flur-anordnen.js?v=" + Date.now(); document.head.appendChild(sk);
+  }
   let letzterModus = null, aufgewachtUm = 0;
   PS.on("modus", () => {
     if (letzterModus === "ruhe" && PS.modus === "wach") aufgewachtUm = Date.now();

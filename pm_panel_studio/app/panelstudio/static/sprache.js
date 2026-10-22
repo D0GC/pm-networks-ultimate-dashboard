@@ -26,7 +26,8 @@
   const sicher = () => window.isSecureContext && navigator.mediaDevices && navigator.mediaDevices.getUserMedia;
   const AKTIV = ["klingelt", "waehlt", "verbunden"];
   const telefoniert = () => !!(PS.telefon && PS.telefon.anruf && AKTIV.includes(PS.telefon.anruf.zustand));
-  const weckGewuenscht = () => !!(PS.einst && PS.einst.assist_aktiv !== false && PS.einst.weckwort_aktiv !== false && sicher());
+  // Nie im eingebetteten Panel der Admin-Ansicht (Flur-Startseite anordnen): dort kein Mikrofon
+  const weckGewuenscht = () => !!(PS.einst && PS.einst.assist_aktiv !== false && PS.einst.weckwort_aktiv !== false && sicher()) && !/[?&]anordnen=1/.test(location.search);
 
   function overlay(phase, oben, unten) {
     const b = box(); if (!b) return;

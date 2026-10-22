@@ -82,7 +82,8 @@
   // ------------------------------------------------------------ Live: Verlauf, Zahlenwalzen, Netzfluss
   // Solange Seite oder Startblock sichtbar sind, alle 3 s nachfragen (das Backend fragt das Gateway höchstens alle
   // 2,5 s). Die Live-Werte rollen an Ort und Stelle; neu gezeichnet wird nur, was sich sonst geändert hat.
-  const TAKT_MS = 3000;
+  // Abfragetakt: jede Sekunde, solange das Gateway seinen Stand selbst meldet (Ereignisverbindung), sonst alle 3 s
+  const takt = () => (NETZ.stand && NETZ.stand.live ? 1000 : 3000);
   const VERLAUF_S = 600;
   NETZ.verlauf = [];
   NETZ.speedtestBis = 0;
@@ -220,7 +221,7 @@
     const schritt = gross ? 7 : 5, breite = schritt - 2, oben = gross ? 16 : 2;
     const anzahl = Math.min(v.length, Math.ceil(w / schritt) + 1), sicht = v.slice(-anzahl);
     const letzte = v[v.length - 1];
-    const versatz = still ? schritt : Math.min(1, (jetzt - letzte.ct) / TAKT_MS) * schritt;
+    const versatz = still ? schritt : Math.min(1, (jetzt - letzte.ct) / takt()) * schritt;
     const ziel = Math.max(1, ...sicht.map((p) => Math.max(mbitVon(p.rx), mbitVon(p.tx)))) * 1.15;
     cv._max = cv._max ? cv._max + (ziel - cv._max) * 0.06 : ziel;
     const X = (k) => w + schritt - versatz - (sicht.length - k) * schritt;  // linke Kante des Balkens k
@@ -288,20 +289,20 @@
     aktualisieren: (b) => { if (b) liveSetzen(b); },
   };
 
-  // Takt: alle 3 s, solange Seite oder Startblock zu sehen sind; ohne Gateway-Daten genügen 15 s
-  let schlag = 0;
+  // Takt: jede Sekunde bzw. alle 3 s (siehe takt), solange Seite oder Startblock zu sehen sind; ohne Gateway-Daten 15 s
+  let zuletzt = 0;
   const seiteOffen = () => document.querySelector(".nz-seite");
   const blockSichtbar = () => !document.body.classList.contains("offen") && document.querySelector('.as-block[data-id="netzwerk"]');
   let seiteNachfuehren = null;
   setInterval(async () => {
-    schlag++;
     if (document.hidden || !(seiteOffen() || blockSichtbar())) return;
-    const live = NETZ.stand && NETZ.stand.quelle === "unifi";
-    if (!live && schlag % 5) return;
+    const unifiDa = NETZ.stand && NETZ.stand.quelle === "unifi";
+    if (Date.now() - zuletzt < (unifiDa ? takt() : 15000) - 150) return;
+    zuletzt = Date.now();
     await laden(); merken();
     if (seiteOffen() && seiteNachfuehren) seiteNachfuehren();
     if (blockSichtbar()) { liveSetzen(document.querySelector('.as-block[data-id="netzwerk"]')); PS.admin.vormerken("netzwerk"); }
-  }, TAKT_MS);
+  }, 1000);
   PS.on("init", () => { laden().then(() => { merken(); PS.admin.vormerken("netzwerk"); }); });
 
   // ------------------------------------------------------------ Seite „Netzwerk“
@@ -415,10 +416,13 @@
         if (!r.ok) throw new Error(await r.text());
         const d = await r.json(), i = (unifi() && unifi().internet) || {};
         const zeile = (feld, wert, deutung, klasse = "") => `<tr class="${klasse}"><td><code>${PS.esc(feld)}</code></td><td class="tabular">${PS.esc(String(wert))}</td><td class="tabular">${PS.esc(deutung)}</td></tr>`;
+        const lv = d.live || {};
         const reihen = [
+          zeile("Live-Verbindung", lv.verbunden ? "verbunden" : "nicht verbunden", lv.fehler ? lv.fehler : lv.letzte_s != null ? `Gateway zuletzt vor ${PS.zahl(lv.letzte_s, 1)} s` : "noch keine Gateway-Meldung", "nz-diag-app"),
+          zeile("Meldungen", Object.entries(lv.nachrichten || {}).map(([k, n]) => `${k} ${n}`).join(" · ") || "–", "seit dem Verbinden", "nz-diag-app"),
           zeile("Anzeige der App", `↓ ${rate(i.rx_bps)} · ↑ ${rate(i.tx_bps)} Mbit/s`, `Quelle: ${i.durchsatz_quelle || "–"}`, "nz-diag-app"),
           zeile("aus Zählern (20 s)", d.zaehler_rate ? `↓ ${alsRate(d.zaehler_rate.rx)} · ↑ ${alsRate(d.zaehler_rate.tx)}` : "noch keine Messung", "berechnet", "nz-diag-app"),
-          ...d.felder
+          ...[...(lv.felder || []), ...d.felder]
             .sort((a, b) => /wan|uplink/i.test(b.pfad) - /wan|uplink/i.test(a.pfad) || a.pfad.localeCompare(b.pfad))
             .map((f) => zeile(f.pfad, PS.zahl(f.wert, 0), /-r$|rate|xput/i.test(f.pfad) ? (/xput/i.test(f.pfad) ? `${mbit(f.wert)} Mbit/s` : alsRate(f.wert)) : alsMenge(f.wert))),
         ];

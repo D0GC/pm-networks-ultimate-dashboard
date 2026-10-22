@@ -1,5 +1,22 @@
 # Änderungen
 
+## 2026.10.65 – 2026-10-22
+
+- Startseite im Flur frei anordnen: neue Seite „Flur-Startseite“ in der Admin-Ansicht zeigt das Flur-Panel in seiner
+  Größe. Teile (Uhr, Datum, Wetter, Vorschau, Personen, Status, Begrüßung, Karten, Glocke, Schnellzugriff, Räume)
+  lassen sich zwischen und in den Spalten ziehen und ausblenden, die Spaltenbreiten an den Trennlinien ziehen. Gilt
+  sofort im Flur; „Standard“ stellt die Vorgabe wieder her. Im eingebetteten Panel startet kein Weckwort und kein
+  Mikrofon.
+- Anordnen: „Rückgängig“ (bis 40 Schritte), „Sichern“ (Datei mit allen Anordnungen) und „Laden“ (wiederherstellen).
+- Boxen mit Obergrenze (Geräte und Zustand der Raumansicht, Szenen, Automatik, Updates): Anzahl im Anordnen-Modus
+  einstellbar; die eigene Reihenfolge und entfernte Geräte zählen schon vor dem Kürzen.
+- Netzwerk: Ereignisverbindung zum UniFi-Controller. Meldet das Gateway seinen Stand selbst, kommt der Durchsatz
+  von dort und die Seite aktualisiert sich jede Sekunde; sonst wie bisher alle drei Sekunden. Die Diagnose zeigt
+  Verbindung, Meldungen und Felder der Live-Daten.
+- Telefon: Die Tonbrücke konnte beim Auflegen hängen bleiben, wenn ein Abbruch genau beim Senden eintraf (asyncio
+  unter Python 3.11); der Takt endet jetzt zusätzlich über eine Marke. Die zugehörigen Tests laufen damit stabil.
+- Zeitangaben: „vor einem Tag“ statt „vor 1 Tagen“.
+
 ## 2026.10.64 – 2026-10-22
 
 - Freie Plätze in Kachelrastern: Im Anordnen-Modus landet eine gezogene Kachel genau in der Zelle unter dem Zeiger,

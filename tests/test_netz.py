@@ -1,3 +1,6 @@
+import asyncio
+import json
+
 import aiohttp
 from aiohttp import web
 
@@ -203,3 +206,41 @@ def test_durchsatzfelder_fuer_die_diagnose():
         "wan1.stats.rx_rate": 3,
         "port_table[0].tx_bytes-r": 4,
     }
+
+
+async def test_ereignisverbindung_liefert_live_durchsatz(aiohttp_server):
+    gesendet = asyncio.Event()
+
+    async def health(_r):
+        return web.json_response({"data": HEALTH})
+
+    async def liste(_r):
+        return web.json_response({"data": GERAETE})
+
+    async def ereignisse(request):
+        assert request.headers.get("X-API-Key") == "x"
+        ws = web.WebSocketResponse()
+        await ws.prepare(request)
+        await ws.send_str(json.dumps({"meta": {"message": "events"}, "data": []}))
+        sync = {"type": "udm", "name": "GW", "wan1": {"up": True, "rx_bytes-r": 2_775_000, "tx_bytes-r": 17_000}}
+        await ws.send_str(json.dumps({"meta": {"message": "device:sync"}, "data": [sync]}))
+        gesendet.set()
+        await asyncio.sleep(2)
+        return ws
+
+    app = web.Application()
+    app.router.add_get("/proxy/network/api/s/default/stat/health", health)
+    app.router.add_get("/proxy/network/api/s/default/stat/device", liste)
+    app.router.add_get("/proxy/network/wss/s/default/events", ereignisse)
+    server = await aiohttp_server(app)
+    async with aiohttp.ClientSession() as s:
+        u = netz.Unifi(s, str(server.make_url("")), schluessel="x")
+        await u.stand()  # startet die Ereignisverbindung
+        await asyncio.wait_for(gesendet.wait(), 3)
+        await asyncio.sleep(0.1)
+        st = await u.stand()
+        assert st["live"] is True and st["internet"]["rx_bps"] == 2_775_000
+        assert st["internet"]["durchsatz_quelle"] == "live-wan"
+        d = await u.diagnose()
+        assert d["live"]["verbunden"] and d["live"]["nachrichten"] == {"events": 1, "device:sync": 1}
+        await u.schliessen()
