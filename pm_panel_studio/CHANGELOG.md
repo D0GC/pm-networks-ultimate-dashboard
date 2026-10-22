@@ -1,5 +1,15 @@
 # Änderungen
 
+## 2026.10.55 – 2026-10-22
+
+- Netzwerk live: Seite und Startblock fragen alle drei Sekunden beim Gateway nach, solange sie zu sehen sind. Ping,
+  Download und Upload rollen als Zahlenwalze an Ort und Stelle; der Block wird nicht mehr neu aufgebaut.
+- Netzfluss wie im Energiefluss: Lichtpunkte zwischen Internet und Zuhause, unten Download, oben Upload; Dichte und
+  Tempo folgen dem Durchsatz. Ohne Verbindung und bei reduzierter Bewegung ruhen sie.
+- Netzwerkseite: Verlauf des Durchsatzes der letzten zehn Minuten. Übrige Bereiche (Clients, Zustand, Geräte) werden
+  nur neu gefüllt, wenn sich dort etwas ändert.
+- Backend: Gesundheitsbericht höchstens alle 2,5 s, Geräteliste alle 20 s vom Gateway.
+
 ## 2026.10.54 – 2026-10-22
 
 - Netzwerk (Seite und Startblock): Die großen Felder zeigen die Live-Werte (Ping, Download und Upload jetzt); das

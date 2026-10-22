@@ -6,7 +6,8 @@ die Geräte in ``stat/device``. Anmeldung mit API-Schlüssel (``X-API-Key``) ode
 (``/api/auth/login``, Cookie und CSRF-Kopfzeile). Das Gateway hat ein selbst signiertes Zertifikat; geprüft wird
 deshalb nur bei dieser einen, fest eingestellten Adresse nicht.
 
-Abgefragt wird nur auf Anfrage der Admin-Ansicht, höchstens alle 10 Sekunden (Zwischenspeicher).
+Abgefragt wird nur auf Anfrage der Admin-Ansicht: der Gesundheitsbericht höchstens alle 2,5 Sekunden, die Geräteliste
+alle 20 Sekunden (Zwischenspeicher).
 """
 
 from __future__ import annotations
@@ -20,7 +21,8 @@ import aiohttp
 
 _LOGGER = logging.getLogger(__name__)
 
-FRISCH_S = 10
+FRISCH_S = 2.5  # Gesundheitsbericht (Live-Durchsatz, Latenz)
+GERAETE_S = 20  # Geräteliste ändert sich selten
 TYPEN = {"ugw": "gateway", "udm": "gateway", "uxg": "gateway", "usw": "switch", "uap": "ap"}
 
 
@@ -111,6 +113,8 @@ class Unifi:
         self._csrf: str | None = None
         self._angemeldet = False
         self._stand: dict[str, Any] | None = None
+        self._geraete: list[dict[str, Any]] | None = None
+        self._geraete_zeit = 0.0
         self._zeit = 0.0
         self._sperre = asyncio.Lock()
 
@@ -165,7 +169,11 @@ class Unifi:
             if self._stand and not neu and time.monotonic() - self._zeit < FRISCH_S:
                 return self._stand
             try:
-                health, geraete = await asyncio.gather(self._api("GET", "stat/health"), self._api("GET", "stat/device"))
+                if neu or self._geraete is None or time.monotonic() - self._geraete_zeit >= GERAETE_S:
+                    health, geraete = await asyncio.gather(self._api("GET", "stat/health"), self._api("GET", "stat/device"))
+                    self._geraete, self._geraete_zeit = geraete, time.monotonic()
+                else:
+                    health, geraete = await self._api("GET", "stat/health"), self._geraete
                 stand = {"quelle": "unifi", "fehler": None, "zeit": int(time.time()), **auswerten(health, geraete)}
             except (aiohttp.ClientError, TimeoutError, UnifiFehler, ValueError) as err:
                 _LOGGER.warning("UniFi: %s", err)
