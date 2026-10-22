@@ -167,7 +167,7 @@ def test_neuer_admin_block_wird_einmalig_angehaengt():
     from panelstudio.config import Einstellungen
 
     e = Einstellungen.from_dict({"admin_start": ["klima:4:5"]})
-    assert e.admin_start == ["klima:4:5", "netzwerk:4:6"] and "netzwerk" in e.admin_bekannt
+    assert e.admin_start == ["klima:4:5", "netzwerk:4:6", "proxmox:4:7", "pi:4:7"] and "netzwerk" in e.admin_bekannt
     # Wer den Block danach entfernt, bekommt ihn nicht wieder
     e2 = Einstellungen.from_dict({"admin_start": ["klima:4:5"], "admin_bekannt": e.admin_bekannt})
     assert e2.admin_start == ["klima:4:5"]

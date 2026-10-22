@@ -247,9 +247,11 @@ ADMIN_BLOECKE: dict[str, tuple[int, int]] = {
     "angebote": (4, 6),
     "sicherheit": (4, 6),
     "netzwerk": (4, 6),
+    "proxmox": (4, 7),
+    "pi": (4, 7),
 }
 # Blöcke, die nach 2026.10.52 hinzukamen: in gespeicherten Startseiten einmalig ergänzen
-ADMIN_NACHTRAG = {"netzwerk": "netzwerk:4:6"}
+ADMIN_NACHTRAG = {"netzwerk": "netzwerk:4:6", "proxmox": "proxmox:4:7", "pi": "pi:4:7"}
 ADMIN_START = [
     f"{b}:{ADMIN_BLOECKE[b][0]}:{ADMIN_BLOECKE[b][1]}"
     for b in (
@@ -259,6 +261,8 @@ ADMIN_START = [
         "tueren",
         "raeume",
         "netzwerk",
+        "proxmox",
+        "pi",
         "schnellzugriff",
         "energie",
         "pakete",

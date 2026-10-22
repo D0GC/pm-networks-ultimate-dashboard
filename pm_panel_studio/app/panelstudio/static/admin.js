@@ -494,9 +494,9 @@
   };
   // Größe je Block: Breite in 12 Spalten, Höhe in Rasterzeilen (wie ADMIN_BLOECKE in config.py)
   const GROESSE = { aufmerksamkeit: [12, 2], hinweise: [4, 8], tueren: [4, 8], klima: [4, 5], raeume: [6, 7], schnellzugriff: [3, 7], energie: [3, 7],
-    pakete: [4, 5], medien: [4, 5], termine: [4, 6], einkauf: [4, 6], angebote: [4, 6], sicherheit: [4, 6], netzwerk: [4, 6] };
+    pakete: [4, 5], medien: [4, 5], termine: [4, 6], einkauf: [4, 6], angebote: [4, 6], sicherheit: [4, 6], netzwerk: [4, 6], proxmox: [4, 7], pi: [4, 7] };
   PS.admin.bloecke = B; PS.admin.groesse = GROESSE;  // weitere Blöcke aus eigenen Dateien (z. B. Netzwerk)
-  const STANDARD = ["aufmerksamkeit", "hinweise", "klima", "tueren", "raeume", "netzwerk", "schnellzugriff", "energie", "pakete", "medien"].map((id) => `${id}:${GROESSE[id].join(":")}`);
+  const STANDARD = ["aufmerksamkeit", "hinweise", "klima", "tueren", "raeume", "netzwerk", "proxmox", "pi", "schnellzugriff", "energie", "pakete", "medien"].map((id) => `${id}:${GROESSE[id].join(":")}`);
 
   // Lage für „Aufmerksamkeit“ und die Zeile unter dem Gruß
   function lage() {

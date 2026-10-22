@@ -481,3 +481,40 @@ body.anordnen .ord-liste.raster > *{position:relative}
 .fv-rahmen{position:relative;width:100%;max-width:1280px;overflow:hidden;border-radius:1.2rem;border:1px solid var(--linie-stark);box-shadow:0 1.2rem 3rem -1rem rgba(0,0,0,.7)}
 .fv-rahmen iframe{position:absolute;left:0;top:0;width:1280px;height:800px;border:0;transform-origin:0 0}
 body.admin.offen:has(.flur-vorschau) .ord-knopf{display:none}
+/* Server (Proxmox, HA-Host): Ringe, laufende Kurven, Puls bei neuer Messung, Gäste */
+.sv-ringe{display:flex;gap:.8rem;justify-content:space-around;flex-wrap:wrap}
+.sv-ringe .ring.r-ring{width:6.6rem}
+.sv-ringe.sv-gross .ring.r-ring{width:8.6rem}
+.sv-ring .innen b{font-size:1.5rem!important;display:inline-flex;align-items:baseline;gap:.1rem}
+.sv-ringe.sv-gross .sv-ring .innen b{font-size:1.9rem!important}
+.sv-ring .innen b i{font-style:normal;font-size:.8rem;color:var(--leise)}
+.sv-ring .innen small{font-size:.72rem}
+.sv-ring .wert{transition:stroke-dashoffset 1.6s var(--e-auftakt,ease)}
+.sv-kurve{display:block;width:100%;height:3.6rem}
+.sv-kurve.sv-gross{height:9rem}
+.sv-legende{display:flex;gap:1rem;flex-wrap:wrap;margin-top:.35rem;font-size:.82rem;color:var(--leise)}
+.sv-legende > span{display:inline-flex;align-items:center;gap:.35rem}
+.sv-legende i{width:.8rem;height:.25rem;border-radius:2px}
+.sv-puls{display:inline-flex;align-items:center;gap:.4rem}
+.sv-puls i{position:relative;width:.5rem;height:.5rem;border-radius:50%;background:var(--gut)}
+.sv-puls i::after{content:"";position:absolute;inset:0;border-radius:50%;border:2px solid var(--gut);opacity:0}
+.sv-puls.schlag i::after{animation:sv-welle 1.2s ease-out}
+@keyframes sv-welle{0%{transform:scale(1);opacity:.9}100%{transform:scale(3.2);opacity:0}}
+.sv-punkt{display:inline-block;width:.55rem;height:.55rem;border-radius:50%;background:var(--leise);flex:none}
+.sv-punkt.an{background:var(--gut);animation:atmen 2.6s ease-in-out infinite}
+.sv-chips{display:flex;gap:.4rem;flex-wrap:wrap}
+.sv-chips > span{display:inline-flex;align-items:center;gap:.35rem;font-size:.88rem;padding:.2rem .6rem;border-radius:.5rem;background:rgba(197,192,211,.1);color:var(--lavender)}
+.sv-chips > span > small{color:var(--leise)}
+.sv-balken{display:block;height:.4rem;border-radius:99px;background:rgba(197,192,211,.12);overflow:hidden;min-width:4rem}
+.sv-balken i{display:block;height:100%;width:0;border-radius:99px;background:var(--farbe,var(--info));transition:width 1.4s var(--e-auftakt,ease)}
+.sv-balken.warn i{background:var(--warn)}.sv-balken.krit i{background:var(--krit)}
+.sv-zelle{min-width:8rem}
+.sv-zelle small{display:block;margin-top:.25rem;color:var(--leise)}
+.sv-gast{display:inline-flex;align-items:center;gap:.5rem}
+.sv-gaeste tr.aus td{opacity:.6}
+.sv-tasten{display:flex;gap:.3rem;justify-content:flex-end}
+.sv-tasten .knopf{padding:.4rem .6rem}
+.sv-speicher{display:grid;grid-template-columns:minmax(0,1fr) minmax(5rem,1.2fr) auto;align-items:center;gap:.8rem}
+.sv-speicher > div{display:flex;flex-direction:column;min-width:0}
+.sv-speicher small{color:var(--leise)}
+@media (prefers-reduced-motion:reduce){.sv-punkt.an{animation:none}.sv-puls.schlag i::after{animation:none}}
