@@ -219,21 +219,26 @@
   function raumKachel(x, oeffnen) {
     const w = PS.raumWerte(x.id);
     const lichter = PS.lichtAuswahl(w.ent, x.name).sichtbar;
-    const chips = [];
+    const teile = PS.raumkarte();
     const offen = w.ent.filter((e) => e.startsWith("binary_sensor.") && PS.s(e) === "on" && ["door", "window", "opening", "garage_door"].includes(PS.a(e).device_class));
-    if (offen.length) chips.push(`<i class="warn">${PS.ic("window-open-variant")}${offen.length} offen</i>`);
-    if (w.klima && PS.a(w.klima).hvac_action === "heating") chips.push(`<i class="warn">${PS.ic("fire")}heizt</i>`);
     const medien = w.ent.find((e) => e.startsWith("media_player.") && PS.s(e) === "playing");
-    if (medien) chips.push(`<i class="an">${PS.ic("play")}${PS.esc(PS.kurzname(medien, x.name))}</i>`);
-    if (w.ent.some((e) => e.startsWith("binary_sensor.") && PS.s(e) === "on" && ["motion", "occupancy", "presence"].includes(PS.a(e).device_class))) chips.push(`<i>${PS.ic("motion-sensor")}Bewegung</i>`);
-    const werte = w.temp != null || w.feuchte != null
-      ? `${w.temp != null ? `<span class="tabular">${PS.zahl(w.temp, 1)}°</span>` : ""}${w.feuchte != null ? `<small class="tabular">${PS.ic("water-percent")}${PS.zahl(w.feuchte, 0)} %</small>` : ""}`
-      : `<small>${w.ent.length} ${w.ent.length === 1 ? "Gerät" : "Geräte"}</small>`;
     const an = lichter.filter((e) => PS.s(e) === "on").length;
+    const hatWert = (teile.includes("temp") && w.temp != null) || (teile.includes("feuchte") && w.feuchte != null);
+    const stueck = {
+      temp: w.temp != null ? `<span class="tabular">${PS.zahl(w.temp, 1)}°</span>` : "",
+      feuchte: w.feuchte != null ? `<small class="tabular">${PS.ic("water-percent")}${PS.zahl(w.feuchte, 0)} %</small>` : "",
+      anzahl: hatWert ? "" : `<small>${w.ent.length} ${w.ent.length === 1 ? "Gerät" : "Geräte"}</small>`,
+      licht: lichter.length ? `<button type="button" class="licht${an ? " an" : ""}" title="${an ? "Lichter ausschalten" : "Lichter einschalten"}">${PS.ic(an ? "lightbulb-on" : "lightbulb-outline")}<span class="tabular">${an}/${lichter.length}</span></button>` : "",
+      offen: offen.length ? `<i class="warn">${PS.ic("window-open-variant")}${offen.length} offen</i>` : "",
+      heizt: w.klima && PS.a(w.klima).hvac_action === "heating" ? `<i class="warn">${PS.ic("fire")}heizt</i>` : "",
+      medien: medien ? `<i class="an">${PS.ic("play")}${PS.esc(PS.kurzname(medien, x.name))}</i>` : "",
+      bewegung: w.ent.some((e) => e.startsWith("binary_sensor.") && PS.s(e) === "on" && ["motion", "occupancy", "presence"].includes(PS.a(e).device_class)) ? `<i>${PS.ic("motion-sensor")}Bewegung</i>` : "",
+    };
+    const zone = (wert) => teile.filter((t) => PS.RAUMKARTE_WERTE.includes(t) === wert).map((t) => stueck[t] || "").join("");
     const k = E(`<div class="as-raum" data-raum="${PS.esc(x.id)}" role="button" tabindex="0">
       <div class="kopf">${PS.ic(x.icon || "texture-box")}<span class="n">${PS.esc(x.name)}</span></div>
-      <div class="w">${werte}${lichter.length ? `<button type="button" class="licht${an ? " an" : ""}" title="${an ? "Lichter ausschalten" : "Lichter einschalten"}">${PS.ic(an ? "lightbulb-on" : "lightbulb-outline")}<span class="tabular">${an}/${lichter.length}</span></button>` : ""}</div>
-      <div class="c">${chips.join("")}</div></div>`);
+      <div class="w">${zone(true)}</div>
+      <div class="c">${zone(false)}</div></div>`);
     const l = k.querySelector(".licht");
     if (l) l.addEventListener("click", (ev) => { ev.stopPropagation(); PS.dienst("light", an ? "turn_off" : "turn_on", { entity_id: lichter }); });
     k.addEventListener("click", oeffnen);
@@ -559,12 +564,20 @@
   const anordnenKnopf = E(`<button type="button" class="ord-knopf" title="Reihenfolge auf dieser Seite anordnen">${PS.ic("drag-variant")}<span>Anordnen</span></button>`);
   const anordnenLeiste = E(`<div class="ord-leiste" hidden><span>${PS.ic("drag-variant")}Ziehen zum Sortieren · Boxen an der Überschrift</span></div>`);
   document.body.append(anordnenKnopf, anordnenLeiste);
+  // Wo angeordnet wird: die offene Modulseite oder die Startseite (dort ist jeder Block eine eigene Wurzel)
+  const START = "admin-start";
+  const aufStart = () => !document.body.classList.contains("offen");
+  const wurzeln = () => (aufStart() ? [...$("#as-raster").querySelectorAll(":scope > .as-block")] : [$("#sheet-inhalt")]);
+  const seiteJetzt = () => (aufStart() ? START : PS.ordnung.seite());
+  const wurzelVon = (el) => (aufStart() ? el.closest(".as-block") : $("#sheet-inhalt"));
+  const schluesselVon = (liste) => PS.ordnung.schluessel(liste, wurzelVon(liste), aufStart() ? START : undefined);
+  let anordnenStart = false;
   const zuruecksetzen = knopf("Seite zurücksetzen", "restore", async () => {
-    const seite = PS.ordnung.seite(), alt = PS.einst.reihenfolgen || {}, lay = PS.einst.layouts || {};
+    const seite = seiteJetzt(), alt = PS.einst.reihenfolgen || {}, lay = PS.einst.layouts || {};
     const neu = Object.fromEntries(Object.entries(alt).filter(([k]) => !k.startsWith(seite + "|")));
-    const neuLay = Object.fromEntries(Object.entries(lay).filter(([k]) => k !== "seite:" + seite && !k.startsWith("liste:" + seite + "|")));
+    const neuLay = Object.fromEntries(Object.entries(lay).filter(([k]) => k !== "seite:" + seite && !k.startsWith("liste:" + seite + "|") && !k.startsWith("pos:" + seite + "|")));
     await ordnungSpeichern({ reihenfolgen: neu, layouts: neuLay }, "Anordnung dieser Seite zurückgesetzt");
-    PS.neuZeichnen();
+    if (aufStart()) startZeichnen(); else PS.neuZeichnen();
   });
   // Freies Raster: Position und Größe der Teile einer Seite im Drei-Spalten-Muster
   const freiKnopf = knopf("Freies Raster", "view-grid-plus-outline", () => {
@@ -577,46 +590,87 @@
     const ids = PS.layout.teilIds(folge.map((x) => x.el));
     layoutSpeichern("seite:" + PS.ordnung.seite(), folge.map((x, i) => `${x.w}:0:${ids[i]}`), "Freies Raster aktiv: Teile am Griff ziehen, Größe unten rechts");
   });
-  anordnenLeiste.append(freiKnopf, zuruecksetzen, knopf("Fertig", "check", () => anordnen(false), "primaer"));
+  // Inhalt der Raumkarten: Teile wählen und ihre Folge ziehen (Räume-Seite, Startseiten-Block, Flur)
+  const karteKnopf = knopf("Karteninhalt", "card-text-outline", () => {
+    const dlg = $("#dialog");
+    delete dlg.dataset.popup;
+    const an = PS.raumkarte(), namen = new Map(PS.RAUMKARTE);
+    const folge = [...an, ...PS.RAUMKARTE.map((x) => x[0]).filter((t) => !an.includes(t))];
+    dlg.innerHTML = `<div class="kopf">${PS.ic("card-text-outline", "gr")}<h2>Inhalt der Raumkarten<small>Häkchen: anzeigen · am Griff ziehen: Reihenfolge</small></h2><button class="zu" aria-label="Schließen">${PS.ic("close")}</button></div>
+      <div class="ord-teile">${folge.map((t) => `<label data-t="${t}"><span class="griff">${PS.ic("drag-variant")}</span><input type="checkbox"${an.includes(t) ? " checked" : ""}><span>${PS.esc(namen.get(t))}</span>${PS.RAUMKARTE_WERTE.includes(t) ? "<small>Wertezeile</small>" : "<small>Hinweis</small>"}</label>`).join("")}</div>
+      <p class="leise">Werte stehen in der oberen Zeile, Hinweise darunter; die Folge gilt innerhalb jeder Zeile.</p>
+      <div class="reihe"></div>`;
+    const liste = dlg.querySelector(".ord-teile");
+    liste.addEventListener("pointerdown", (ev) => {
+      const g = ev.target.closest(".griff"); if (!g) return;
+      ev.preventDefault();
+      ziehen(ev, g.parentElement, (x) => x.matches("label"), () => {});
+    });
+    dlg.querySelector(".reihe").append(
+      knopf("Abbrechen", "close", PS.dialogSchliessen),
+      knopf("Speichern", "check", async () => {
+        const neu = [...liste.querySelectorAll("label")].filter((l) => l.querySelector("input").checked).map((l) => l.dataset.t);
+        PS.dialogSchliessen();
+        await ordnungSpeichern({ raumkarte: neu }, "Raumkarten gespeichert");
+        neuAnwenden();
+      }, "primaer"),
+    );
+    dlg.querySelector(".zu").addEventListener("click", PS.dialogSchliessen);
+    $("#dialog-grund").classList.add("offen");
+  });
+  anordnenLeiste.append(karteKnopf, freiKnopf, zuruecksetzen, knopf("Fertig", "check", () => anordnen(false), "primaer"));
   function layoutSpeichern(schluessel, eintraege, meldung) {
     const neu = { ...(PS.einst.layouts || {}) };
     if (eintraege && eintraege.length) neu[schluessel] = eintraege; else delete neu[schluessel];
     PS.einst.layouts = neu;
-    PS.layout.anwenden();
+    if (aufStart()) wurzeln().forEach((w) => PS.layout.anwenden(w, START)); else PS.layout.anwenden();
     listenMarkieren();
     return ordnungSpeichern({ layouts: neu }, meldung);
   }
   const freiEintraege = (g) => [...g.children].filter((el) => el.dataset.teil).map((el) => `${el.dataset.w || 4}:${el.dataset.h || 0}:${el.dataset.teil}`);
   anordnenKnopf.addEventListener("click", () => anordnen(!document.body.classList.contains("anordnen")));
+  PS.admin.anordnen = (an) => anordnen(an);
   function anordnen(an) {
+    anordnenStart = an && aufStart();
     document.body.classList.toggle("anordnen", an);
     anordnenLeiste.hidden = !an;
     anordnenKnopf.classList.toggle("aktiv", an);
     listenMarkieren();
   }
   function listenMarkieren() {
-    const inhalt = $("#sheet-inhalt"), an = document.body.classList.contains("anordnen");
-    inhalt.querySelectorAll(".ord-liste").forEach((x) => x.classList.remove("ord-liste"));
-    const g = inhalt.querySelector(".raum-ansicht");
+    const an = document.body.classList.contains("anordnen");
+    [$("#sheet-inhalt"), $("#as-raster")].forEach((w) => {
+      w.querySelectorAll(".ord-liste").forEach((x) => x.classList.remove("ord-liste"));
+      if (!an) w.querySelectorAll(".frei-ziehen, .frei-groesse, .ord-breite").forEach((x) => x.remove());
+    });
+    const g = aufStart() ? null : $("#sheet-inhalt .raum-ansicht");
     freiKnopf.style.display = !g || g.classList.contains("frei") ? "none" : "";
-    if (!an) { inhalt.querySelectorAll(".frei-ziehen, .frei-groesse, .ord-breite").forEach((x) => x.remove()); return; }
-    const listen = PS.ordnung.listen(inhalt);
+    karteKnopf.style.display = wurzeln().some((w) => w.querySelector("[data-raum]")) ? "" : "none";
+    if (!an) return;
+    const listen = wurzeln().flatMap((w) => PS.ordnung.listen(w));
     listen.forEach((c) => c.classList.add("ord-liste"));
-    // Kacheln in Rastern: Breite ziehen
-    listen.filter((c) => c.classList.contains("raster")).forEach((c) => [...c.children].forEach((k) => {
-      if (PS.ordnung.kennung(k) && !k.querySelector(":scope > .ord-breite")) k.appendChild(E(`<span class="ord-breite" title="Breite ziehen">${PS.ic("arrow-expand-horizontal")}</span>`));
-    }));
+    // Kacheln in Rastern: Breite ziehen, entfernen; am Ende „Gerät hinzufügen“
+    listen.filter((c) => c.classList.contains("raster")).forEach((c) => {
+      [...c.children].forEach((k) => {
+        if (!PS.ordnung.kennung(k) || k.querySelector(":scope > .ord-breite")) return;
+        k.append(E(`<span class="ord-breite" title="Breite ziehen">${PS.ic("arrow-expand-horizontal")}</span>`),
+          E(`<span class="ord-weg" role="button" title="Aus dieser Liste entfernen">${PS.ic("close")}</span>`));
+      });
+      if (!c.querySelector(":scope > .ord-plus")) c.appendChild(E(`<button type="button" class="ord-plus">${PS.ic("plus")}<span>Gerät hinzufügen</span></button>`));
+    });
     // Teile im freien Raster: Griff zum Verschieben, Ecke für die Größe
     if (g && g.classList.contains("frei")) [...g.children].forEach((el) => {
       if (!el.querySelector(":scope > .frei-ziehen")) el.append(E(`<span class="frei-ziehen" title="Verschieben">${PS.ic("drag-variant")}</span>`), E(`<span class="frei-groesse" title="Größe ziehen · Doppelklick: Höhe nach Inhalt">${PS.ic("resize-bottom-right")}</span>`));
     });
   }
   let markierenBald = 0;
-  new MutationObserver(() => {
+  const markierer = new MutationObserver(() => {
     if (!document.body.classList.contains("anordnen") || markierenBald) return;
     markierenBald = requestAnimationFrame(() => { markierenBald = 0; listenMarkieren(); });
-  }).observe($("#sheet-inhalt"), { childList: true, subtree: true });
-  PS.on("seite", () => { if (!document.body.classList.contains("offen")) anordnen(false); });
+  });
+  [$("#sheet-inhalt"), $("#as-raster")].forEach((w) => markierer.observe(w, { childList: true, subtree: true }));
+  // Wechsel zwischen Startseite und Modulseite beendet das Anordnen
+  PS.on("seite", () => { if (document.body.classList.contains("anordnen") && anordnenStart !== aufStart()) anordnen(false); });
   async function ordnungSpeichern(teil, meldung) {
     try {
       const r = await fetch("api/einstellungen", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(teil) });
@@ -626,10 +680,10 @@
     } catch (e) { PS.toast("Nicht gespeichert: " + (e.message || e), true); }
   }
   const kennbar = (x) => !!PS.ordnung.kennung(x);
-  $("#sheet-inhalt").addEventListener("pointerdown", (ev) => {
+  const druck = (ev) => {
     if (!document.body.classList.contains("anordnen")) return;
     if (freiGriffe(ev)) return;
-    const listen = new Set($("#sheet-inhalt").querySelectorAll(".ord-liste"));
+    const listen = new Set(ev.currentTarget.querySelectorAll(".ord-liste"));
     // Überschrift einer Box: die Box ziehen; sonst das innerste kenntliche Element einer Liste
     const kopf = ev.target.closest(".r-box > h3, .gruppe > h3");
     let el = kopf && listen.has(kopf.parentElement.parentElement) ? kopf.parentElement : null;
@@ -639,6 +693,7 @@
     if (!el) return;
     ev.preventDefault();
     const liste = el.parentElement;
+    if (liste.classList.contains("raster") && !el.matches(".r-box, .gruppe")) { zellZiehen(ev, el, liste); return; }
     if (liste.matches(".raum-ansicht.frei")) {
       PS.ordnung.zieht = true;
       window.addEventListener("pointerup", () => setTimeout(() => { if (!document.body.classList.contains("ord-ziehen")) PS.ordnung.zieht = false; }, 0), { once: true });
@@ -653,12 +708,67 @@
         const gezeigt = folge.map((x) => x.slice(5)), rest = (PS.einst.bereiche_reihenfolge || []).filter((b) => !gezeigt.includes(b));
         ordnungSpeichern({ bereiche_reihenfolge: [...gezeigt, ...rest] });
       } else {
-        ordnungSpeichern({ reihenfolgen: { ...(PS.einst.reihenfolgen || {}), [PS.ordnung.schluessel(liste)]: folge } });
+        ordnungSpeichern({ reihenfolgen: { ...(PS.einst.reihenfolgen || {}), [schluesselVon(liste)]: folge } });
       }
     });
     // ohne Bewegung zurücksetzen
     window.addEventListener("pointerup", () => { setTimeout(() => { if (!document.body.classList.contains("ord-ziehen")) PS.ordnung.zieht = false; }, 0); }, { once: true });
-  });
+  };
+  $("#sheet-inhalt").addEventListener("pointerdown", druck);
+  $("#as-raster").addEventListener("pointerdown", (ev) => { if (!anpassen) druck(ev); });
+  // Kachelraster frei belegen: die Kachel landet in der Zelle unter dem Zeiger, auch in einer leeren; liegt dort
+  // eine andere, tauschen beide die Plätze. Beim ersten Ziehen werden alle Plätze der Liste festgehalten.
+  function rasterMasse(liste) {
+    const st = getComputedStyle(liste), r0 = liste.getBoundingClientRect();
+    const spalten = st.gridTemplateColumns.split(" ").map(parseFloat).filter((x) => x > 0);
+    const zeilen = st.gridTemplateRows.split(" ").map(parseFloat).filter((x) => x > 0);
+    return { r0, spalten, zeilen, gx: parseFloat(st.columnGap) || 0, gy: parseFloat(st.rowGap) || 0 };
+  }
+  function zelleBei(m, x, y) {
+    const finde = (spuren, luecke, d) => { let a = 0; for (let i = 0; i < spuren.length; i++) { if (d < a + spuren[i] + luecke / 2) return i + 1; a += spuren[i] + luecke; } return spuren.length + 1; };
+    const hoehe = m.zeilen.length ? m.zeilen[m.zeilen.length - 1] : 80;
+    return { sp: Math.min(m.spalten.length, finde(m.spalten, m.gx, x - m.r0.left)), ze: finde([...m.zeilen, hoehe], m.gy, y - m.r0.top) };
+  }
+  function zellZiehen(ev, el, liste) {
+    const start = { x: ev.clientX, y: ev.clientY };
+    let aktiv = false, ziel = null;
+    const kinder = () => [...liste.children].filter(kennbar);
+    const platzVon = (k) => (k.dataset.px ? { w: +k.dataset.px, h: +k.dataset.py } : null);
+    PS.ordnung.zieht = true;
+    const bewegen = (e) => {
+      if (!aktiv) {
+        if (Math.hypot(e.clientX - start.x, e.clientY - start.y) < 6) return;
+        aktiv = true;
+        // Alle Plätze festhalten, so wie sie gerade stehen
+        const m = rasterMasse(liste);
+        kinder().forEach((k) => { const r = k.getBoundingClientRect(), z = zelleBei(m, r.left + 4, r.top + 4); PS.layout.kachelSetzen(k, +k.dataset.spanne || 1, { w: z.sp, h: z.ze }); });
+        el._alt = platzVon(el);
+        el.classList.add("ord-zieht"); document.body.classList.add("ord-ziehen");
+      }
+      e.preventDefault(); PS.letzteBeruehrung = Date.now();
+      const m = rasterMasse(liste), w = +el.dataset.spanne || 1, z = zelleBei(m, e.clientX, e.clientY);
+      ziel = { w: Math.max(1, Math.min(m.spalten.length - w + 1, z.sp)), h: z.ze };
+      PS.layout.kachelSetzen(el, w, ziel);
+    };
+    const ende = () => {
+      window.removeEventListener("pointermove", bewegen); window.removeEventListener("pointerup", ende); window.removeEventListener("pointercancel", ende);
+      PS.ordnung.zieht = false;
+      if (!aktiv) return;
+      el.classList.remove("ord-zieht"); document.body.classList.remove("ord-ziehen");
+      const schlucken = (k) => { k.stopPropagation(); k.preventDefault(); };
+      window.addEventListener("click", schlucken, { capture: true, once: true });
+      setTimeout(() => window.removeEventListener("click", schlucken, true), 50);
+      // Belegte Zelle: die andere Kachel nimmt den alten Platz
+      const andere = kinder().find((k) => k !== el && ziel && +k.dataset.px === ziel.w && +k.dataset.py === ziel.h);
+      if (andere && el._alt) PS.layout.kachelSetzen(andere, +andere.dataset.spanne || 1, el._alt);
+      const eintraege = kinder().filter((k) => k.dataset.px).map((k) => `${k.dataset.px}:${k.dataset.py}:${PS.ordnung.kennung(k)}`);
+      layoutSpeichern("pos:" + schluesselVon(liste), eintraege);
+    };
+    window.addEventListener("pointermove", bewegen, { passive: false });
+    window.addEventListener("pointerup", ende);
+    window.addEventListener("pointercancel", ende);
+  }
+
   // Griffe im Anordnen-Modus: Teil verschieben, Teil vergrößern, Kachelbreite
   function freiGriffe(ev) {
     const t = ev.target.closest(".frei-ziehen, .frei-groesse, .ord-breite"); if (!t) return false;
@@ -677,7 +787,7 @@
     const kachel = t.classList.contains("ord-breite");
     const bewegen = (e) => {
       const w = Math.max(1, Math.min(spalten, Math.round((e.clientX - r0.left + lueckeX) / (spalteB + lueckeX))));
-      if (kachel) { el.style.gridColumn = w > 1 ? `span ${w}` : ""; el.dataset.spanne = w; return; }
+      if (kachel) { PS.layout.kachelSetzen(el, w, el.dataset.px ? { w: Math.min(+el.dataset.px, spalten - w + 1), h: +el.dataset.py } : null); return; }
       if (spalten !== 12) return;
       el.dataset.w = Math.max(2, w);
       el.dataset.h = Math.max(4, Math.round((e.clientY - r0.top + lueckeY) / (8 + lueckeY)));
@@ -687,8 +797,10 @@
       t.removeEventListener("pointermove", bewegen); el.classList.remove("ord-zieht-groesse");
       PS.ordnung.zieht = false;
       if (kachel) {
-        const schluessel = "liste:" + PS.ordnung.schluessel(g);
+        const schluessel = "liste:" + schluesselVon(g);
         layoutSpeichern(schluessel, [...g.children].filter((k) => +k.dataset.spanne > 1 && PS.ordnung.kennung(k)).map((k) => `${k.dataset.spanne}:0:${PS.ordnung.kennung(k)}`));
+        const plaetze = [...g.children].filter((k) => k.dataset.px && PS.ordnung.kennung(k));
+        if (plaetze.length) layoutSpeichern("pos:" + schluesselVon(g), plaetze.map((k) => `${k.dataset.px}:${k.dataset.py}:${PS.ordnung.kennung(k)}`));
       } else layoutSpeichern("seite:" + PS.ordnung.seite(), freiEintraege(g));
     };
     t.addEventListener("pointermove", bewegen);
@@ -703,7 +815,54 @@
     layoutSpeichern("seite:" + PS.ordnung.seite(), freiEintraege(el.parentElement), "Höhe folgt wieder dem Inhalt");
   }, true);
   // Im Anordnen-Modus nichts auslösen
-  $("#sheet-inhalt").addEventListener("click", (ev) => { if (document.body.classList.contains("anordnen")) { ev.stopPropagation(); ev.preventDefault(); } }, true);
+  $("#sheet-inhalt").addEventListener("click", (ev) => { if (document.body.classList.contains("anordnen")) { ev.stopPropagation(); ev.preventDefault(); listenAktion(ev); } }, true);
+  $("#as-raster").addEventListener("click", (ev) => { if (document.body.classList.contains("anordnen") && aufStart()) { ev.stopPropagation(); ev.preventDefault(); listenAktion(ev); } }, true);
+  // Geräte einer Liste hinzufügen oder aus ihr entfernen (gilt auf allen Panels)
+  function listenAktion(ev) {
+    const t = ev.target.closest(".ord-plus, .ord-weg"); if (!t) return;
+    const liste = t.closest(".ord-liste"); if (!liste) return;
+    const k = schluesselVon(liste), L = PS.einst.layouts || {};
+    const lesen = (n) => (L[n + k] || []).map(PS.layout.eintragLesen).filter(Boolean).map((x) => x.id);
+    const schreiben = (plus, minus) => {
+      const neu = { ...L };
+      ["plus:", "minus:"].forEach((n, i) => { const l = [plus, minus][i]; if (l.length) neu[n + k] = l.map((e) => `0:0:${e}`); else delete neu[n + k]; });
+      PS.einst.layouts = neu;
+      return ordnungSpeichern({ layouts: neu });
+    };
+    if (t.classList.contains("ord-weg")) {
+      const eid = PS.ordnung.kennung(t.parentElement);
+      schreiben(lesen("plus:").filter((e) => e !== eid), [...new Set([...lesen("minus:"), eid])]).then(() => neuAnwenden());
+      return;
+    }
+    const da = new Set([...liste.children].map(PS.ordnung.kennung).filter(Boolean));
+    entitaetWaehlen("Gerät hinzufügen", da, (eid) => {
+      schreiben([...new Set([...lesen("plus:"), eid])], lesen("minus:").filter((e) => e !== eid)).then(() => neuAnwenden());
+    });
+  }
+  function neuAnwenden() { if (aufStart()) startZeichnen(); else PS.neuZeichnen(); }
+  // Auswahl aus allen Entitäten mit Suche (Name, Kennung, Bereich)
+  function entitaetWaehlen(titel, ausser, beiWahl) {
+    const dlg = $("#dialog");
+    delete dlg.dataset.popup;
+    dlg.innerHTML = `<div class="kopf">${PS.ic("plus-box-outline", "gr")}<h2>${PS.esc(titel)}<small>Suche nach Name, Raum oder Kennung</small></h2><button class="zu" aria-label="Schließen">${PS.ic("close")}</button></div>
+      <input class="ord-suche" type="search" placeholder="z. B. Schreibtisch, Büro, switch." autocomplete="off">
+      <div class="ord-treffer"></div>`;
+    const feld = dlg.querySelector(".ord-suche"), treffer = dlg.querySelector(".ord-treffer");
+    const alleIds = Object.keys(PS.z).filter((e) => !ausser.has(e) && PS.sichtbar(e));
+    const zeigen = () => {
+      const q = feld.value.trim().toLowerCase();
+      const liste = alleIds.map((e) => ({ e, n: PS.name(e), b: PS.bereichName(PS.bereichVon(e) || "") || "" }))
+        .filter((x) => !q || `${x.n} ${x.b} ${x.e}`.toLowerCase().includes(q))
+        .sort((a, b) => a.n.localeCompare(b.n, "de")).slice(0, 80);
+      treffer.innerHTML = liste.map((x) => `<button type="button" data-e="${PS.esc(x.e)}">${PS.icon(x.e)}<span><b>${PS.esc(x.n)}</b><small>${PS.esc([x.b, x.e].filter(Boolean).join(" · "))}</small></span></button>`).join("") || '<div class="leer">Nichts gefunden.</div>';
+    };
+    feld.addEventListener("input", zeigen);
+    treffer.addEventListener("click", (ev) => { const b = ev.target.closest("[data-e]"); if (!b) return; PS.dialogSchliessen(); beiWahl(b.dataset.e); });
+    dlg.querySelector(".zu").addEventListener("click", PS.dialogSchliessen);
+    zeigen();
+    $("#dialog-grund").classList.add("offen");
+    setTimeout(() => feld.focus(), 50);
+  }
 
   // ------------------------------------------------------------ Startseite zeichnen und anpassen
   const bloecke = new Map();  // id → { el, def, sig, timer }
@@ -725,6 +884,8 @@
     b.def.render(inhalt);
     PS.kachelnBinden(inhalt);
     b.el.querySelector(".r-box") ? b.el.querySelector(".r-box").replaceWith(inhalt) : b.el.prepend(inhalt);
+    // Eigene Reihenfolge und Kachelbreiten des Blockinhalts (im Anordnen-Modus der Startseite eingestellt)
+    PS.ordnung.anwenden(b.el, "admin-start"); PS.layout.anwenden(b.el, "admin-start");
     b.sig = b.def.signatur ? b.def.signatur() : null;
   }
   // Breites Fenster: 12 Spalten mit den gezogenen Größen. Schmal oder hochkant: halbe oder volle Breite (ab 6 Spalten
@@ -889,7 +1050,13 @@
   function werkzeug() {
     const w = $("#as-werkzeug"); w.innerHTML = "";
     document.body.classList.toggle("anpassen", !!anpassen);
-    if (!anpassen) { w.appendChild(knopf("Anpassen", "view-dashboard-edit-outline", () => { anpassen = anordnung().map(eintrag); startZeichnen(); })); return; }
+    if (!anpassen) {
+      w.append(
+        knopf("Inhalt anordnen", "drag-variant", () => PS.admin.anordnen(!document.body.classList.contains("anordnen"))),
+        knopf("Anpassen", "view-dashboard-edit-outline", () => { PS.admin.anordnen(false); anpassen = anordnung().map(eintrag); startZeichnen(); }),
+      );
+      return;
+    }
     w.append(
       knopf("Standard", "restore", () => { anpassen = [...STANDARD]; startZeichnen(); }),
       knopf("Abbrechen", "close", () => { anpassen = null; startZeichnen(); }),
@@ -921,7 +1088,7 @@
     faellig.add(id);
     if (bundel) return;
     bundel = setTimeout(function los() {
-      if (Date.now() - gedrueckt < 4000 || anpassen) { bundel = setTimeout(los, 1500); return; }
+      if (Date.now() - gedrueckt < 4000 || anpassen || PS.ordnung.zieht) { bundel = setTimeout(los, 1500); return; }
       bundel = null;
       [...faellig].forEach((x) => {
         const b = bloecke.get(x); if (!b) return;

@@ -638,10 +638,12 @@
     const ids = (PS.einst.start_raeume || []).filter((b) => PS.bereiche.some((x) => x.id === b));
     box.innerHTML = ids.map((b) => {
       const w = PS.raumWerte(b);
-      const teile = [];
-      if (w.temp != null) teile.push(`${PS.zahl(w.temp, 1)}°`);
-      if (w.feuchte != null) teile.push(`${PS.zahl(w.feuchte, 0)} %`);
-      teile.push(w.lichterAn ? `${w.lichterAn} Licht${w.lichterAn > 1 ? "er" : ""}` : "Licht aus");
+      const stueck = {
+        temp: w.temp != null ? `${PS.zahl(w.temp, 1)}°` : "",
+        feuchte: w.feuchte != null ? `${PS.zahl(w.feuchte, 0)} %` : "",
+        licht: w.lichterAn ? `${w.lichterAn} Licht${w.lichterAn > 1 ? "er" : ""}` : "Licht aus",
+      };
+      const teile = PS.raumkarte().map((t) => stueck[t]).filter(Boolean);
       return `<div data-b="${PS.esc(b)}"><span>${PS.esc(PS.bereichName(b))}</span><span>${teile.join(" · ")}</span></div>`;
     }).join("");
     box.querySelectorAll("[data-b]").forEach((el) => el.addEventListener("click", () => PS.mitUebergang(el, () => PS.oeffnen("raeume", el.dataset.b))));
@@ -751,16 +753,17 @@
   function ordnungsListen(wurzel) {
     const eltern = new Set();
     wurzel.querySelectorAll(ORDNUNG_KANDIDATEN).forEach((el) => { if (el.parentElement && kennung(el)) eltern.add(el.parentElement); });
-    return [...eltern].filter((c) => (c === wurzel || wurzel.contains(c)) && [...c.children].filter((x) => kennung(x)).length >= 2);
+    // Kachelraster zählen schon mit einer Kachel (dort lassen sich Geräte hinzufügen), andere Listen ab zwei Einträgen
+    return [...eltern].filter((c) => (c === wurzel || wurzel.contains(c)) && [...c.children].filter((x) => kennung(x)).length >= (c.classList.contains("raster") ? 1 : 2));
   }
   function seitenSchluessel() { const s = stapel[stapel.length - 1]; return s ? `${s.modul}/${s.titel}` : ""; }
-  function listenSchluessel(c, wurzel, listen) {
+  function listenSchluessel(c, wurzel, listen, seite = seitenSchluessel()) {
     const box = c.parentElement && c.parentElement.closest(".r-box, .gruppe");
     const titel = box && wurzel.contains(box) ? (box.querySelector(":scope > h3 > span") || {}).textContent || "" : "";
     const art = c === wurzel ? "seite" : c.classList[0] || c.tagName.toLowerCase();
     const bereich = box && wurzel.contains(box) ? box : wurzel;
     const gleiche = listen.filter((x) => x !== wurzel && bereich.contains(x) && (x.classList[0] || x.tagName.toLowerCase()) === art);
-    return `${seitenSchluessel()}|${titel.trim()}|${art}${c === wurzel ? "" : Math.max(0, gleiche.indexOf(c))}`;
+    return `${seite}|${titel.trim()}|${art}${c === wurzel ? "" : Math.max(0, gleiche.indexOf(c))}`;
   }
   function ordnen(c, folge) {
     const kinder = [...c.children].filter((x) => kennung(x));
@@ -772,15 +775,16 @@
   }
   PS.ordnung = {
     zieht: false,
-    kennung, schluessel: (c, wurzel = $("#sheet-inhalt")) => listenSchluessel(c, wurzel, ordnungsListen(wurzel)),
+    kennung, schluessel: (c, wurzel = $("#sheet-inhalt"), seite) => listenSchluessel(c, wurzel, ordnungsListen(wurzel), seite),
     listen: (wurzel = $("#sheet-inhalt")) => ordnungsListen(wurzel),
     seite: seitenSchluessel,
-    anwenden(wurzel = $("#sheet-inhalt")) {
-      if (PS.ordnung.zieht || !stapel.length) return;
+    // Ohne „seite“ die offene Modulseite; die Startseite der Admin-Ansicht gibt ihre Blöcke mit eigener Seite an
+    anwenden(wurzel = $("#sheet-inhalt"), seite) {
+      if (PS.ordnung.zieht || (!seite && !stapel.length)) return;
       const alle = PS.einst.reihenfolgen || {}, raeume = (PS.einst.bereiche_reihenfolge || []).map((b) => "raum:" + b);
       const listen = ordnungsListen(wurzel);
       listen.forEach((c) => {
-        const folge = [...c.children].some((x) => x.dataset.raum) ? raeume : alle[listenSchluessel(c, wurzel, listen)];
+        const folge = [...c.children].some((x) => x.dataset.raum) ? raeume : alle[listenSchluessel(c, wurzel, listen, seite)];
         if (folge && folge.length) ordnen(c, folge);
       });
     },
@@ -842,20 +846,36 @@
   }
   PS.layout = {
     teileVon, teilIds, freiSpannen, eintragLesen,
-    anwenden(wurzel = $("#sheet-inhalt")) {
-      if (PS.ordnung.zieht || !stapel.length) return;
+    // Kachel im Raster: Breite in Spalten und optional fester Platz {w: Spalte, h: Zeile}
+    kachelSetzen(el, w, platz) {
+      el.dataset.spanne = w > 1 ? w : "";
+      if (platz) { el.dataset.px = platz.w; el.dataset.py = platz.h; } else { delete el.dataset.px; delete el.dataset.py; }
+      el.style.gridColumn = platz ? `${platz.w} / span ${w}` : w > 1 ? `span ${w}` : "";
+      el.style.gridRow = platz ? String(platz.h) : "";
+    },
+    anwenden(wurzel = $("#sheet-inhalt"), seite) {
+      if (PS.ordnung.zieht || (!seite && !stapel.length)) return;
       const L = PS.einst.layouts || {};
-      const g = wurzel.querySelector(".raum-ansicht"), seite = L["seite:" + seitenSchluessel()];
-      if (g && seite && seite.length) rasterAnwenden(g, seite);
-      // Kachelbreiten je Liste
+      const g = wurzel.querySelector(".raum-ansicht"), raster = L["seite:" + (seite || seitenSchluessel())];
+      if (g && raster && raster.length) rasterAnwenden(g, raster);
+      // Kachelraster: Breite je Kachel („liste:“) und freier Platz („pos:“ → Spalte:Zeile:Kennung). Passt ein Platz
+      // nicht in die aktuelle Spaltenzahl (schmale Anzeige), ordnet sich die Liste wieder von selbst.
       const listen = ordnungsListen(wurzel);
       listen.filter((c) => c.classList.contains("raster")).forEach((c) => {
-        const b = L["liste:" + listenSchluessel(c, wurzel, listen)];
-        const breite = new Map((b || []).map(eintragLesen).filter(Boolean).map((x) => [x.id, x.w]));
-        [...c.children].forEach((k) => {
-          const w = breite.get(kennung(k));
-          if (w > 1) { k.style.gridColumn = `span ${w}`; k.dataset.spanne = w; } else if (k.dataset.spanne) { k.style.gridColumn = ""; delete k.dataset.spanne; }
+        const k = listenSchluessel(c, wurzel, listen, seite);
+        // Hinzugefügte Geräte („plus:“) anhängen, entfernte („minus:“) herausnehmen
+        const ids = (n) => (L[n + k] || []).map(eintragLesen).filter(Boolean).map((x) => x.id);
+        const minus = new Set(ids("minus:")), da = new Set([...c.children].map(kennung));
+        ids("plus:").filter((e) => PS.z[e] && !da.has(e) && !minus.has(e)).forEach((e) => {
+          c.insertAdjacentHTML("beforeend", PS.kachelHTML(e, {}));
+          PS.kachelVerdrahten(c.lastElementChild);
         });
+        [...c.children].forEach((el) => { if (minus.has(kennung(el))) el.remove(); });
+        const breite = new Map((L["liste:" + k] || []).map(eintragLesen).filter(Boolean).map((x) => [x.id, x.w]));
+        const platz = new Map((L["pos:" + k] || []).map(eintragLesen).filter(Boolean).map((x) => [x.id, x]));
+        const spalten = getComputedStyle(c).gridTemplateColumns.split(" ").filter(Boolean).length || 1;
+        const passt = [...platz.values()].every((p) => p.w + (breite.get(p.id) || 1) - 1 <= spalten);
+        [...c.children].forEach((el) => PS.layout.kachelSetzen(el, breite.get(kennung(el)) || 1, passt ? platz.get(kennung(el)) : null));
       });
     },
   };

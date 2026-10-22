@@ -453,3 +453,20 @@ body.anordnen .raum-ansicht.frei > *{position:relative;outline:1px dashed var(--
 .frei-ziehen .mdi,.frei-groesse .mdi,.ord-breite .mdi{font-size:1.2rem}
 body.anordnen .ord-liste.raster > *{position:relative}
 .ord-zieht-groesse{outline:2px solid var(--akzent)!important}
+.ord-weg{position:absolute;z-index:6;right:.3rem;top:.3rem;width:1.7rem;height:1.7rem;display:grid;place-items:center;border-radius:.5rem;cursor:pointer;
+  background:var(--glas-fest);border:1px solid var(--linie-stark);color:var(--krit)}
+.ord-weg .mdi{font-size:1.1rem}
+.ord-plus{all:unset;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:.4rem;min-height:4.4rem;border-radius:1rem;border:1px dashed var(--linie-stark);color:var(--lavender);font-weight:600;font-size:.95rem}
+.ord-plus:hover{color:var(--cloud);border-color:var(--lavender)}
+.ord-suche{width:100%;box-sizing:border-box;margin:.4rem 0 .8rem;padding:.8rem 1rem;border-radius:.8rem;border:1px solid var(--linie-stark);background:var(--flaeche-tief);color:var(--cloud);font:inherit;font-size:1.1rem}
+.ord-treffer{display:flex;flex-direction:column;gap:.3rem;max-height:55vh;overflow:auto}
+.ord-treffer button{all:unset;cursor:pointer;display:flex;align-items:center;gap:.8rem;padding:.6rem .8rem;border-radius:.7rem}
+.ord-treffer button:hover{background:rgba(255,255,255,.06)}
+.ord-treffer button .mdi{font-size:1.5rem;color:var(--lavender)}
+.ord-treffer button span{display:flex;flex-direction:column;min-width:0}
+.ord-treffer button small{color:var(--leise);font-size:.85rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ord-teile{display:flex;flex-direction:column;gap:.35rem;margin:.6rem 0}
+.ord-teile label{display:flex;align-items:center;gap:.7rem;padding:.55rem .8rem;border-radius:.7rem;background:var(--flaeche-tief);border:1px solid var(--linie);cursor:default}
+.ord-teile label .griff{cursor:grab;color:var(--leise);touch-action:none;display:grid;place-items:center}
+.ord-teile label small{margin-left:auto;color:var(--leise)}
+.ord-teile input{width:1.2rem;height:1.2rem;accent-color:var(--purple)}

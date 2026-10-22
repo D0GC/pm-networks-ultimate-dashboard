@@ -208,19 +208,26 @@
     if (!ids.length) el.appendChild(E('<div class="leer">Diesem Bereich sind keine Geräte zugeordnet.</div>'));
   }
   function raumKarte(b, i) {
-    const w = PS.raumWerte(b.id);
-    const chips = [];
-    if (w.lichterAn) chips.push(`<span class="chip an">${PS.ic("lightbulb")}${w.lichterAn}</span>`);
+    const w = PS.raumWerte(b.id), teile = PS.raumkarte();
     const offen = w.ent.filter((e) => e.startsWith("binary_sensor.") && PS.s(e) === "on" && ["door", "window", "opening"].includes(PS.a(e).device_class));
-    if (offen.length) chips.push(`<span class="chip warn">${PS.ic("window-open-variant")}${offen.length} offen</span>`);
     const bew = w.ent.find((e) => e.startsWith("binary_sensor.") && PS.s(e) === "on" && ["motion", "occupancy", "presence"].includes(PS.a(e).device_class));
-    if (bew) chips.push(`<span class="chip">${PS.ic("motion-sensor")}Bewegung</span>`);
     const medien = w.ent.find((e) => e.startsWith("media_player.") && PS.s(e) === "playing");
-    if (medien) chips.push(`<span class="chip an">${PS.ic("play")}${PS.esc(PS.kurzname(medien, b.name))}</span>`);
-    if (w.klima && PS.a(w.klima).hvac_action === "heating") chips.push(`<span class="chip warn">${PS.ic("fire")}heizt</span>`);
+    const hatWert = (teile.includes("temp") && w.temp != null) || (teile.includes("feuchte") && w.feuchte != null);
+    // Teile und Reihenfolge wie am PC eingestellt (PS.raumkarte); Licht steht hier als Chip
+    const stueck = {
+      temp: w.temp != null ? `<span>${PS.ic("thermometer")} ${PS.zahl(w.temp, 1)}°</span>` : "",
+      feuchte: w.feuchte != null ? `<span>${PS.ic("water-percent")} ${PS.zahl(w.feuchte, 0)} %</span>` : "",
+      anzahl: hatWert ? "" : `<span>${w.ent.length} ${w.ent.length === 1 ? "Gerät" : "Geräte"}</span>`,
+      licht: w.lichterAn ? `<span class="chip an">${PS.ic("lightbulb")}${w.lichterAn}</span>` : "",
+      offen: offen.length ? `<span class="chip warn">${PS.ic("window-open-variant")}${offen.length} offen</span>` : "",
+      heizt: w.klima && PS.a(w.klima).hvac_action === "heating" ? `<span class="chip warn">${PS.ic("fire")}heizt</span>` : "",
+      medien: medien ? `<span class="chip an">${PS.ic("play")}${PS.esc(PS.kurzname(medien, b.name))}</span>` : "",
+      bewegung: bew ? `<span class="chip">${PS.ic("motion-sensor")}Bewegung</span>` : "",
+    };
+    const werte = ["temp", "feuchte", "anzahl"];
     const k = E(`<div class="raum" data-raum="${PS.esc(b.id)}" style="--i:${i}"><div class="oben">${PS.ic(b.icon || "texture-box")}<b>${PS.esc(b.name)}</b></div>
-      <div class="werte">${w.temp != null ? `<span>${PS.ic("thermometer")} ${PS.zahl(w.temp, 1)}°</span>` : ""}${w.feuchte != null ? `<span>${PS.ic("water-percent")} ${PS.zahl(w.feuchte, 0)} %</span>` : ""}</div>
-      <div class="chips">${chips.join("")}</div></div>`);
+      <div class="werte">${teile.filter((t) => werte.includes(t)).map((t) => stueck[t] || "").join("")}</div>
+      <div class="chips">${teile.filter((t) => !werte.includes(t)).map((t) => stueck[t] || "").join("")}</div></div>`);
     k.addEventListener("click", () => PS.mitUebergang(k, () => PS.unterseite(b.name, (el) => raumKompakt(el, b.id))));
     return k;
   }

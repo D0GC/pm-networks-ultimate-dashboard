@@ -300,6 +300,11 @@
     const p = DOMAIN_IC[d]; return p ? p[an ? 1 : 0] : "eye";
   };
   PS.icon = (eid, klasse) => PS.ic(PS.iconName(eid), klasse);
+  // Inhalt der Raumkarten (Räume-Seite, Startseiten-Block, Flur): welche Teile in welcher Folge, am PC eingestellt
+  PS.RAUMKARTE = [["temp", "Temperatur"], ["feuchte", "Luftfeuchte"], ["anzahl", "Geräteanzahl (ohne Messwerte)"], ["licht", "Licht"],
+    ["offen", "Offene Fenster und Türen"], ["heizt", "Heizt"], ["medien", "Wiedergabe"], ["bewegung", "Bewegung"]];
+  PS.raumkarte = () => (Array.isArray(PS.einst && PS.einst.raumkarte) && PS.einst.raumkarte.length ? PS.einst.raumkarte : PS.RAUMKARTE.map((x) => x[0]));
+  PS.RAUMKARTE_WERTE = ["temp", "feuchte", "anzahl", "licht"];  // stehen in der Wertezeile, die übrigen als Chips
 
   // ------------------------------------------------------------ Bedienung
   PS.toast = (text, fehler = false) => {
