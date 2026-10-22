@@ -736,6 +736,60 @@
     seite.render(inhalt);
     PS.kachelnBinden(inhalt);
   }
+  // ------------------------------------------------------------ Eigene Reihenfolge (am PC angeordnet, überall gültig)
+  // Jede Liste mit mindestens zwei kenntlichen Einträgen ist sortierbar: Kacheln (data-eid), Räume (data-b), Thermostate
+  // (data-klima), Boxen und Gruppen (über ihren Titel). Ihr Schlüssel aus Seite, umgebender Box und Position ist auf
+  // Panel und PC gleich; Räume folgen der gemeinsamen Raumreihenfolge. Nicht kenntliche Elemente (Knöpfe wie „Alle …“)
+  // behalten ihren Platz, Neues reiht sich hinten ein. Ein Beobachter ordnet auch nach, was später nachgeladen wird.
+  const kennung = (el) => {
+    if (el.dataset.raum) return "raum:" + el.dataset.raum;
+    if (el.dataset.eid || el.dataset.klima) return el.dataset.eid || el.dataset.klima;
+    const h = el.matches(".r-box, .gruppe") && el.querySelector(":scope > h3 > span");
+    return h ? "box:" + h.textContent.trim() : "";
+  };
+  const ORDNUNG_KANDIDATEN = "[data-eid], [data-raum], [data-klima], .r-box, .gruppe";
+  function ordnungsListen(wurzel) {
+    const eltern = new Set();
+    wurzel.querySelectorAll(ORDNUNG_KANDIDATEN).forEach((el) => { if (el.parentElement && kennung(el)) eltern.add(el.parentElement); });
+    return [...eltern].filter((c) => (c === wurzel || wurzel.contains(c)) && [...c.children].filter((x) => kennung(x)).length >= 2);
+  }
+  function seitenSchluessel() { const s = stapel[stapel.length - 1]; return s ? `${s.modul}/${s.titel}` : ""; }
+  function listenSchluessel(c, wurzel, listen) {
+    const box = c.parentElement && c.parentElement.closest(".r-box, .gruppe");
+    const titel = box && wurzel.contains(box) ? (box.querySelector(":scope > h3 > span") || {}).textContent || "" : "";
+    const art = c === wurzel ? "seite" : c.classList[0] || c.tagName.toLowerCase();
+    const bereich = box && wurzel.contains(box) ? box : wurzel;
+    const gleiche = listen.filter((x) => x !== wurzel && bereich.contains(x) && (x.classList[0] || x.tagName.toLowerCase()) === art);
+    return `${seitenSchluessel()}|${titel.trim()}|${art}${c === wurzel ? "" : Math.max(0, gleiche.indexOf(c))}`;
+  }
+  function ordnen(c, folge) {
+    const kinder = [...c.children].filter((x) => kennung(x));
+    const rang = (x) => { const i = folge.indexOf(kennung(x)); return i < 0 ? 1e6 + kinder.indexOf(x) : i; };
+    const soll = [...kinder].sort((x, y) => rang(x) - rang(y));
+    if (soll.every((x, i) => x === kinder[i])) return;
+    const platz = kinder.map((x) => { const m = document.createComment(""); x.replaceWith(m); return m; });
+    platz.forEach((m, i) => m.replaceWith(soll[i]));
+  }
+  PS.ordnung = {
+    zieht: false,
+    kennung, schluessel: (c, wurzel = $("#sheet-inhalt")) => listenSchluessel(c, wurzel, ordnungsListen(wurzel)),
+    listen: (wurzel = $("#sheet-inhalt")) => ordnungsListen(wurzel),
+    seite: seitenSchluessel,
+    anwenden(wurzel = $("#sheet-inhalt")) {
+      if (PS.ordnung.zieht || !stapel.length) return;
+      const alle = PS.einst.reihenfolgen || {}, raeume = (PS.einst.bereiche_reihenfolge || []).map((b) => "raum:" + b);
+      const listen = ordnungsListen(wurzel);
+      listen.forEach((c) => {
+        const folge = [...c.children].some((x) => x.dataset.raum) ? raeume : alle[listenSchluessel(c, wurzel, listen)];
+        if (folge && folge.length) ordnen(c, folge);
+      });
+    },
+  };
+  let ordnungBald = 0;
+  const ordnungVormerken = () => { if (!ordnungBald) ordnungBald = requestAnimationFrame(() => { ordnungBald = 0; PS.ordnung.anwenden(); }); };
+  new MutationObserver(ordnungVormerken).observe($("#sheet-inhalt"), { childList: true, subtree: true });
+  PS.on("einstellungen", ordnungVormerken);
+
   PS.neuZeichnen = () => { if (stapel.length) { const y = $("#sheet-inhalt").scrollTop; zeichnen(true); $("#sheet-inhalt").scrollTop = y; } };
   // Modulband im Seitenkopf, auf allen Modulseiten gleich (Seiten mit eigenen Reitern ersetzen es über PS.tabs)
   function modulBand(aktiv) {

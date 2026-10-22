@@ -179,3 +179,23 @@ def test_unifi_optionen_bleiben_privat():
     o = Options.from_dict({"unifi_api_schluessel": "geheim", "unifi_adresse": "https://192.168.3.1"})
     p = o.public()
     assert p["unifi"] is True and "unifi_api_schluessel" not in p and "unifi_kennwort" not in p
+
+
+def test_reihenfolgen():
+    e = Einstellungen()
+    ab = e.aktualisieren(
+        {
+            "reihenfolgen": {
+                "raeume/Büro|Geräte|raster0": ["switch.b", "switch.a", "switch.b", " ", "box:Licht\x00"],
+                "leer": [],
+                "kaputt": "switch.a",
+            }
+        }
+    )
+    assert not ab
+    assert e.reihenfolgen == {"raeume/Büro|Geräte|raster0": ["switch.b", "switch.a", "box:Licht"]}
+    assert Einstellungen.from_dict(e.to_dict()).reihenfolgen == e.reihenfolgen
+    assert e.aktualisieren({"reihenfolgen": ["x"]}) == ["reihenfolgen"]
+    viele = {f"s{i}": ["a"] for i in range(1000)}
+    e.aktualisieren({"reihenfolgen": viele})
+    assert len(e.reihenfolgen) == 400
