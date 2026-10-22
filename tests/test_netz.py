@@ -115,8 +115,10 @@ async def test_abgewiesen_meldet_fehler(aiohttp_server):
 
 async def test_live_ping_misst_verbindungsaufbau(aiohttp_server):
     server = await aiohttp_server(web.Application())
-    ping = netz.Ping((("127.0.0.1", server.port), ("127.0.0.1", 1)))
+    ping = netz.Ping((("Eins", "127.0.0.1", server.port), ("Zwei", "localhost", server.port), ("Tot", "127.0.0.1", 1)))
     w = await ping.messen()
-    assert w["ziel"] == "127.0.0.1" and 0 <= w["ms"] < 2000
+    eins, zwei, tot = w["ziele"]
+    assert eins["name"] == "Eins" and 0 <= eins["ms"] < 2000 and zwei["ms"] is not None and tot["ms"] is None
+    assert w["ms"] == round((eins["ms"] + zwei["ms"]) / 2, 1)
     assert await ping.messen() is w  # aus dem Zwischenspeicher
-    assert await netz.Ping((("127.0.0.1", 1),)).messen() == {"ms": None, "ziel": None}
+    assert (await netz.Ping((("Tot", "127.0.0.1", 1),)).messen())["ms"] is None

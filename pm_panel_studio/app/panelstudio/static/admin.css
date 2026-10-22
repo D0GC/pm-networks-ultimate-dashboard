@@ -383,9 +383,13 @@ body.admin .r-box h3{gap:.6rem;flex-wrap:wrap}
 .nz-geraete td{white-space:nowrap}
 .nz-live{display:flex;flex-direction:column;gap:.6rem}
 .nz-live[hidden]{display:none}
-.nz-werte .nz-ping small{color:var(--gut)}.nz-werte small em{font-style:normal;color:var(--leise);font-size:.8rem}
-.nz-werte .nz-rx small{color:var(--info)}.nz-werte .nz-tx small{color:var(--akzent)}
+.nz-werte .nz-ping small{color:var(--gut)}.nz-werte .nz-rx small{color:var(--info)}.nz-werte .nz-tx small{color:var(--akzent)}
 .nz-werte b .walze{vertical-align:baseline}
+.nz-pings{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.6rem}
+.nz-pings > div{display:flex;align-items:baseline;justify-content:space-between;gap:.4rem;padding:.4rem .7rem;border-radius:.7rem;background:var(--flaeche-tief);border:1px solid var(--linie);min-width:0}
+.nz-pings small{color:var(--leise);font-size:.85rem;overflow:hidden;text-overflow:ellipsis}
+.nz-pings b{font-size:1.1rem;font-weight:600;white-space:nowrap}
+.nz-pings b i{font-style:normal;font-size:.8rem;color:var(--leise);margin-left:.2rem}
 .nz-flussbahn{display:flex;align-items:center;gap:.5rem;color:var(--lavender)}
 .nz-flussbahn .mdi{font-size:1.3rem}
 .nz-flussbahn canvas{flex:1;min-width:0;height:2.2rem}

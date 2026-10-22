@@ -1,5 +1,10 @@
 # Änderungen
 
+## 2026.10.57 – 2026-10-22
+
+- Live-Ping wie bei UniFi zu Microsoft, Google und Cloudflare (TCP-Verbindungsaufbau auf Port 443, Namen vorab
+  aufgelöst). Die Netzwerkseite zeigt alle drei einzeln, Startblock und großes Feld den Durchschnitt der erreichten.
+
 ## 2026.10.56 – 2026-10-22
 
 - Live-Ping: Die App misst den Ping selbst alle drei Sekunden (Dauer des TCP-Verbindungsaufbaus zu 1.1.1.1 und
