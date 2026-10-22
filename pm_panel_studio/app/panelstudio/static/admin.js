@@ -18,6 +18,45 @@
   };
   document.body.classList.add("admin");
 
+  // ------------------------------------------------------------ Laufband in der Kopfzeile
+  // Passt der Inhalt nicht, folgt ihm eine Kopie und beide gleiten mit gleichmäßigem Tempo nach links; nach dem
+  // letzten Eintrag beginnt nahtlos wieder der erste. Die Kopie wird bei jeder Änderung des Originals erneuert, das
+  // Tempo bleibt (Wegstrecke und Dauer wachsen gemeinsam). Klicks auf die Kopie wirken wie auf das Original;
+  // beim Zeigen hält das Band an, bei reduzierter Bewegung lässt es sich stattdessen von Hand schieben.
+  const BAND_PX_S = 45;
+  function bandEinrichten(band) {
+    const innen = band.querySelector(".ak-band-innen"), teil = band.querySelector(".ak-band-teil");
+    let klon = null, geplant = 0, weg = 0;
+    const messen = () => {
+      geplant = 0;
+      const passt = teil.scrollWidth <= band.clientWidth + 1;
+      band.classList.toggle("laeuft", !passt);
+      if (passt) { if (klon) { klon.remove(); klon = null; } weg = 0; innen.style.removeProperty("--weg"); return; }
+      const neu = teil.cloneNode(true);
+      neu.classList.add("ak-band-klon"); neu.setAttribute("aria-hidden", "true");
+      neu.querySelectorAll("[id]").forEach((el) => el.removeAttribute("id"));
+      if (klon) klon.replaceWith(neu); else innen.appendChild(neu);
+      klon = neu;
+      // Abstand zwischen Ende und Anfang ist der Spaltabstand des Bandes
+      const w = teil.getBoundingClientRect().width + parseFloat(getComputedStyle(innen).columnGap || "0");
+      if (Math.abs(w - weg) > 1) {
+        weg = w;
+        innen.style.setProperty("--weg", `${-w}px`);
+        innen.style.setProperty("--dauer", `${(w / BAND_PX_S).toFixed(2)}s`);
+      }
+    };
+    const vormerken = () => { if (!geplant) geplant = requestAnimationFrame(messen); };
+    new MutationObserver((liste) => { if (liste.some((m) => !klon || !klon.contains(m.target))) vormerken(); })
+      .observe(teil, { childList: true, subtree: true, characterData: true, attributes: true });
+    if (window.ResizeObserver) new ResizeObserver(vormerken).observe(band);
+    band.addEventListener("click", (ev) => {
+      if (!klon || !klon.contains(ev.target)) return;
+      const z = ev.target.closest("[data-eid],[data-modul]"); if (!z) return;
+      if (z.dataset.eid) PS.mehrInfos(z.dataset.eid); else PS.oeffnen(z.dataset.modul);
+    });
+    vormerken();
+  }
+
   // ------------------------------------------------------------ Aufbau: Kopfzeile und Startseite
   const start = $(".start");
   const kopf = E(`<header class="admin-kopf">
@@ -25,7 +64,11 @@
     <div class="ak-rechts"><button type="button" class="ak-suche" id="ak-suche">${PS.ic("magnify")}<span>Suchen</span><kbd>/</kbd></button></div>
   </header>`);
   kopf.querySelector(".ak-zeit").append($("#uhr"), $("#datum"));
-  kopf.querySelector(".ak-lage").append($("#wetter"), $("#personen"), $("#status"));
+  // Personen und Statuspillen laufen als Band durch (Bauchbinde), sobald sie nicht in die Kopfzeile passen
+  const band = E('<div class="ak-band"><div class="ak-band-innen"><div class="ak-band-teil"></div></div></div>');
+  band.querySelector(".ak-band-teil").append($("#personen"), $("#status"));
+  kopf.querySelector(".ak-lage").append($("#wetter"), band);
+  bandEinrichten(band);
   kopf.querySelector(".ak-rechts").append($("#glocke"));
   const seite = E(`<section class="admin-start" id="admin-start" aria-label="Startseite">
     <div class="as-kopf"><div><h1 id="as-gruss"></h1><p id="as-lage"></p></div>
