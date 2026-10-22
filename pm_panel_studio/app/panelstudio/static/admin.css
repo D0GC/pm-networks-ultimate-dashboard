@@ -390,6 +390,9 @@ body.admin .r-box h3{gap:.6rem;flex-wrap:wrap}
 .nz-pings small{color:var(--leise);font-size:.85rem;overflow:hidden;text-overflow:ellipsis}
 .nz-pings b{font-size:1.1rem;font-weight:600;white-space:nowrap}
 .nz-pings b i{font-style:normal;font-size:.8rem;color:var(--leise);margin-left:.2rem}
+.as-block p.leise{color:var(--leise);font-size:.9rem;margin:0}
+.nz-diagnose td code{font-size:.85rem}
+.nz-diagnose tr.nz-diag-app td{color:var(--info);font-weight:600}
 .nz-flussbahn{display:flex;align-items:center;gap:.5rem;color:var(--lavender)}
 .nz-flussbahn .mdi{font-size:1.3rem}
 .nz-flussbahn canvas{flex:1;min-width:0;height:2.2rem}

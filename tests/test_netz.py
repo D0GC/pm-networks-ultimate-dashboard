@@ -168,3 +168,38 @@ async def test_gateway_wird_bei_jeder_abfrage_frisch_geholt(aiohttp_server):
         st = await u.stand()
         assert st["internet"]["rx_bps"] == 5000 and st["internet"]["tx_bps"] == 70
         assert abrufe == {"liste": 1, "gateway": 1}
+
+
+def test_rate_aus_den_byte_zaehlern_ueber_ein_fenster():
+    def gw(zeit, rx, tx):
+        return {"type": "udm", "last_seen": zeit, "wan1": {"up": True, "rx_bytes": rx, "tx_bytes": tx}}
+
+    r = netz.Zaehlerrate()
+    assert r.neu(netz.zaehler(gw(100, 0, 0))) is None
+    assert r.neu(netz.zaehler(gw(104, 4_000_000, 40_000))) is None  # Fenster noch zu kurz
+    assert r.neu(netz.zaehler(gw(110, 27_500_000, 170_000))) == (2_750_000, 17_000)  # 22 Mbit/s, 136 kbit/s
+    # Gleicher Bericht noch einmal: keine neue Probe, gleicher Wert
+    assert r.neu(netz.zaehler(gw(110, 27_500_000, 170_000))) == (2_750_000, 17_000)
+    # Ältere Proben fallen aus dem Fenster (20 s): gerechnet ab 110
+    assert r.neu(netz.zaehler(gw(125, 42_500_000, 170_000))) == (1_000_000, 0)
+    # Zähler zurückgesetzt: neu beginnen
+    assert r.neu(netz.zaehler(gw(130, 10, 10))) is None
+    assert netz.zaehler({"type": "udm", "wan1": {"up": True}}) is None
+
+
+def test_durchsatzfelder_fuer_die_diagnose():
+    gw = {
+        "name": "GW",
+        "rx_bytes": 5,
+        "uptime": 9,
+        "up": True,
+        "wan1": {"rx_bytes-r": 1, "tx_bytes": 2, "ip": "x", "stats": {"rx_rate": 3}},
+        "port_table": [{"name": "WAN", "tx_bytes-r": 4}],
+    }
+    assert dict(netz.durchsatzfelder(gw)) == {
+        "rx_bytes": 5,
+        "wan1.rx_bytes-r": 1,
+        "wan1.tx_bytes": 2,
+        "wan1.stats.rx_rate": 3,
+        "port_table[0].tx_bytes-r": 4,
+    }

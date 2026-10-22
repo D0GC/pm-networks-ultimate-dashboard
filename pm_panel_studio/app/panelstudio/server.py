@@ -441,6 +441,7 @@ async def token_neu(request: web.Request) -> web.Response:
 K_PANEL_APP: web.AppKey[web.Application] = web.AppKey("panel_app")
 K_NETZ: web.AppKey[list] = web.AppKey("netz")
 K_PING: web.AppKey[netz.Ping] = web.AppKey("ping")
+K_ADMIN: web.AppKey[dateien.AdminPruefung] = web.AppKey("admin")
 
 
 def _unifi(request: web.Request) -> netz.Unifi:
@@ -465,6 +466,16 @@ async def netz_stand(request: web.Request) -> web.Response:
     u = _unifi(request)
     stand, ping = await asyncio.gather(u.stand(request.query.get("neu") == "1"), request.app[K_PING].messen())
     return web.json_response({**stand, "ping": ping})
+
+
+async def netz_diagnose(request: web.Request) -> web.Response:
+    """Rohfelder für Durchsatz und Zähler vom Gateway; nur für Administratoren."""
+    if not await request.app[K_ADMIN](request):
+        raise web.HTTPForbidden(text="Nur für Administratoren.")
+    u = _unifi(request)
+    if not u.eingerichtet:
+        raise web.HTTPBadRequest(text="UniFi ist nicht eingerichtet (App-Optionen).")
+    return web.json_response(await u.diagnose())
 
 
 async def netz_speedtest(request: web.Request) -> web.Response:
@@ -511,11 +522,14 @@ def create_ingress_app(hub: Hub, token: list[str], networks: list[Any] | None = 
     app.router.add_post("/api/einstellungen", einstellungen_post)
     app.router.add_post("/api/token", token_neu)
     # Dateimanager nur über Ingress und nur für Administratoren, nie über den Panel-Port
-    dateien.routen(app, dateien.AdminPruefung(lambda: hub.client.ws_command({"type": "config/auth/list"})))
+    ist_admin = dateien.AdminPruefung(lambda: hub.client.ws_command({"type": "config/auth/list"}))
+    dateien.routen(app, ist_admin)
+    app[K_ADMIN] = ist_admin
     app[K_NETZ] = []
     app[K_PING] = netz.Ping()
     app.router.add_get("/api/netz", netz_stand)
     app.router.add_post("/api/netz/speedtest", netz_speedtest)
+    app.router.add_get("/api/netz/diagnose", netz_diagnose)
     _gemeinsam(app)
     return app
 

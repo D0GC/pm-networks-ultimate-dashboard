@@ -1,5 +1,12 @@
 # Änderungen
 
+## 2026.10.59 – 2026-10-22
+
+- Netzwerk: Durchsatz-Diagnose (Knopf am Ende der Netzwerkseite, nur Administratoren). Zeigt alle Durchsatz- und
+  Zählerfelder des Gateways und des Gesundheitsberichts, dazu eine aus den Byte-Zählern über 20 s berechnete Rate,
+  alle drei Sekunden erneuert. Dient dem Abgleich mit der UniFi-Oberfläche; die Anzeige selbst bleibt unverändert,
+  bis feststeht, welches Feld deren Wert trägt.
+
 ## 2026.10.58 – 2026-10-22
 
 - Netzwerk: Download und Upload kommen jetzt aus den WAN-Schnittstellen des Gateways (wie in der UniFi-Oberfläche),
