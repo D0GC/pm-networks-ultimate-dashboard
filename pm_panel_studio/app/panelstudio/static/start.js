@@ -178,6 +178,7 @@
     naechstes: ["calendar-arrow-right", "#c99bf0"],
     meldung: ["bell-ring-outline", "var(--warn)"], spueler: ["dishwasher", "var(--info)"], robo: ["robot-vacuum", "var(--gut)"], musik: ["music-note-outline", "#c99bf0"], ruhig: ["leaf", "var(--gut)"], heimweg: ["home-import-outline", "var(--gut)"],
     pakete: ["package-variant-closed", "#e3a35d"], verpasst: ["phone-missed", "var(--krit)"],
+    alarm: ["shield-home", "var(--gut)"], haustuer: ["doorbell", "var(--warn)"],
   };
   PS.kartenIcon = (k) => (KARTE[k] || KARTE.neutral)[0];
   let aktuell = 0, liste = [], wechselZeit = 0, wischt = false;
@@ -198,7 +199,7 @@
   }
   // HA-Timer (Kohle, Duschmodus, Spa) zählen wie an den Panels Bad und Büro sekundengenau („12:34“); Geräte mit
   // geschätzter Restzeit (Waschmaschine, Spüler) bleiben bei Minuten
-  const SEKUNDEN = ["kohle", "dusche", "spa"];
+  const SEKUNDEN = ["kohle", "dusche", "spa", "alarm"];
   function restText(sek, sekunden = false) {
     if (sek == null) return null;
     if (sekunden === "voll" && sek >= 3600) { const g = Math.ceil(sek); return { zahl: `${Math.floor(g / 3600)}:${String(Math.floor(g % 3600 / 60)).padStart(2, "0")}:${String(g % 60).padStart(2, "0")}`, einheit: "h" }; }
@@ -310,6 +311,7 @@
     else if (kk && kk.schluessel === "eil") PS.eilZeigen(kk);
     else if (kk && kk.art === "sport") PS.sportZeigen(kk);
     else if (kk && kk.art === "pakete") PS.paketeZeigen(kk);
+    else if (kk && kk.oeffnen) PS.oeffnen(kk.oeffnen);  // Alarmanlage, Haustür: zur Seite
     else return false;
     return true;
   };
@@ -348,7 +350,7 @@
         el = document.createElement("div"); el.className = "karte"; el.dataset.id = k.id;
         el.addEventListener("click", (ev) => {
           const b = ev.target.closest && ev.target.closest(".aktionen [data-akt]");
-          if (b) { ev.stopPropagation(); kartenAktion(b.dataset.akt, el._karte); return; }
+          if (b) { ev.stopPropagation(); kartenAktion(b.dataset.akt, el._karte, b); return; }
           if (!PS.karteOeffnen(el._karte)) weiter();
         });
         box.appendChild(el); elemente.set(k.id, el);
@@ -561,7 +563,8 @@
           aktionen: [...(v.nummer ? [{ akt: "zurueckrufen", text: "Zurückrufen", icon: "phone", klasse: "gut", daten: v.nummer }] : []), { akt: "erledigt", text: "Erledigt", daten: v.nummer }] } };
     });
   }
-  function kartenAktion(akt, k) {
+  function kartenAktion(akt, k, knopf) {
+    if (k && ["alarm", "haustuer"].includes(k.schluessel) && PS.sicherheitAktion) { PS.sicherheitAktion(akt, k, knopf); return; }
     if (!k || k.schluessel !== "verpasst") return;
     const v = ((PS.telefon || {}).verpasst || []).find((x) => `verpasst:${x.nummer}` === k.id);
     if (!v) return;
@@ -573,6 +576,7 @@
     const sig = JSON.stringify([t && t.aktiv, t && t.verpasst]);
     if (sig !== verpasstSig) { verpasstSig = sig; feedAufbauen(); }
   });
+  PS.feedNeu = () => feedAufbauen();
   function feedAufbauen() {
     let k = (PS.karten || []).filter((x) => x.schluessel !== "wetter");
     // Kein „Wetterwechsel“, wenn der DWD dieselbe Lage schon als Warnung meldet (Gewitter, Regen, Schnee)
@@ -580,6 +584,7 @@
     const ww = (PS.einst.karten_aus || []).includes("wetter") || gewarnt ? null : wetterwechsel(); if (ww) k.push(ww);
     if (!k.length) k.push(okKarte());
     k.push(...verpasstKarten());
+    if (PS.sicherheitKarten) k.push(...PS.sicherheitKarten());
     if (!(PS.einst.karten_aus || []).includes("termin")) { k.push(...terminKarten()); const mk = morgenKarte(); if (mk) k.push(mk); }
     if (!(PS.einst.karten_aus || []).includes("stundenplan")) { const sk = stundenplanKarte(); if (sk) k.push(sk); }
     kartenSetzen(sortiert(k));

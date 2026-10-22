@@ -241,7 +241,8 @@
   PS.ic = (name, klasse = "") => {
     const n = String(name || "help-circle-outline").replace(/^mdi:/, "");
     const cp = mdiMap().get(n) || mdiMap().get("help-circle-outline");
-    return `<i class="mdi ${klasse}" aria-hidden="true">${String.fromCodePoint(cp)}</i>`;
+    // data-ic: Name für die Symbol-Animationen (symbole.css), z. B. dreht sich „fan“ in einer eingeschalteten Kachel
+    return `<i class="mdi ${klasse}" data-ic="${n}" aria-hidden="true">${String.fromCodePoint(cp)}</i>`;
   };
   const DOMAIN_IC = {
     light: ["lightbulb-outline", "lightbulb"], switch: ["toggle-switch-variant-off", "toggle-switch-variant"], fan: ["fan-off", "fan"],
