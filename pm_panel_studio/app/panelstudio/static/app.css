@@ -78,7 +78,7 @@ button{font:inherit;color:inherit}
 .ring svg{width:100%;height:100%;transform:rotate(-90deg);overflow:visible}
 .ring .spur{fill:none;stroke:rgba(197,192,211,.1);stroke-width:2.5}
 .ring .wert{fill:none;stroke:var(--farbe,var(--lavender));stroke-width:3.5;stroke-linecap:round;transition:stroke-dashoffset 1.2s var(--ease)}
-.ring .innen{position:absolute;inset:0;display:grid;place-content:center;text-align:center;gap:.3rem}
+.ring .innen{position:absolute;inset:0;display:grid;place-content:center;justify-items:center;text-align:center;gap:.3rem}
 .ring .innen b{font-size:3.4rem;font-weight:500;font-variant-numeric:tabular-nums;line-height:1}
 .ring .innen small{font-size:.9rem;color:var(--leise);letter-spacing:.14em;text-transform:uppercase}
 .ring .innen .mdi{font-size:4.6rem;opacity:.9;color:var(--farbe,var(--lavender))}

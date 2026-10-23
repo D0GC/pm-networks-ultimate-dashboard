@@ -1,5 +1,15 @@
 # Änderungen
 
+## 2026.10.85 – 2026-10-23
+
+- Ringe: Zahl wirklich mittig. Der Innenbereich eines Rings ist ein Raster; war die Beschriftung breiter als die
+  Zahl (z. B. „SPEICHER“ unter „27 %“), wurde die Zahl auf diese Breite gestreckt und stand darin links. Jetzt
+  ist sie so breit wie ihr Inhalt und mittig, in allen Ringen.
+- Kameraaufnahmen: Abruf nur noch über die App und nie zwei zugleich (der Reolink-Hub bricht parallele Downloads ab;
+  bisher liefen direkter Abruf des Browsers und der der App gleichzeitig). Bricht der Hub die Übertragung ab, lädt die
+  App bis zu dreimal neu; was angekommen ist, versucht ffmpeg noch abspielbar zu machen. Das Protokoll nennt je
+  Versuch erwartete und erhaltene Bytes und die Lage des MP4-Inhaltsverzeichnisses.
+
 ## 2026.10.84 – 2026-10-23
 
 - Kameraaufnahmen, dritter Anlauf mit klarer Ursache aus dem Protokoll:

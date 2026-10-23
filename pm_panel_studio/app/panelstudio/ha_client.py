@@ -135,28 +135,49 @@ class HAClient:
         except TimeoutError as err:
             raise HAError(f"GET {path}: Zeitüberschreitung") from err
 
-    async def signiert_laden(self, pfad: str, timeout: float = 180) -> tuple[bytes, str, str]:
+    async def signiert_laden(self, pfad: str, timeout: float = 180, versuche: int = 3) -> tuple[bytes, str, str]:
         """Signierten HA-Pfad (``/api/…?authSig=…``) vollständig laden wie ein Browser: direkt bei Home Assistant, ohne
-        Authorization-Kopf (die Reolink-Ansicht reicht Kopfzeilen an den Hub weiter, der an einer fremden Anmeldung
-        hängen bleibt). Ohne direkten Weg über den Supervisor. Rückgabe ``(daten, content_type, weg)``."""
-        if self.direkt_url:
+        Authorization-Kopf (die Reolink-Ansicht reicht Kopfzeilen an den Hub weiter). Bricht die Quelle mittendrin ab
+        (der Reolink-Hub tut das), wird bis zu ``versuche``-mal neu geladen; zurück kommt die vollständige oder die
+        längste erhaltene Fassung. Rückgabe ``(daten, content_type, bericht)``."""
+        bester: tuple[bytes, str] = (b"", "application/octet-stream")
+        berichte: list[str] = []
+        for versuch in range(1, versuche + 1):
+            direkt = bool(self.direkt_url)
+            url = f"{self.direkt_url.rstrip('/')}{pfad}" if direkt else f"{self.api_url}/{pfad.removeprefix('/api').lstrip('/')}"
+            kopf = {"Accept-Encoding": "identity", "Accept": "*/*"}
+            if not direkt:
+                kopf["Authorization"] = f"Bearer {self._token}"
+            teile: list[bytes] = []
+            erwartet, ctype, grund = None, "application/octet-stream", "vollständig"
             try:
-                async with self._session.get(
-                    f"{self.direkt_url.rstrip('/')}{pfad}",
-                    headers={"Accept-Encoding": "identity", "Accept": "*/*"},
-                    timeout=aiohttp.ClientTimeout(total=timeout, sock_connect=10),
-                ) as resp:
+                frist = aiohttp.ClientTimeout(total=timeout, sock_connect=10)
+                async with self._session.get(url, headers=kopf, timeout=frist) as resp:
                     if resp.status >= 400:
-                        raise HAError(f"GET {pfad.split('?')[0]} (direkt): HTTP {resp.status}", str(resp.status))
-                    return await resp.read(), resp.content_type or "application/octet-stream", "direkt"
-            except aiohttp.ClientConnectorError:
-                pass  # HA intern nicht erreichbar: über den Supervisor
-            except aiohttp.ClientError as err:
-                raise HAError(f"GET {pfad.split('?')[0]} (direkt): {err}") from err
-            except TimeoutError as err:
-                raise HAError(f"GET {pfad.split('?')[0]} (direkt): Zeitüberschreitung") from err
-        daten, ctype = await self.rest_raw(pfad.removeprefix("/api"), timeout=timeout)
-        return daten, ctype, "supervisor"
+                        grund = f"HTTP {resp.status}"
+                    else:
+                        erwartet, ctype = resp.content_length, resp.content_type or ctype
+                        async for block in resp.content.iter_chunked(256 * 1024):
+                            teile.append(block)
+            except aiohttp.ClientConnectorError as err:
+                if direkt:
+                    self.direkt_url = ""  # HA intern nicht erreichbar: künftig über den Supervisor
+                    grund = f"direkt nicht erreichbar ({err})"
+                else:
+                    grund = str(err)
+            except (aiohttp.ClientPayloadError, aiohttp.ServerDisconnectedError, aiohttp.ClientError) as err:
+                grund = f"abgebrochen ({type(err).__name__})"
+            except TimeoutError:
+                grund = "Zeitüberschreitung"
+            daten = b"".join(teile)
+            weg = "direkt" if direkt else "Supervisor"
+            berichte.append(f"Versuch {versuch} ({weg}): {len(daten)} von {erwartet or '?'} Bytes, {grund}")
+            if len(daten) > len(bester[0]):
+                bester = (daten, ctype)
+            if daten and grund == "vollständig" and (erwartet is None or len(daten) >= erwartet):
+                break
+            await asyncio.sleep(2 * versuch)
+        return bester[0], bester[1], "; ".join(berichte)
 
     async def stream_oeffnen(self, path: str, headers: dict[str, str] | None = None) -> aiohttp.ClientResponse:
         """GET ohne Gesamt-Zeitlimit für Datenströme (MJPEG, Video). Der Aufrufer gibt die Antwort mit ``release()`` frei."""
