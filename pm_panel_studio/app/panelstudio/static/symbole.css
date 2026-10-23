@@ -1,15 +1,14 @@
 /* PM Panel Studio – animierte Symbole. Jedes Symbol trägt seinen Namen (PS.ic → data-ic). Bewegt wird nur, was gerade
    aktiv ist: eingeschaltete Kacheln, Chips der Raumkarten, Symbole in Feed-Karten, Haushaltsgeräte (fertig, Fehler), heizende
-   Thermostate und der eben gewählte Dock-Eintrag. Nur transform und opacity; aus mit „Animationen aus“ und bei
+   Thermostate. Nur transform und opacity; aus mit „Animationen aus“ und bei
    reduzierter Bewegung. */
 
 /* Wo Symbole sich bewegen dürfen. Das Symbol bekommt genau seine eigene Größe (1em × 1em): In der Kachel (Flex-Spalte)
-   würde es sonst auf die volle Breite gestreckt und drehte sich um die Mitte der Kachel statt um die eigene Achse. */
-:is(.kachel.an,.kachel[data-phase],.chip,.karte .ring .innen,.gross[data-klima]:has(.ring:not(.kalt)) .titel,.hh-rest,.dock button) > .mdi[data-ic]{
-  width:1em;height:1em;flex:none;align-self:flex-start;text-align:center}
-/* Kein transform-origin hier: :is() trägt die hohe Spezifität seines stärksten Glieds und überschriebe die eigenen
-   Drehpunkte der Bewegungen unten (Glocke oben, Tür an der Angel, Flamme unten). Standard ist ohnehin die Mitte. */
-:is(.chip,.karte .ring .innen,.gross[data-klima] .titel,.hh-rest,.dock button) > .mdi[data-ic]{align-self:center;justify-self:center}
+   würde es sonst auf die volle Breite gestreckt und drehte sich um die Mitte der Kachel statt um die eigene Achse.
+   Bewusst einfache Selektoren ohne :is() und ohne Ausrichtung: :is() trägt die Spezifität seines stärksten Glieds und
+   hätte sonst Ausrichtung und Drehpunkte überall überschrieben (Dock, Chips, Ringe). */
+.kachel > .mdi[data-ic],.chip > .mdi[data-ic],.karte .ring .innen > .mdi[data-ic],.hh-rest > .mdi[data-ic]{width:1em;height:1em;flex:none;text-align:center}
+.gross[data-klima] .titel > .mdi[data-ic]{width:1em;height:1em;flex:none;text-align:center}
 /* Ausgeschaltete Varianten („bell-off“, „fan-off“, „speaker-off“ …) bewegen sich nie, auch wenn die Kachel „an“ ist
    (z. B. „Nicht stören“ mit durchgestrichener Glocke) */
 .mdi:is([data-ic$="-off"],[data-ic*="-off-"],[data-ic$="-cancel"],[data-ic$="-remove"]){animation:none!important}
@@ -107,8 +106,6 @@
 .hh-geraet[data-z="fertig"] .hh-rest > .mdi{animation:sym-hupf .7s cubic-bezier(.34,1.56,.64,1) 2}
 .hh-geraet[data-z="fehler"] .hh-rest > .mdi{animation:sym-ruetteln 2.4s ease-in-out infinite}
 
-/* Dock: der eben geöffnete Eintrag hüpft einmal */
-.dock button.aktiv > .mdi{animation:sym-hupf .6s cubic-bezier(.34,1.56,.64,1)}
 @keyframes sym-hupf{0%{transform:scale(1)}35%{transform:scale(1.25) translateY(-12%)}100%{transform:none}}
 
 /* Kachel wird eingeschaltet: Symbol springt einmal an, dann läuft die Dauerbewegung */

@@ -1,5 +1,13 @@
 # Änderungen
 
+## 2026.10.74 – 2026-10-23
+
+- Dock und Chips wieder mittig: Die Grundregel der Symbol-Animationen richtete Symbole überall oben bzw. links aus
+  (Admin-Leiste, Chips der Raumkarten, Symbole in Feed-Ringen). Sie setzt jetzt nur noch die Größe.
+- Hüpfer der Dock-Symbole entfernt (Admin und Panels).
+- Admin-Ringe (Proxmox, HA-Host, Netzwerk): die Spur ist sichtbarer, damit kurze Bögen wie „27 % Speicher“ den Ring
+  nicht seitlich versetzt wirken lassen.
+
 ## 2026.10.73 – 2026-10-23
 
 - Animierte Symbole drehen und schwingen um die eigene Achse: In Kacheln war das Symbol auf die volle Breite

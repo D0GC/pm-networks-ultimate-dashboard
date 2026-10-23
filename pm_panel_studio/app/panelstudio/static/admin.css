@@ -490,6 +490,9 @@ body.admin.offen:has(.flur-vorschau) .ord-knopf{display:none}
 .sv-ring .innen b i{font-style:normal;font-size:.8rem;color:var(--leise)}
 .sv-ring .innen small{font-size:.72rem}
 .sv-ring .wert{transition:stroke-dashoffset 1.6s var(--e-auftakt,ease)}
+/* Spur so kräftig wie der Wert: Ein kurzer Bogen rechts oben (Komet mit verblassendem Schweif) ließ den Ring sonst
+   seitlich versetzt wirken, obwohl er mittig sitzt */
+.sv-ring .spur{stroke:rgba(197,192,211,.2);stroke-width:3.5}
 .sv-kurve{display:block;width:100%;height:3.6rem}
 .sv-kurve.sv-gross{height:9rem}
 .sv-legende{display:flex;gap:1rem;flex-wrap:wrap;margin-top:.35rem;font-size:.82rem;color:var(--leise)}
