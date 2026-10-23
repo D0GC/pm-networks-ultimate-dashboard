@@ -348,6 +348,9 @@ class Einstellungen:
     raumkarte: list[str] = field(default_factory=lambda: list(RAUMKARTE_TEILE))
     # Startseite der Admin-Ansicht am PC: Blöcke in Reihenfolge, „block:breite“ (1–3 Spalten); fehlende sind aus
     admin_start: list[str] = field(default_factory=lambda: list(ADMIN_START))
+    # Dieselbe Startseite im Hochformat und in schmalen Fenstern, ganz eigene Folge und Größen: „block:breite:höhe“
+    # (Breite 1 halb, 2 voll; Höhe in Zeilen, 0 = nach Inhalt). Leer = aus dem Querformat abgeleitet
+    admin_start_hoch: list[str] = field(default_factory=list)
     admin_bekannt: list[str] = field(default_factory=lambda: list(ADMIN_BLOECKE))
     # Stundenpläne (Kalender): keine „Als Nächstes“-Karten, nicht in der Abendvorschau, dafür morgens eine Tageskarte
     stundenplan_kalender: list[str] = field(default_factory=lambda: list(STANDARD_STUNDENPLAN))
@@ -448,6 +451,8 @@ class Einstellungen:
             for b, eintrag in ADMIN_NACHTRAG.items():
                 if b not in bekannt and not any(x.startswith(b + ":") for x in e.admin_start):
                     e.admin_start.append(eintrag)
+                    if e.admin_start_hoch and not any(x.startswith(b + ":") for x in e.admin_start_hoch):
+                        e.admin_start_hoch.append(f"{b}:1:0")
         e.admin_bekannt = list(ADMIN_BLOECKE)
         return e
 
@@ -592,6 +597,18 @@ class Einstellungen:
                         eintrag += f":{hb}:{hh if hh == 0 else max(2, hh)}"
                     bloecke.append(eintrag)
                 self.admin_start = bloecke
+            elif key == "admin_start_hoch":
+                vals = val if isinstance(val, list) else []
+                gesehen_h: set[str] = set()
+                hoch = []
+                for v in vals:
+                    m = re.match(r"^([a-z_]{2,32}):(\d):(\d{1,2})$", str(v).strip())
+                    if not m or m.group(1) not in ADMIN_BLOECKE or m.group(1) in gesehen_h:
+                        continue
+                    gesehen_h.add(m.group(1))
+                    hh = min(24, int(m.group(3)))
+                    hoch.append(f"{m.group(1)}:{max(1, min(2, int(m.group(2))))}:{hh if hh == 0 else max(2, hh)}")
+                self.admin_start_hoch = hoch
             elif key in ("bereiche_reihenfolge", "bereiche_ausblenden", "start_raeume", "karten_aus"):
                 vals = val if isinstance(val, list) else []
                 setattr(self, key, [s for s in dict.fromkeys(str(v).strip() for v in vals) if re.match(r"^[a-z0-9_]{1,64}$", s)])

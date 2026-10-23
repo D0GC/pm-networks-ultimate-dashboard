@@ -944,17 +944,33 @@
   const bloecke = new Map();  // id → { el, def, sig, timer }
   let anpassen = null;        // Arbeitskopie der Anordnung im Anpassen-Modus
   let gedrueckt = 0;          // letzte Bedienung in einem Block: so lange nicht neu zeichnen
+  // Querformat und Hochformat (schmales Fenster) sind zwei eigene Startseiten: eigene Folge, eigene Größen.
+  // Querformat „id:Breite:Höhe“ (12 Spalten), Hochformat „id:Breite:Höhe“ (1 halb, 2 voll; Höhe in Zeilen, 0 = nach
+  // Inhalt). Ohne eigene Hochformat-Seite wird sie aus dem Querformat abgeleitet.
+  const HOCH_AB = 1100;
+  const istHoch = () => { const r = $("#as-raster"); return ((r && r.clientWidth) || innerWidth) < HOCH_AB; };
+  let anpassenHoch = false;
+  const aktivHoch = () => (anpassen ? anpassenHoch : istHoch());
+  const quer = (roh) => roh.map((x) => {
+    const [id, w, h, hb, hh] = String(x).split(":");
+    const g = GROESSE[id] || [4, 6];
+    return { id, w: Math.max(2, Math.min(12, +w || g[0])), h: Math.max(2, Math.min(24, +h || g[1])),
+      hb: Math.max(0, Math.min(2, +hb || 0)), hh: Math.max(0, Math.min(24, +hh || 0)) };
+  }).filter((x) => B[x.id]);
+  const hochAusQuer = (liste) => liste.map((x) => ({ ...x, hb: x.hb || (x.w >= 6 ? 2 : 1), hh: x.hh || 0 }));
   const anordnung = () => {
-    const roh = anpassen || (Array.isArray(PS.einst.admin_start) ? PS.einst.admin_start : STANDARD);
+    const querRoh = Array.isArray(PS.einst.admin_start) ? PS.einst.admin_start : STANDARD;
+    if (!aktivHoch()) return quer(anpassen || querRoh);
+    const eigen = Array.isArray(PS.einst.admin_start_hoch) && PS.einst.admin_start_hoch.length ? PS.einst.admin_start_hoch : null;
+    const roh = anpassen || eigen;
+    if (!roh) return hochAusQuer(quer(querRoh));
     return roh.map((x) => {
-      const [id, w, h, hb, hh] = String(x).split(":");
+      const [id, hb, hh] = String(x).split(":");
       const g = GROESSE[id] || [4, 6];
-      return { id, w: Math.max(2, Math.min(12, +w || g[0])), h: Math.max(2, Math.min(24, +h || g[1])),
-        hb: Math.max(0, Math.min(2, +hb || 0)), hh: Math.max(0, Math.min(24, +hh || 0)) };
+      return { id, w: g[0], h: g[1], hb: Math.max(1, Math.min(2, +hb || 1)), hh: Math.max(0, Math.min(24, +hh || 0)) };
     }).filter((x) => B[x.id]);
   };
-  // id:Breite:Höhe (Querformat, 12 Spalten), optional :Breite:Höhe im Hochformat (1 halb, 2 voll; Höhe 0 = nach Inhalt)
-  const eintrag = (x) => `${x.id}:${x.w}:${x.h}${x.hb || x.hh ? `:${x.hb || 0}:${x.hh || 0}` : ""}`;
+  const eintrag = (x) => (aktivHoch() ? `${x.id}:${x.hb || (x.w >= 6 ? 2 : 1)}:${x.hh || 0}` : `${x.id}:${x.w}:${x.h}`);
   const blockDaten = (el) => ({ id: el.dataset.id, w: +el.dataset.w, h: +el.dataset.h, hb: +el.dataset.hb || 0, hh: +el.dataset.hh || 0 });
   // Höhe im Hochformat: Zeilen wie im Querformat (3,4 rem plus Abstand)
   const remPx = () => parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
@@ -972,15 +988,20 @@
   }
   // Breites Fenster: 12 Spalten mit den gezogenen Größen. Schmal oder hochkant: halbe oder volle Breite (ab 6 Spalten
   // voll), ganz schmal eine Spalte; die Höhe richtet sich dann nach dem Inhalt
-  let spalten = 12;
+  let spalten = 12, zuletztHoch = null;
   function spannen() {
     const raster = $("#as-raster"), breit = raster.clientWidth;
-    spalten = breit < 560 ? 1 : breit < 1100 ? 2 : 12;
+    spalten = breit < 560 ? 1 : breit < HOCH_AB ? 2 : 12;
+    // Gedreht oder Fenster verkleinert: die Startseite des anderen Formats zeichnen (nicht mitten im Anpassen)
+    const hoch = spalten !== 12;
+    if (zuletztHoch !== null && hoch !== zuletztHoch && !anpassen && breit) { zuletztHoch = hoch; startZeichnen(); return; }
+    if (breit) zuletztHoch = hoch;
     raster.style.setProperty("--spalten", spalten);
     raster.classList.toggle("frei", spalten !== 12);
     raster.querySelectorAll(".as-block").forEach((el) => {
       const w = +el.dataset.w, h = +el.dataset.h, hb = +el.dataset.hb || 0, hh = +el.dataset.hh || 0;
       el.style.gridColumn = `span ${spalten === 12 ? w : spalten === 2 ? (hb || (w >= 6 ? 2 : 1)) : 1}`;
+      el.classList.toggle("anderes-format", !!anpassen && anpassenHoch !== (spalten !== 12));
       if (spalten === 12) el.style.gridRow = `span ${h}`;
       // Hochformat: eigene Höhe, sonst nach Inhalt (Mauerwerk misst nach)
       const inhalt = el.querySelector(":scope > .r-box");
@@ -1145,7 +1166,7 @@
     const r = E('<div class="as-chips"></div>');
     fehlt.forEach((id) => {
       const c = E(`<button type="button" class="as-chip info">${PS.ic("plus")}<span>${PS.esc(B[id].titel)}</span></button>`);
-      c.addEventListener("click", () => { anpassen.push(`${id}:${(GROESSE[id] || [4, 6]).join(":")}`); startZeichnen(); });
+      c.addEventListener("click", () => { anpassen.push(anpassenHoch ? `${id}:1:0` : `${id}:${(GROESSE[id] || [4, 6]).join(":")}`); startZeichnen(); });
       r.appendChild(c);
     });
     v.appendChild(r);
@@ -1156,23 +1177,32 @@
     if (!anpassen) {
       w.append(
         knopf("Inhalt anordnen", "drag-variant", () => PS.admin.anordnen(!document.body.classList.contains("anordnen"))),
-        knopf("Anpassen", "view-dashboard-edit-outline", () => { PS.admin.anordnen(false); anpassen = anordnung().map(eintrag); startZeichnen(); }),
+        knopf("Anpassen", "view-dashboard-edit-outline", () => {
+          PS.admin.anordnen(false);
+          anpassenHoch = istHoch();
+          anpassen = anordnung().map(eintrag);  // Arbeitskopie der Seite im aktuellen Format
+          startZeichnen();
+        }),
       );
       return;
     }
     w.append(
-      knopf("Standard", "restore", () => { anpassen = [...STANDARD]; startZeichnen(); }),
+      E(`<span class="as-format">${PS.ic(anpassenHoch ? "phone-rotate-portrait" : "phone-rotate-landscape")}${anpassenHoch ? "Hochformat" : "Querformat"}</span>`),
+      knopf("Standard", "restore", () => {
+        anpassen = anpassenHoch ? hochAusQuer(quer(STANDARD)).map((x) => `${x.id}:${x.hb}:0`) : [...STANDARD];
+        startZeichnen();
+      }),
       knopf("Abbrechen", "close", () => { anpassen = null; startZeichnen(); }),
       knopf("Speichern", "check", speichern, "primaer"),
     );
   }
   async function speichern() {
-    const liste = anpassen;
+    const liste = anpassen, schluessel = anpassenHoch ? "admin_start_hoch" : "admin_start";
     try {
-      const r = await fetch("api/einstellungen", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ admin_start: liste }) });
+      const r = await fetch("api/einstellungen", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ [schluessel]: liste }) });
       if (!r.ok) throw new Error(await r.text());
-      PS.einst.admin_start = (await r.json()).einstellungen.admin_start;
-      anpassen = null; startZeichnen(); PS.toast("Startseite gespeichert");
+      PS.einst[schluessel] = (await r.json()).einstellungen[schluessel];
+      anpassen = null; startZeichnen(); PS.toast(`Startseite im ${anpassenHoch ? "Hochformat" : "Querformat"} gespeichert`);
     } catch (e) { PS.toast("Nicht gespeichert: " + (e.message || e), true); }
   }
   function grussZeigen() {
