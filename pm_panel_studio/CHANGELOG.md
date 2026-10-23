@@ -1,5 +1,15 @@
 # Änderungen
 
+## 2026.10.76 – 2026-10-23
+
+- Haustür-Verlauf: Aus dem Verlauf nachgetragene Klingeln mit „angenommen“ gelten als am Panel angenommen, nicht
+  mehr als Ring-App (Ring meldet nur ob, nicht wo). Bereits gespeicherte Einträge werden beim Start korrigiert.
+  Kein doppeltes „Tür geöffnet“ mehr unter „Haustür geöffnet“.
+- Alarmanlage: Beschriftungen nach der tatsächlichen Überwachung. Zuhause: Kamera-Erkennung (Personen und Bewegung);
+  Nacht: Außenhaut gesichert.
+- Ein- und Ausgangsverzögerung: Die Sekunden im Countdown rollen wie bei den anderen Timern, der Ring gleitet weiter,
+  auf der Sicherheitsseite und in der Meldung am Panel.
+
 ## 2026.10.75 – 2026-10-23
 
 - Haustür-Verlauf vollständig: Die App trägt beim Start die Klingeln der letzten sieben Tage aus dem Verlauf von

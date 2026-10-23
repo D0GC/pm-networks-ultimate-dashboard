@@ -26,12 +26,12 @@
     nacht: (f) => `<path d="${SCHILD}" fill="rgba(176,127,208,.13)" stroke="${f}" stroke-width="3"/>
       <path class="al-atmen" d="M104 74 A26 26 0 1 0 108 112 A20 20 0 1 1 104 74 Z" fill="rgba(176,127,208,.35)" stroke="${f}" stroke-width="2.5"/>
       <circle class="al-stern" cx="66" cy="72" r="3" fill="#ECEBF2"/><circle class="al-stern" cx="116" cy="62" r="2.5" fill="#ECEBF2"/><circle class="al-stern" cx="74" cy="122" r="2" fill="#ECEBF2"/>`,
-    wird: (f, rest, gesamt) => {
+    wird: (f, rest, gesamt, walze) => {
       const U = 2 * Math.PI * 80, anteil = gesamt ? Math.max(0, Math.min(1, rest / gesamt)) : null;
       return `<circle cx="90" cy="90" r="80" fill="none" stroke="${f}" stroke-opacity=".15" stroke-width="6"/>
         <circle class="al-countdown${anteil == null ? " al-kreisen" : ""}" cx="90" cy="90" r="80" fill="none" stroke="${f}" stroke-width="6" stroke-linecap="round"
           stroke-dasharray="${U.toFixed(1)}" stroke-dashoffset="${(U * (1 - (anteil ?? 0.3))).toFixed(1)}"/>
-        ${rest != null ? `<text class="al-zahl" x="90" y="106" text-anchor="middle" font-size="48" font-weight="600" fill="${f}">${Math.max(0, Math.ceil(rest))}</text>` : `<path d="${SCHILD}" transform="translate(45 45) scale(.5)" fill="none" stroke="${f}" stroke-width="5"/>`}`;
+        ${rest != null && walze ? "" : rest != null ? `<text class="al-zahl" x="90" y="106" text-anchor="middle" font-size="48" font-weight="600" fill="${f}">${Math.max(0, Math.ceil(rest))}</text>` : `<path d="${SCHILD}" transform="translate(45 45) scale(.5)" fill="none" stroke="${f}" stroke-width="5"/>`}`;
     },
     ausgeloest: (f) => `<circle class="al-welle schnell" cx="90" cy="90" r="80" stroke="${f}"/><circle class="al-welle schnell b" cx="90" cy="90" r="80" stroke="${f}"/>
       <g class="al-zittern"><path d="${SCHILD}" fill="rgba(239,106,122,.2)" stroke="${f}" stroke-width="3"/>
@@ -41,9 +41,9 @@
   // HA-Zustand → Darstellung
   const ZUSTAND = {
     disarmed: ["unscharf", "Unscharf", "Niemand überwacht, alles frei", "var(--lavender)"],
-    armed_home: ["zuhause", "Scharf · Zuhause", "Türen und Fenster gesichert", "var(--gut)"],
+    armed_home: ["zuhause", "Scharf · Zuhause", "Kamera erkennt Personen und Bewegung", "var(--gut)"],
     armed_away: ["abwesend", "Scharf · Abwesend", "Alle Melder aktiv", "var(--info)"],
-    armed_night: ["nacht", "Scharf · Nacht", "Nachtbetrieb gesichert", "var(--akzent)"],
+    armed_night: ["nacht", "Scharf · Nacht", "Außenhaut gesichert", "var(--akzent)"],
     armed_vacation: ["abwesend", "Scharf · Urlaub", "Alle Melder aktiv", "var(--info)"],
     armed_custom_bypass: ["zuhause", "Scharf · Eigene", "Ausgewählte Melder aktiv", "var(--gut)"],
     arming: ["wird", "Wird scharf", "", "var(--warn)"],
@@ -52,7 +52,27 @@
     triggered: ["ausgeloest", "Alarm ausgelöst", "", "var(--krit)"],
   };
   const zustand = (eid) => ZUSTAND[PS.s(eid)] || ["unbekannt", PS.text(eid), "", "var(--leise)"];
-  PS.alarmSymbol = (art, farbe, rest, gesamt) => `<svg viewBox="0 0 180 180" aria-hidden="true" class="al-svg">${SYM[art](farbe, rest, gesamt)}</svg>`;
+  PS.alarmSymbol = (art, farbe, rest, gesamt, walze = false) => `<svg viewBox="0 0 180 180" aria-hidden="true" class="al-svg">${SYM[art](farbe, rest, gesamt, walze)}</svg>`;
+  // Symbol in einen Behälter setzen. Beim Countdown (Eingangs- und Ausgangsverzögerung) bleibt es stehen: der Ring
+  // gleitet weiter, die Sekunden rollen wie bei den anderen Timern (PS.walze) statt jede Sekunde neu gezeichnet zu werden.
+  PS.alarmSymbolSetzen = (box, art, farbe, rest, gesamt) => {
+    if (!box) return;
+    const zahl = rest != null ? String(Math.max(0, Math.ceil(rest))) : null;
+    const alt = box.firstElementChild;
+    if (art === "wird" && zahl != null && alt && alt.classList.contains("al-uhr") && alt.dataset.farbe === farbe) {
+      const c = alt.querySelector(".al-countdown"), U = 2 * Math.PI * 80;
+      const anteil = gesamt ? Math.max(0, Math.min(1, rest / gesamt)) : 0.3;
+      if (c) c.setAttribute("stroke-dashoffset", (U * (1 - anteil)).toFixed(1));
+      PS.walze(alt.querySelector(".al-walze"), zahl);
+      return;
+    }
+    if (art === "wird" && zahl != null) {
+      box.innerHTML = `<div class="al-uhr" data-farbe="${PS.esc(farbe)}">${PS.alarmSymbol(art, farbe, rest, gesamt, true)}<b class="al-walze tabular" style="color:${farbe}"></b></div>`;
+      PS.walze(box.querySelector(".al-walze"), zahl);
+      return;
+    }
+    box.innerHTML = PS.alarmSymbol(art, farbe, rest, gesamt);
+  };
   // Restzeit bei Vorlauf und Verzögerung (Alarmo: Attribut „delay“ in Sekunden ab dem Zustandswechsel)
   const restzeit = (eid) => {
     const d = Number(PS.a(eid).delay), t = Date.parse(PS.st(eid).lc);
@@ -61,9 +81,9 @@
 
   // ------------------------------------------------------------ Modi
   const MODI = [  // Dienst, Bit in supported_features, Darstellung
-    ["armed_home", "alarm_arm_home", 1, "zuhause", "Zuhause", "Außenhaut gesichert"],
+    ["armed_home", "alarm_arm_home", 1, "zuhause", "Zuhause", "Kamera-Erkennung"],
     ["armed_away", "alarm_arm_away", 2, "abwesend", "Abwesend", "alle Melder"],
-    ["armed_night", "alarm_arm_night", 4, "nacht", "Nacht", "Nachtbetrieb"],
+    ["armed_night", "alarm_arm_night", 4, "nacht", "Nacht", "Außenhaut gesichert"],
     ["armed_vacation", "alarm_arm_vacation", 32, "abwesend", "Urlaub", "alle Melder"],
   ];
   const FARBE = { zuhause: "var(--gut)", abwesend: "var(--info)", nacht: "var(--akzent)", unscharf: "var(--lavender)" };
@@ -152,6 +172,7 @@
     tafel = {
       g, schliessen,
       symbol: (html) => { g.querySelector(".ct-symbol").innerHTML = html; },
+      symbolEl: () => g.querySelector(".ct-symbol"),
       unter: (text) => { g.querySelector(".ct-unter").textContent = text; },
       laeuft: () => !sperre && !g.classList.contains("geschafft"),
     };
@@ -180,7 +201,7 @@
     const brauchtCode = () => !!a().code_format;
     const symbolSetzen = (z) => {
       const [art, , , farbe] = z, { rest, gesamt } = restzeit(eid);
-      el.querySelector(".al-symbol").innerHTML = PS.alarmSymbol(art, farbe, rest, gesamt);
+      PS.alarmSymbolSetzen(el.querySelector(".al-symbol"), art, farbe, rest, gesamt);
     };
     let alt = null, takt = null;
     el.aktualisieren = () => {
@@ -246,7 +267,7 @@
     const r = restzeit(eid).rest;
     return r != null ? `noch ${Math.max(0, Math.ceil(r))} s · Code eingeben, sonst Alarm` : "Code eingeben, sonst Alarm";
   };
-  const meldeSymbol = (eid) => { const [art, , , farbe] = zustand(eid), { rest, gesamt } = restzeit(eid); return PS.alarmSymbol(art, farbe, rest, gesamt); };
+  const meldeSymbol = (eid, box) => { const [art, , , farbe] = zustand(eid), { rest, gesamt } = restzeit(eid); PS.alarmSymbolSetzen(box, art, farbe, rest, gesamt); };
   function meldungPruefen() {
     if (document.body.classList.contains("admin")) return;
     const eid = alarmEid(); if (!eid) return;
@@ -265,12 +286,13 @@
     document.body.classList.remove("ruhe");
     try { window.dispatchEvent(new Event("pointerdown")); } catch { /* weckt das Panel */ }
     const [titel, klasse] = MELDEN[s];
-    const t = PS.codeTafel({ titel, unter: meldeUnter(eid), symbol: meldeSymbol(eid), klasse: `ct-melder ${klasse}`, fest: true, abbrechen: "Ausblenden",
+    const t = PS.codeTafel({ titel, unter: meldeUnter(eid), symbol: "", klasse: `ct-melder ${klasse}`, fest: true, abbrechen: "Ausblenden",
       pruefen: (code) => ausfuehren(eid, "alarm_disarm", code, (n) => n === "disarmed"),
       beimSchliessen: (geschafft) => { if (melder === t) { melder = null; if (!geschafft) ausgeblendet = s; } clearInterval(meldeTakt); meldeTakt = null; } });
     melder = t;
+    meldeSymbol(eid, t.symbolEl());
     clearInterval(meldeTakt);
-    meldeTakt = setInterval(() => { if (melder !== t) return; t.unter(meldeUnter(eid)); if (PS.s(eid) === "pending") t.symbol(meldeSymbol(eid)); }, 1000);
+    meldeTakt = setInterval(() => { if (melder !== t) return; t.unter(meldeUnter(eid)); if (PS.s(eid) === "pending") meldeSymbol(eid, t.symbolEl()); }, 1000);
   }
   PS.on("diff", (ids) => { const e = alarmEid(); if (e && ids.has(e)) meldungPruefen(); });
   PS.on("init", meldungPruefen);
