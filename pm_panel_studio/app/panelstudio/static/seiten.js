@@ -166,7 +166,7 @@
         const [titel, icon, farbe] = HT_ART[e.ausgang] || HT_ART.verpasst;
         const unter = {
           laeuft: "gerade eben",
-          panel: e.nachgetragen || (e.tuer && !e.ende) ? "Haustür geöffnet" : "am Panel",
+          panel: e.tuer ? "Haustür geöffnet" : e.nachgetragen ? "angenommen, Tür blieb zu" : "am Panel",
           klingeloeffnung: "Tür beim Klingeln automatisch geöffnet",
           app: "in der Ring-App",
           nachricht: `Anrufbeantworter${e.dauer_s ? ` · ${htDauer(e.dauer_s)}` : ""}`,
@@ -182,7 +182,7 @@
           sp.prepend(k); z.appendChild(sp);
         }
         if (e.text) z.appendChild(E(`<div class="ht-abschrift">„${PS.esc(e.text)}“</div>`));
-        const marken = [e.tuer && e.ausgang !== "klingeloeffnung" ? "Tür geöffnet" : "", e.mal > 1 ? `${e.mal}× geklingelt` : ""].filter(Boolean);
+        const marken = [e.tuer && !["klingeloeffnung", "panel"].includes(e.ausgang) ? "Tür geöffnet" : "", e.mal > 1 ? `${e.mal}× geklingelt` : ""].filter(Boolean);
         if (marken.length) z.appendChild(E(`<div class="ht-marken">${marken.map((m) => `<span>${PS.esc(m)}</span>`).join("")}</div>`));
         liste.appendChild(z);
       });

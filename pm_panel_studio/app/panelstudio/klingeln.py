@@ -46,6 +46,10 @@ class Klingelbuch:
                 daten = json.loads(pfad.read_text(encoding="utf-8"))
                 if isinstance(daten, list):
                     self.eintraege = [e for e in daten if isinstance(e, dict) and e.get("id") and e.get("t")]
+        # Frühere Fassung trug „angenommen“ aus dem Verlauf als Ring-App ein; der Verlauf kennt den Ort nicht
+        for e in self.eintraege:
+            if e.get("nachgetragen") and e.get("ausgang") == "app":
+                e["ausgang"] = "panel"
 
     def _speichern(self) -> None:
         if self.pfad is None:
@@ -155,7 +159,8 @@ class Klingelbuch:
             elif tuer is not None:
                 e["ausgang"] = "panel"
             elif antwort:
-                e["ausgang"] = "app"
+                # Ring meldet nur „angenommen“, nicht wo: am Panel gilt als Regel (Gegensprechen über PM Ring Intercom)
+                e["ausgang"] = "panel"
         if neu:
             self.eintraege = sorted(self.eintraege + neu, key=lambda e: e["t"])[-MAX:]
             self._speichern()

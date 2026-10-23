@@ -77,7 +77,7 @@ def test_nachtragen_aus_verlauf(tmp_path):
     b = Klingelbuch(tmp_path / "k.json", uhr)
     assert b.nachtragen(klingeln, tueren, angenommen, nachrichten) == 6
     alt = list(reversed(b.liste()))
-    assert [e["ausgang"] for e in alt] == ["klingeloeffnung", "klingeloeffnung", "app", "panel", "nachricht", "panel"]
+    assert [e["ausgang"] for e in alt] == ["klingeloeffnung", "klingeloeffnung", "panel", "panel", "nachricht", "panel"]
     assert alt[3]["tuer"] and alt[5]["mal"] == 2 and alt[4]["datei"] == "2026-10-22_20-20-30.wav"
     assert all(e["nachgetragen"] for e in alt)
     # zweimal nachtragen ergänzt nichts doppelt
