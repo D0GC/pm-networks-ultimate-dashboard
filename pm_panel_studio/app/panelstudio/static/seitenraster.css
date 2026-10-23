@@ -42,13 +42,23 @@ body:not(.admin) .raum-ansicht > .r-spalte:nth-child(3) > .r-box{animation-delay
 /* „Alle …“-Knopf unten wie auf der Sicherheitsseite */
 body:not(.admin) .raum-ansicht > .r-spalte > .r-alles{flex:none}
 
-/* Energie: Energiefluss füllt den Platz unter den Spalten statt die Seite zu verlängern */
+/* Energie: Verlauf und Energiefluss haben Vorrang. Obere Reihe höchstens 44 % der Höhe (Verlauf füllt seine Box, die
+   Geräteliste scrollt in sich, Wasser und Gas bleiben klein), darunter der Energiefluss über die volle Breite. */
 body:not(.admin) .sheet-inhalt.raumseite.energie-seite{overflow:hidden;display:flex}
-body:not(.admin) .raum-ansicht.energie{grid-template-rows:auto minmax(0,1fr);align-content:stretch}
+body:not(.admin) .raum-ansicht.energie{grid-template-columns:27% minmax(0,1fr) 27%;grid-template-rows:minmax(0,44fr) minmax(0,56fr);align-content:stretch}
+body:not(.admin) .raum-ansicht.energie > .r-spalte{overflow:hidden}
+body:not(.admin) .raum-ansicht.energie > .r-spalte:first-child > .r-box{flex:none}
+body:not(.admin) .raum-ansicht.energie > .r-spalte:first-child > .r-box:not(:first-child){overflow-y:auto;min-height:0;flex:0 1 auto}
+body:not(.admin) .raum-ansicht.energie > .r-spalte:nth-child(2) > .r-box{flex:1 1 auto;min-height:0;display:flex;flex-direction:column}
+body:not(.admin) .raum-ansicht.energie .r-diagramm{flex:1;min-height:0;display:flex;flex-direction:column}
+body:not(.admin) .raum-ansicht.energie .r-diagramm > svg{flex:1;min-height:0;height:100%}
 body:not(.admin) .raum-ansicht.energie > .volle-breite{min-height:0;display:flex;flex-direction:column}
 body:not(.admin) .raum-ansicht.energie > .volle-breite .sankey{flex:1;min-height:0;display:flex}
 body:not(.admin) .raum-ansicht.energie > .volle-breite .sankey-svg{height:100%;width:100%}
-body:not(.admin) .raum-ansicht.energie .r-diagramm{min-height:9rem}
+
+/* Zustand eines Raums (Melderliste wie auf der Sicherheitsseite) */
+.mk-liste{display:flex;flex-direction:column;gap:.45rem}
+.mk-zeile.warn > span{color:var(--cloud)}
 
 body.ohne-animation .raumseite .r-box,body.ohne-animation .raumseite .r-box .zeile,body.ohne-animation .raumseite .r-box .bar i{animation:none!important}
 @media (prefers-reduced-motion:reduce){.raumseite .r-box,.raumseite .r-box *{animation:none!important}}

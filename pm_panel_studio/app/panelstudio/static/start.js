@@ -754,7 +754,7 @@
     el.querySelectorAll(".raum-ansicht").forEach((g) => {
       const sp = [...g.children].filter((c) => c.classList.contains("r-spalte"));
       if (sp.length !== 3 || g.classList.contains("energie")) return;
-      const rechts = sp[2], inhalt = [...rechts.children];
+      const rechts = sp[2], inhalt = [...rechts.children];  // auch Raumseiten (raum-ansicht ohne seite())
       if (inhalt.length && inhalt.every((c) => c.classList.contains("r-alles"))) { inhalt.forEach((c) => sp[1].appendChild(c)); }
       g.classList.toggle("ohne-rechts", !rechts.children.length);
     });
