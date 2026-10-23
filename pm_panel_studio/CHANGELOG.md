@@ -1,5 +1,12 @@
 # Änderungen
 
+## 2026.10.88 – 2026-10-23
+
+- Kameraaufnahmen: Abruf zuerst über den Supervisor mit `Range` (diese Kombination fehlte bisher), im Wechsel mit
+  dem direkten Weg. Der direkte Weg ins interne Netz wurde bei jedem Versuch ohne Antwort getrennt, ohne dass Home
+  Assistant etwas davon protokollierte; trennt er wieder ohne Daten, nutzt die App nur noch den Supervisor. Das
+  Protokoll nennt jetzt die genaue Fehlermeldung je Versuch.
+
 ## 2026.10.87 – 2026-10-23
 
 - Raumseiten wieder in der früheren Anordnung: links Klima und Szenen, Mitte Licht und Luftqualität (wieder groß),
