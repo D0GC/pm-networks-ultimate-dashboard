@@ -339,16 +339,27 @@
         const l = E('<div class="as-karten"></div>');
         karten.slice(0, 8).forEach((k) => {
           const m = PS.kartenModell(k);
-          const innen = m.zahl != null ? `<b class="tabular">${PS.esc(m.zahl)}</b>` : PS.ic(m.icon || "information-outline");
+          const innen = m.zahl != null ? `<b class="tabular${String(m.zahl).length > 3 ? " lang" : ""}"></b>` : PS.ic(m.icon || "information-outline");
           const text = m.liste ? m.liste.map((z) => z.join(" ")).join(" · ") : m.p || "";
           const z = E(`<div class="as-karte" style="--farbe:${PS.esc(m.farbe || "var(--akzent)")}"><div class="ring">${PS.ringSVG(m.anteil)}<div class="innen">${innen}</div></div>
             <div class="t"><small>${PS.esc(m.kopf || "")}</small><b>${PS.esc(m.h2 || "")}</b>${text ? `<span>${PS.esc(text)}</span>` : ""}</div></div>`);
           z.addEventListener("click", () => PS.karteOeffnen(k));
+          z._karte = k;
+          if (m.zahl != null) PS.walze(z.querySelector(".innen b"), String(m.zahl));
           l.appendChild(z);
         });
         b.appendChild(l);
       },
       relevant: () => false, karten: true,
+      // Timer (Kohle, Duschmodus, Waschmaschine …) zählen jede Sekunde herunter, Ziffern rollen, der Ring läuft mit
+      sekunde(b) {
+        b.querySelectorAll(".as-karte").forEach((z) => {
+          const k = z._karte; if (!k || !k.ende) return;
+          const m = PS.kartenModell(k), w = z.querySelector(".innen b");
+          if (w && m.zahl != null) { PS.walze(w, String(m.zahl)); w.classList.toggle("lang", String(m.zahl).length > 3); }
+          if (k.dauer_s) PS.ringSetzen(z.querySelector(".ring svg"), Math.max(0, (new Date(k.ende).getTime() - Date.now()) / 1000) / k.dauer_s);
+        });
+      },
       signatur: () => JSON.stringify((PS.feedListe || []).concat(PS.karten || []).map((k) => { const m = PS.kartenModell(k); return [k.id, m.zahl, m.h2, m.p, m.liste, Math.round((m.anteil || 0) * 20)]; })),
     },
     tueren: {
@@ -1257,6 +1268,7 @@
   });
   setInterval(() => { if (!document.body.classList.contains("offen")) bloecke.forEach((b, id) => { if (b.def.takt) vormerken(id); }); }, 15000);
   setInterval(grussZeigen, 60000);
+  setInterval(() => { bloecke.forEach((b) => { if (b.def.sekunde && b.el.isConnected) b.def.sekunde(b.el); }); }, 1000);
 
   // ------------------------------------------------------------ Laufschrift für zu lange Namen
   const LAUF = ".kachel b, .as-raum .n, .gross .titel > span, .r-box h3 > span, .as-thermo .n > span, .raum .oben b";
