@@ -1,0 +1,196 @@
+Achtung. Die Alarmanlage wurde ausgelöst.
+Alle Fenster und Türen sind geschlossen.
+Alle Systeme arbeiten normal.
+An der Wohnungstür wurde eine Person erkannt.
+Das Balkonfenster steht noch offen.
+Das Geschirr ist sauber, die Wäsche ist trocken, und der Kaffee ist fertig.
+Das habe ich leider nicht verstanden. Würden Sie es wiederholen?
+Der Anruf wird verbunden.
+Der Deutsche Wetterdienst warnt vor Sturmböen.
+Der Duschmodus ist aktiv.
+Der Fernseher wurde ausgeschaltet.
+Der Filter des Luftreinigers sollte bald gewechselt werden.
+Der Main PC wird hochgefahren.
+Der Main PC wurde heruntergefahren.
+Der Proxmox Server meldet eine hohe Auslastung.
+Der Saugroboter hat die Reinigung abgeschlossen und kehrt zur Station zurück.
+Der Saugroboter steckt fest und benötigt Ihre Hilfe.
+Der Spa Modus endet in zehn Minuten.
+Die Alarmanlage ist jetzt unscharf.
+Die Alarmanlage wird in dreißig Sekunden scharf geschaltet.
+Die Batterie der Kamera an der Wohnungstür ist schwach.
+Die Haustür ist verriegelt, die Alarmanlage ist scharf geschaltet.
+Die Haustür wurde auf Klingeln geöffnet.
+Die Heizperiode hat begonnen. Ich halte die Räume angenehm warm.
+Die Heizung im Badezimmer läuft im Boost für dreißig Minuten.
+Die Kohle ist bereit. Ich wünsche einen angenehmen Abend.
+Die Lautstärke wurde angepasst.
+Die Luftqualität im Wohnzimmer hat sich verschlechtert.
+Die Luftqualität ist wieder im grünen Bereich.
+Die Mülltonne wird morgen früh geleert. Bitte stellen Sie sie heute Abend heraus.
+Die Spülmaschine ist fertig. Das Geschirr kann ausgeräumt werden.
+Die Waschmaschine ist fertig. Die Wäsche kann aufgehängt werden.
+Diese Aktion ist nicht freigegeben.
+Draußen ziehen Gewitter auf. Ich empfehle, die Fenster zu schließen.
+Ein Besucher hat eine Nachricht auf dem Anrufbeantworter hinterlassen.
+Ein Gerät im Netzwerk antwortet nicht mehr.
+Ein Paket ist unterwegs und wird heute zugestellt.
+Ein Update für Home Assistant ist verfügbar.
+Eine Überprüfung wäre angeraten.
+Einen Moment bitte, ich prüfe das.
+Eingangsverzögerung aktiv. Bitte geben Sie Ihren Code ein.
+Es gibt nichts Dringendes zu berichten.
+Es klingelt an der Haustür.
+Für morgen wird Regen erwartet.
+Gute Nacht, Sir. Ich wünsche Ihnen eine ruhige Nacht.
+Guten Abend, Sir. Willkommen zu Hause.
+Guten Morgen, Sir. Ich hoffe, Sie haben gut geschlafen.
+Heute bleibt es überwiegend trocken bei angenehmen Temperaturen.
+Ich fürchte, das ist keine gute Idee, Sir.
+Ich habe alle Lichter ausgeschaltet.
+Ich habe verstanden.
+Ich melde mich, sobald die Aufgabe abgeschlossen ist.
+Ich spiele jetzt Musik im Wohnzimmer ab.
+Ihr Paket wurde soeben zugestellt.
+Ihr Wecker klingelt in fünf Minuten.
+Im Flur ist es dunkel. Ich schalte das Licht für Sie ein.
+Niemand ist zu Hause. Ich habe die Anwesenheitssimulation aktiviert.
+Sehr wohl, Sir.
+Selbstverständlich, Sir. Es ist mir ein Vergnügen.
+Sie haben einen verpassten Anruf.
+Sie haben noch drei offene Einträge auf Ihrer Einkaufsliste.
+Wenn Sie erlauben, Sir, würde ich vorschlagen, früher schlafen zu gehen.
+Willkommen zurück. Während Ihrer Abwesenheit war alles ruhig.
+Wird erledigt.
+Während Ihrer Abwesenheit hat es zweimal geklingelt.
+Auf dem Balkon wurde soeben eine Bewegung erkannt.
+Das Fenster auf dem Balkon steht seit neun Minuten offen.
+Das Fenster im Badezimmer steht seit vierunddreißig Minuten offen.
+Das Fenster im Büro steht seit dreiundzwanzig Minuten offen.
+Das Fenster im Esszimmer steht seit zwölf Minuten offen.
+Das Fenster im Flur steht seit sechs Minuten offen.
+Das Fenster im Schlafzimmer steht seit fünf Minuten offen.
+Das Fenster im Wohnzimmer steht seit dreiunddreißig Minuten offen.
+Das Fenster in der Küche steht seit zehn Minuten offen.
+Das Licht auf dem Balkon ist ausgeschaltet.
+Das Licht im Badezimmer ist ausgeschaltet.
+Das Licht im Büro ist ausgeschaltet.
+Das Licht im Esszimmer ist ausgeschaltet.
+Das Licht im Flur ist ausgeschaltet.
+Das Licht im Schlafzimmer ist ausgeschaltet.
+Das Licht im Wohnzimmer ist ausgeschaltet.
+Das Licht in der Küche ist ausgeschaltet.
+Der Saugroboter hat achtunddreißig Quadratmeter gereinigt.
+Der Saugroboter hat achtundfünfzig Quadratmeter gereinigt.
+Der Saugroboter hat achtzehn Quadratmeter gereinigt.
+Der Saugroboter hat dreißig Quadratmeter gereinigt.
+Der Saugroboter hat fünfzig Quadratmeter gereinigt.
+Der Saugroboter hat sechs Quadratmeter gereinigt.
+Der Saugroboter hat sechsundvierzig Quadratmeter gereinigt.
+Der Saugroboter hat sechsundzwanzig Quadratmeter gereinigt.
+Der Saugroboter hat vierunddreißig Quadratmeter gereinigt.
+Der Saugroboter hat vierundfünfzig Quadratmeter gereinigt.
+Der Saugroboter hat vierzehn Quadratmeter gereinigt.
+Der Saugroboter hat zehn Quadratmeter gereinigt.
+Der Saugroboter hat zwei Quadratmeter gereinigt.
+Der Saugroboter hat zweiundvierzig Quadratmeter gereinigt.
+Der Saugroboter hat zweiundzwanzig Quadratmeter gereinigt.
+Die Kohle ist in achtunddreißig Minuten bereit.
+Die Kohle ist in achtundfünfzig Minuten bereit.
+Die Kohle ist in achtzehn Minuten bereit.
+Die Kohle ist in dreißig Minuten bereit.
+Die Kohle ist in fünfzig Minuten bereit.
+Die Kohle ist in sechs Minuten bereit.
+Die Kohle ist in sechsundvierzig Minuten bereit.
+Die Kohle ist in sechsundzwanzig Minuten bereit.
+Die Kohle ist in vierunddreißig Minuten bereit.
+Die Kohle ist in vierundfünfzig Minuten bereit.
+Die Kohle ist in vierzehn Minuten bereit.
+Die Kohle ist in zehn Minuten bereit.
+Die Kohle ist in zwei Minuten bereit.
+Die Kohle ist in zweiundvierzig Minuten bereit.
+Die Kohle ist in zweiundzwanzig Minuten bereit.
+Die Luftfeuchtigkeit auf dem Balkon beträgt sechzig Prozent.
+Die Luftfeuchtigkeit im Badezimmer beträgt sechsunddreißig Prozent.
+Die Luftfeuchtigkeit im Büro beträgt neunundvierzig Prozent.
+Die Luftfeuchtigkeit im Esszimmer beträgt fünfunddreißig Prozent.
+Die Luftfeuchtigkeit im Flur beträgt neunundfünfzig Prozent.
+Die Luftfeuchtigkeit im Schlafzimmer beträgt fünfundvierzig Prozent.
+Die Luftfeuchtigkeit im Wohnzimmer beträgt sechsundvierzig Prozent.
+Die Luftfeuchtigkeit in der Küche beträgt fünfunddreißig Prozent.
+Die Temperatur auf dem Balkon liegt bei dreiundzwanzig Komma fünf Grad.
+Die Temperatur auf dem Balkon liegt bei neunzehn Grad.
+Die Temperatur auf dem Balkon liegt bei sechzehn Grad.
+Die Temperatur im Badezimmer liegt bei neunzehn Grad.
+Die Temperatur im Badezimmer liegt bei sechzehn Grad.
+Die Temperatur im Badezimmer liegt bei vierundzwanzig Grad.
+Die Temperatur im Büro liegt bei dreiundzwanzig Komma fünf Grad.
+Die Temperatur im Büro liegt bei zwanzig Komma fünf Grad.
+Die Temperatur im Büro liegt bei zweiundzwanzig Grad.
+Die Temperatur im Esszimmer liegt bei einundzwanzig Grad.
+Die Temperatur im Esszimmer liegt bei neunzehn Komma fünf Grad.
+Die Temperatur im Esszimmer liegt bei zwanzig Komma fünf Grad.
+Die Temperatur im Flur liegt bei sechzehn Grad.
+Die Temperatur im Flur liegt bei siebzehn Komma fünf Grad.
+Die Temperatur im Schlafzimmer liegt bei siebzehn Grad.
+Die Temperatur im Schlafzimmer liegt bei zwanzig Grad.
+Die Temperatur im Schlafzimmer liegt bei zweiundzwanzig Komma fünf Grad.
+Die Temperatur im Wohnzimmer liegt bei achtzehn Komma fünf Grad.
+Die Temperatur im Wohnzimmer liegt bei dreiundzwanzig Grad.
+Die Temperatur im Wohnzimmer liegt bei dreiundzwanzig Komma fünf Grad.
+Die Temperatur in der Küche liegt bei einundzwanzig Komma fünf Grad.
+Die Temperatur in der Küche liegt bei neunzehn Grad.
+Die Temperatur in der Küche liegt bei zwanzig Komma fünf Grad.
+Die Waschmaschine ist voraussichtlich um dreiundzwanzig Uhr fertig.
+Die Waschmaschine ist voraussichtlich um dreizehn Uhr fünfzehn fertig.
+Die Waschmaschine ist voraussichtlich um einundzwanzig Uhr fünfundvierzig fertig.
+Die Waschmaschine ist voraussichtlich um elf Uhr fünfundvierzig fertig.
+Die Waschmaschine ist voraussichtlich um fünf Uhr fünfzehn fertig.
+Die Waschmaschine ist voraussichtlich um fünfzehn Uhr fünfzehn fertig.
+Die Waschmaschine ist voraussichtlich um neun Uhr fertig.
+Die Waschmaschine ist voraussichtlich um neunzehn Uhr fertig.
+Die Waschmaschine ist voraussichtlich um sieben Uhr fertig.
+Die Waschmaschine ist voraussichtlich um siebzehn Uhr fünfundvierzig fertig.
+Es ist jetzt dreiundzwanzig Uhr.
+Es ist jetzt dreizehn Uhr fünfzehn.
+Es ist jetzt einundzwanzig Uhr fünfundvierzig, Sir.
+Es ist jetzt elf Uhr fünfundvierzig, Sir.
+Es ist jetzt fünf Uhr fünfzehn, Sir.
+Es ist jetzt fünfzehn Uhr fünfzehn, Sir.
+Es ist jetzt neun Uhr.
+Es ist jetzt neunzehn Uhr.
+Es ist jetzt sieben Uhr, Sir.
+Es ist jetzt siebzehn Uhr fünfundvierzig.
+Ich empfehle, auf dem Balkon für zehn Minuten zu lüften.
+Ich empfehle, im Badezimmer für zehn Minuten zu lüften.
+Ich empfehle, im Büro für zehn Minuten zu lüften.
+Ich empfehle, im Esszimmer für zehn Minuten zu lüften.
+Ich empfehle, im Flur für zehn Minuten zu lüften.
+Ich empfehle, im Schlafzimmer für zehn Minuten zu lüften.
+Ich empfehle, im Wohnzimmer für zehn Minuten zu lüften.
+Ich empfehle, in der Küche für zehn Minuten zu lüften.
+Ich habe das Licht auf dem Balkon auf fünfzig Prozent gedimmt.
+Ich habe das Licht im Badezimmer auf achtzig Prozent gedimmt.
+Ich habe das Licht im Büro auf sechzig Prozent gedimmt.
+Ich habe das Licht im Esszimmer auf fünfzig Prozent gedimmt.
+Ich habe das Licht im Flur auf zwanzig Prozent gedimmt.
+Ich habe das Licht im Schlafzimmer auf sechzig Prozent gedimmt.
+Ich habe das Licht im Wohnzimmer auf zwanzig Prozent gedimmt.
+Ich habe das Licht in der Küche auf siebzig Prozent gedimmt.
+Ihr nächster Termin beginnt um dreiundzwanzig Uhr.
+Ihr nächster Termin beginnt um dreizehn Uhr fünfzehn.
+Ihr nächster Termin beginnt um einundzwanzig Uhr fünfundvierzig.
+Ihr nächster Termin beginnt um elf Uhr fünfundvierzig.
+Ihr nächster Termin beginnt um fünf Uhr fünfzehn.
+Ihr nächster Termin beginnt um fünfzehn Uhr fünfzehn.
+Ihr nächster Termin beginnt um neun Uhr.
+Ihr nächster Termin beginnt um neunzehn Uhr.
+Ihr nächster Termin beginnt um sieben Uhr.
+Ihr nächster Termin beginnt um siebzehn Uhr fünfundvierzig.
+Im Badezimmer wurde soeben eine Bewegung erkannt.
+Im Büro wurde soeben eine Bewegung erkannt.
+Im Esszimmer wurde soeben eine Bewegung erkannt.
+Im Flur wurde soeben eine Bewegung erkannt.
+Im Schlafzimmer wurde soeben eine Bewegung erkannt.
+Im Wohnzimmer wurde soeben eine Bewegung erkannt.
+In der Küche wurde soeben eine Bewegung erkannt.

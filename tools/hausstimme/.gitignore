@@ -1,0 +1,8 @@
+# Arbeitsstände und große Dateien bleiben lokal
+.cache/
+proben/
+referenz.wav
+datensatz/
+training/
+basis/
+fertig/
