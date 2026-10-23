@@ -1,5 +1,15 @@
 # Änderungen
 
+## 2026.10.73 – 2026-10-23
+
+- Animierte Symbole drehen und schwingen um die eigene Achse: In Kacheln war das Symbol auf die volle Breite
+  gestreckt und kreiste um die Kachelmitte (sichtbar beim Luftreiniger).
+- Eigene Drehpunkte greifen wieder (Glocke oben, Tür an der Angel, Flamme unten); eine zu starke Grundregel hatte sie
+  überschrieben.
+- Luftreiniger, Luftfilter und Klimagerät drehen sich nicht mehr, sondern zeigen einen sanften Luftstrom;
+  Deckenventilator pendelt, Lüfterstufen pulsieren; gedreht werden nur runde Ventilatorsymbole und Schneeflocken.
+- Ausgeschaltete Varianten („bell-off“, „fan-off“ …) bewegen sich nie, etwa bei „Nicht stören“.
+
 ## 2026.10.72 – 2026-10-23
 
 - Proxmox-Kachel der Admin-Startseite: Der dritte Ring heißt wieder „Speicher“ und zeigt den am stärksten belegten

@@ -3,9 +3,16 @@
    Thermostate und der eben gewählte Dock-Eintrag. Nur transform und opacity; aus mit „Animationen aus“ und bei
    reduzierter Bewegung. */
 
-/* Wo Symbole sich bewegen dürfen */
-:is(.kachel.an,.chip,.karte .ring .innen,.gross[data-klima]:has(.ring:not(.kalt)) .titel) > .mdi[data-ic]{
-  --sym-dauer:2.4s;transform-origin:50% 50%;will-change:transform}
+/* Wo Symbole sich bewegen dürfen. Das Symbol bekommt genau seine eigene Größe (1em × 1em): In der Kachel (Flex-Spalte)
+   würde es sonst auf die volle Breite gestreckt und drehte sich um die Mitte der Kachel statt um die eigene Achse. */
+:is(.kachel.an,.kachel[data-phase],.chip,.karte .ring .innen,.gross[data-klima]:has(.ring:not(.kalt)) .titel,.hh-rest,.dock button) > .mdi[data-ic]{
+  width:1em;height:1em;flex:none;align-self:flex-start;text-align:center}
+/* Kein transform-origin hier: :is() trägt die hohe Spezifität seines stärksten Glieds und überschriebe die eigenen
+   Drehpunkte der Bewegungen unten (Glocke oben, Tür an der Angel, Flamme unten). Standard ist ohnehin die Mitte. */
+:is(.chip,.karte .ring .innen,.gross[data-klima] .titel,.hh-rest,.dock button) > .mdi[data-ic]{align-self:center;justify-self:center}
+/* Ausgeschaltete Varianten („bell-off“, „fan-off“, „speaker-off“ …) bewegen sich nie, auch wenn die Kachel „an“ ist
+   (z. B. „Nicht stören“ mit durchgestrichener Glocke) */
+.mdi:is([data-ic$="-off"],[data-ic*="-off-"],[data-ic$="-cancel"],[data-ic$="-remove"]){animation:none!important}
 
 /* Licht: ruhiges Glimmen mit warmem Schein */
 :is(.kachel.an,.chip,.karte .ring .innen) > .mdi:is([data-ic^="lightbulb"],[data-ic^="ceiling-light"],[data-ic^="lamp"],[data-ic^="floor-lamp"],[data-ic^="desk-lamp"],
@@ -13,13 +20,20 @@
   text-shadow:0 0 .55em rgba(255,214,140,.55);animation:sym-glimmen 3.6s ease-in-out infinite}
 @keyframes sym-glimmen{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.82;transform:scale(1.04)}}
 
-/* Ventilator, Lüfter: dreht */
-:is(.kachel.an,.chip,.karte .ring .innen) > .mdi:is([data-ic="fan"],[data-ic^="fan-speed"],[data-ic^="ceiling-fan"],[data-ic^="fan-chevron"],[data-ic="air-purifier"],[data-ic^="hvac"]){
-  animation:sym-drehen 1.6s linear infinite}
+/* Ventilator: dreht um die eigene Achse (nur die runden, symmetrischen Symbole) */
+:is(.kachel.an,.chip,.karte .ring .innen) > .mdi:is([data-ic="fan"],[data-ic="fan-auto"],[data-ic="hvac"]){animation:sym-drehen 1.6s linear infinite}
 @keyframes sym-drehen{to{transform:rotate(360deg)}}
+/* Deckenventilator, Lüfterstufen: pendeln bzw. pulsieren (Ziffern und Lampe würden sich sonst mitdrehen) */
+:is(.kachel.an,.chip,.karte .ring .innen) > .mdi:is([data-ic^="ceiling-fan"]){transform-origin:50% 10%;animation:sym-pendeln 2.4s ease-in-out infinite}
+@keyframes sym-pendeln{0%,100%{transform:rotate(-5deg)}50%{transform:rotate(5deg)}}
+:is(.kachel.an,.chip,.karte .ring .innen) > .mdi:is([data-ic^="fan-speed"],[data-ic^="fan-chevron"]){animation:sym-puls 1.4s ease-in-out infinite}
+/* Luftreiniger, Luftfilter, Klimagerät: Luftstrom – sanftes Aufatmen nach oben */
+:is(.kachel.an,.chip,.karte .ring .innen) > .mdi:is([data-ic^="air-purifier"],[data-ic^="air-filter"],[data-ic^="air-conditioner"],[data-ic^="hvac-"]){
+  transform-origin:50% 100%;animation:sym-luft 2.6s ease-in-out infinite}
+@keyframes sym-luft{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.06,1.1);opacity:.8}}
 
-/* Kälte, Klimaanlage: langsam drehend */
-:is(.kachel.an,.chip,.karte .ring .innen) > .mdi:is([data-ic^="snowflake"],[data-ic^="air-conditioner"]){animation:sym-drehen 9s linear infinite}
+/* Kälte: langsam drehend */
+:is(.kachel.an,.chip,.karte .ring .innen) > .mdi:is([data-ic^="snowflake"]){animation:sym-drehen 9s linear infinite}
 
 /* Waschmaschine, Trockner, Spüler: Trommel ruckelt in Schüben */
 :is(.kachel.an,.chip,.karte .ring .innen) > .mdi:is([data-ic^="washing-machine"],[data-ic^="tumble-dryer"],[data-ic^="dishwasher"]){
