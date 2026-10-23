@@ -134,8 +134,9 @@
     nachricht: ["Nachricht hinterlassen", "voicemail", "var(--akzent)"],
     ohne: ["Ohne Nachricht", "bell-outline", "var(--leise)"],
     verpasst: ["Verpasst", "phone-missed-outline", "var(--krit)"],
+    klingeloeffnung: ["Ring to Open", "door-open", "var(--gut)"],
   };
-  const HT_FILTER = [["alle", "Alle"], ["nachricht", "Nachrichten"], ["angenommen", "Angenommen"], ["ohne", "Ohne"], ["verpasst", "Verpasst"]];
+  const HT_FILTER = [["alle", "Alle"], ["nachricht", "Nachrichten"], ["angenommen", "Angenommen"], ["ohne", "Ohne"], ["verpasst", "Verpasst"], ["klingeloeffnung", "Ring to Open"]];
   const htGruppe = (art) => (art === "panel" || art === "app" ? "angenommen" : art);
   const htTag = (t) => {
     const d = new Date(t), h = new Date(); h.setHours(0, 0, 0, 0);
@@ -165,7 +166,8 @@
         const [titel, icon, farbe] = HT_ART[e.ausgang] || HT_ART.verpasst;
         const unter = {
           laeuft: "gerade eben",
-          panel: e.tuer && !e.ende ? "Haustür geöffnet" : "am Panel",
+          panel: e.nachgetragen || (e.tuer && !e.ende) ? "Haustür geöffnet" : "am Panel",
+          klingeloeffnung: "Tür beim Klingeln automatisch geöffnet",
           app: "in der Ring-App",
           nachricht: `Anrufbeantworter${e.dauer_s ? ` · ${htDauer(e.dauer_s)}` : ""}`,
           ohne: "Anrufbeantworter lief, nichts gesagt",
@@ -180,7 +182,7 @@
           sp.prepend(k); z.appendChild(sp);
         }
         if (e.text) z.appendChild(E(`<div class="ht-abschrift">„${PS.esc(e.text)}“</div>`));
-        const marken = [e.tuer ? "Tür geöffnet" : "", e.mal > 1 ? `${e.mal}× geklingelt` : ""].filter(Boolean);
+        const marken = [e.tuer && e.ausgang !== "klingeloeffnung" ? "Tür geöffnet" : "", e.mal > 1 ? `${e.mal}× geklingelt` : ""].filter(Boolean);
         if (marken.length) z.appendChild(E(`<div class="ht-marken">${marken.map((m) => `<span>${PS.esc(m)}</span>`).join("")}</div>`));
         liste.appendChild(z);
       });

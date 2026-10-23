@@ -246,3 +246,4 @@ body.ohne-animation .ereignis-szene *{animation-duration:0s!important;animation-
 .wt-live .ht-ic .mdi{animation:sz-gehen 1s ease-in-out infinite!important}
 @keyframes sz-gehen{0%,100%{transform:translateX(-2px) rotate(-4deg)}50%{transform:translateX(2px) translateY(-2px) rotate(4deg)}}
 .wt-eintrag.bewegung .ht-ic{animation:ht-klingeln 1.6s ease-in-out 1}
+.ht-eintrag.klingeloeffnung .ht-ic .mdi{transform-origin:20% 50%;animation:sym-schwingen 2.8s ease-in-out 2}

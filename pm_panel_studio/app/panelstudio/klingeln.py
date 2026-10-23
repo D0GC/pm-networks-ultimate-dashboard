@@ -2,7 +2,12 @@
 
 Ausgänge: ``laeuft`` (noch offen), ``panel`` (am Panel angenommen), ``app`` (in der Ring-App angenommen),
 ``nachricht`` (Anrufbeantworter mit Nachricht; Datei, Länge, Abschrift), ``ohne`` (Anrufbeantworter, nichts gesagt),
-``verpasst`` (niemand hat angenommen). ``tuer`` markiert zusätzlich, dass die Haustür danach geöffnet wurde.
+``verpasst`` (niemand hat angenommen), ``klingeloeffnung`` (Ring to Open: die Tür ging binnen ``KLINGELOEFFNUNG_S``
+Sekunden nach dem Klingeln von selbst auf, etwa über die Automation „Klingelöffnung“). ``tuer`` markiert zusätzlich,
+dass die Haustür danach geöffnet wurde.
+
+``nachtragen`` ergänzt Klingeln aus dem Verlauf von Home Assistant, die die App nicht selbst gesehen hat (vor dem
+ersten Start mit Klingelbuch oder während eines Neustarts); solche Einträge tragen ``nachgetragen``.
 
 Ein Eintrag, der nach ``OFFEN_S`` Sekunden noch offen ist, gilt als verpasst. Ein zweites Klingeln innerhalb von
 ``ZUSAMMEN_S`` Sekunden zählt zum selben Eintrag (Besucher drückt mehrmals). Gespeichert in ``klingeln.json`` im
@@ -22,11 +27,13 @@ from typing import Any
 
 _LOGGER = logging.getLogger(__name__)
 
-AUSGAENGE = ("laeuft", "panel", "app", "nachricht", "ohne", "verpasst")
+AUSGAENGE = ("laeuft", "panel", "app", "nachricht", "ohne", "verpasst", "klingeloeffnung")
 OFFEN_S = 180
 ZUSAMMEN_S = 45
 TUER_S = 300  # so lange nach dem Klingeln zählt ein Öffnen der Haustür zum Eintrag
 MAX = 300
+KLINGELOEFFNUNG_S = 5  # öffnet die Tür so kurz nach dem Klingeln, war es keine Person, sondern Ring to Open
+NACHRICHT_S = 240  # eine Aufnahme so lange nach dem Klingeln gehört zu ihm
 
 
 class Klingelbuch:
@@ -65,13 +72,15 @@ class Klingelbuch:
         self._abschliessen()
         return next((e for e in reversed(self.eintraege) if e["ausgang"] == "laeuft"), None)
 
-    def klingeln(self) -> tuple[str, bool]:
-        """Neues Klingeln. Liefert die Kennung und ob es ein neuer Eintrag ist (sonst: erneutes Drücken)."""
+    def klingeln(self, zaehlen: bool = True) -> tuple[str, bool]:
+        """Neues Klingeln. Liefert die Kennung und ob es ein neuer Eintrag ist (sonst: erneutes Drücken).
+        ``zaehlen=False``: zweite Quelle für dasselbe Klingeln (Panel-Signal nach dem Klingelsensor), nicht mitzählen."""
         self._abschliessen()
         zuletzt = self.eintraege[-1] if self.eintraege else None
         if zuletzt and self.jetzt() - zuletzt["t"] < ZUSAMMEN_S:
-            zuletzt["mal"] = int(zuletzt.get("mal", 1)) + 1
-            self._speichern()
+            if zaehlen:
+                zuletzt["mal"] = int(zuletzt.get("mal", 1)) + 1
+                self._speichern()
             return zuletzt["id"], False
         e = {"id": secrets.token_hex(6), "t": round(self.jetzt(), 1), "ausgang": "laeuft", "mal": 1}
         self.eintraege.append(e)
@@ -101,10 +110,56 @@ class Klingelbuch:
             return False
         zuletzt["tuer"] = True
         if zuletzt["ausgang"] in ("laeuft", "verpasst"):
-            zuletzt["ausgang"] = "panel"
+            zuletzt["ausgang"] = "klingeloeffnung" if self.jetzt() - zuletzt["t"] <= KLINGELOEFFNUNG_S else "panel"
             zuletzt["ende"] = round(self.jetzt(), 1)
         self._speichern()
         return True
+
+    def nachtragen(
+        self,
+        klingeln: list[float],
+        tueren: list[float],
+        angenommen: dict[float, bool] | None = None,
+        nachrichten: list[dict[str, Any]] | None = None,
+    ) -> int:
+        """Klingeln aus dem Verlauf ergänzen, die noch fehlen. ``klingeln``/``tueren``: Zeitpunkte (Unix-Sekunden),
+        ``angenommen``: Ring-Aktivität (Zeitpunkt → angenommen), ``nachrichten``: Aufnahmen mit ``t``, ``datei``,
+        ``dauer_s``, ``text``. Liefert die Zahl neuer Einträge."""
+        jetzt = self.jetzt()
+        bekannt = [e["t"] for e in self.eintraege]
+        tueren = sorted(tueren)
+        angenommen = angenommen or {}
+        nachrichten = sorted(nachrichten or [], key=lambda n: n["t"])
+        neu: list[dict[str, Any]] = []
+        for t in sorted(klingeln):
+            if jetzt - t < OFFEN_S or any(abs(t - b) < ZUSAMMEN_S for b in bekannt):
+                continue  # läuft noch oder steht schon im Buch
+            if neu and t - neu[-1]["t"] < ZUSAMMEN_S:
+                neu[-1]["mal"] += 1
+                continue
+            neu.append({"id": secrets.token_hex(6), "t": round(t, 1), "ausgang": "verpasst", "mal": 1, "nachgetragen": True})
+        for i, e in enumerate(neu):
+            t = e["t"]
+            bis = min(t + TUER_S, neu[i + 1]["t"] if i + 1 < len(neu) else t + TUER_S)
+            tuer = next((d for d in tueren if t - 1 <= d < bis), None)
+            nachricht = next((n for n in nachrichten if t <= n["t"] < min(t + NACHRICHT_S, bis)), None)
+            antwort = next((a for z, a in angenommen.items() if abs(z - t) < ZUSAMMEN_S), None)
+            if tuer is not None:
+                e["tuer"] = True
+                e["ende"] = round(tuer, 1)
+            if tuer is not None and tuer - t <= KLINGELOEFFNUNG_S:
+                e["ausgang"] = "klingeloeffnung"
+            elif nachricht is not None:
+                e["ausgang"] = "nachricht"
+                e.update({k: nachricht.get(k) for k in ("datei", "dauer_s", "text") if nachricht.get(k)})
+            elif tuer is not None:
+                e["ausgang"] = "panel"
+            elif antwort:
+                e["ausgang"] = "app"
+        if neu:
+            self.eintraege = sorted(self.eintraege + neu, key=lambda e: e["t"])[-MAX:]
+            self._speichern()
+        return len(neu)
 
     def liste(self, anzahl: int = 50) -> list[dict[str, Any]]:
         if self._abschliessen():
