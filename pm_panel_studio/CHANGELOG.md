@@ -1,5 +1,11 @@
 # Änderungen
 
+## 2026.10.72 – 2026-10-23
+
+- Proxmox-Kachel der Admin-Startseite: Der dritte Ring heißt wieder „Speicher“ und zeigt den am stärksten belegten
+  Speicher (statt des Namens einer Statusentität wie „(local) Speicher aktiv“). Geräte ohne Namen im Geräteregister
+  heißen nach dem gemeinsamen Anfang ihrer Entitätsnamen, etwa „Storage (local)“.
+
 ## 2026.10.71 – 2026-10-22
 
 - Sicherheit: Wohnungstür-Verlauf wie bei der Haustür. Kamerabild bleibt oben, darunter die Aufnahmen von heute und

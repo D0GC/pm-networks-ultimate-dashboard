@@ -21,6 +21,18 @@
   };
   const gb = (v) => (v == null ? "–" : v >= 100 ? PS.zahl(v, 0) : PS.zahl(v, 1));
 
+  // Gerätename ohne Geräteregister: gemeinsamer Anfang der Entitätsnamen („Storage (local) Speicher aktiv“,
+  // „Storage (local) Belegter Speicherplatz“ → „Storage (local)“), sonst der erste Name
+  const gemeinsamerName = (es) => {
+    const n = es.map((e) => PS.name(e)).filter(Boolean);
+    if (n.length < 2) return n[0] || "";
+    let p = n[0];
+    for (const x of n) while (p && !x.startsWith(p)) p = p.slice(0, -1);
+    // nur an einer Wortgrenze abschneiden
+    if (!n.every((x) => x.length === p.length || /\s/.test(x[p.length]))) p = p.slice(0, p.lastIndexOf(" ") + 1);
+    p = p.trim();
+    return p.length >= 3 ? p : n[0];
+  };
   // Proxmox VE: je Gerät der Integration ein Knoten, ein Gast (VM oder Container) oder ein Speicher
   function proxmox() {
     const je = new Map();
@@ -29,7 +41,7 @@
       const sensor = es.filter((e) => e.startsWith("sensor."));
       const taste = (re) => es.find((e) => e.startsWith("button.") && re.test(e));
       return {
-        d, es, name: PS.geraete[d] || PS.name(es[0]),
+        d, es, name: PS.geraete[d] || gemeinsamerName(es),
         status: sensor.find((e) => /_status$/.test(e)),
         cpu: sensor.find((e) => /cpu/.test(e) && prozent(e)),
         ram: sensor.find((e) => /arbeitsspeicher|memory/.test(e) && prozent(e)),
@@ -300,7 +312,9 @@
       b.querySelector("h3 small").innerHTML = puls(k.name);
       const online = PS.s(k.status) === "online" || PS.s(k.status) === "on";
       b.appendChild(E(`<div class="nz-status ${online ? "ok" : "krit"}">${PS.ic(online ? "server" : "server-off")}<b>${online ? "Knoten online" : "Knoten nicht erreichbar"}</b><span class="tabular">${p.laeuft.length}/${p.gaeste.length} laufen</span></div>`));
-      b.appendChild(E(`<div class="sv-ringe">${ring("CPU", k.cpu, "var(--info)")}${ring("RAM", k.ram, "var(--akzent)")}${p.speicher[0] ? ring(p.speicher[0].name.replace(/^Storage\s*/, ""), p.speicher[0].belegt, "var(--gut)") : ""}</div>`));
+      // Ring „Speicher“: der am stärksten belegte Speicher (local, local-lvm …)
+      const voll = p.speicher.slice().sort((x, y) => (Number(PS.s(y.belegt)) || 0) - (Number(PS.s(x.belegt)) || 0))[0];
+      b.appendChild(E(`<div class="sv-ringe">${ring("CPU", k.cpu, "var(--info)")}${ring("RAM", k.ram, "var(--akzent)")}${voll ? ring("Speicher", voll.belegt, "var(--gut)") : ""}</div>`));
       b.appendChild(E(`<div>${kurve([[k.cpu, "--info", 100], [k.ram, "--akzent", 100]], 3600)}${legende([["CPU", "--info"], ["RAM", "--akzent"]])}</div>`));
       if (p.laeuft.length) b.appendChild(E(`<div class="sv-chips">${p.laeuft.map((g) => `<span><i class="sv-punkt an"></i>${PS.esc(g.name)}<small>${wert(g.cpu)} %</small></span>`).join("")}</div>`));
       if (k.update && PS.s(k.update) === "on") b.appendChild(E(`<div class="nz-zeile info">${PS.ic("update")}<span>Update für Proxmox verfügbar</span></div>`));
