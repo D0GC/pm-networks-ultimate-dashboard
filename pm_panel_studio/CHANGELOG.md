@@ -1,5 +1,16 @@
 # Änderungen
 
+## 2026.10.79 – 2026-10-23
+
+- Alle Unterseiten im Raster der Sicherheitsseite (neu `seitenraster.css`): drei Spalten 31 % · Mitte · 30 %, die
+  letzte Box jeder Spalte reicht bis zum unteren Rand und scrollt bei Bedarf in sich, Boxen erscheinen gestaffelt.
+  Listen (Termine, Einkaufsliste, Aufnahmen, Systemzustand, Protokoll …) als einzelne Karten mit farbigem Rand und
+  Symbol im Kreis, Balkenzeilen (Energie, Batterien, Verbrauchsmaterial, Luft) als Karten mit wachsenden Balken,
+  Zeitraum- und Filterknöpfe als kleine Chips.
+- Ohne Scrollen auf dem Panel (1280 × 800): Energie (Energiefluss füllt den Platz unter den Spalten), Listen,
+  Haushalt und die Raumseiten passen jetzt; Cover in schmalen Spalten flacher.
+- Seiten ohne Inhalt in der rechten Spalte (z. B. Licht, Listen) zeigen zwei breitere Spalten statt einer leeren.
+
 ## 2026.10.78 – 2026-10-23
 
 - Admin-Startseite: Hochformat und Querformat sind zwei eigene Seiten mit eigener Reihenfolge, eigenen Blöcken und
