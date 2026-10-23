@@ -159,6 +159,9 @@ def test_admin_startseite():
     # unbekannte Blöcke und Doppelte fallen weg; fehlende Größe aus der Vorgabe; altes Format „block:spalten“ (1–3)
     assert e.aktualisieren({"admin_start": ["klima:5:3", "klima:1", "gibtsnicht", "raeume", "termine:2", "pakete:40:99"]}) == []
     assert e.admin_start == ["klima:5:3", "raeume:6:7", "termine:8:6", "pakete:12:24"]
+    # Hochformat: eigene Breite (1 halb, 2 voll) und Höhe (0 = nach Inhalt), Querformat bleibt
+    e.aktualisieren({"admin_start": ["klima:5:3:2:8", "raeume:6:7:1:0", "pakete:4:6:0:1", "energie:4:6:9:30"]})
+    assert e.admin_start == ["klima:5:3:2:8", "raeume:6:7:1:0", "pakete:4:6:0:2", "energie:4:6:2:24"]
     e.aktualisieren({"admin_start": []})
     assert e.admin_start == []
 
