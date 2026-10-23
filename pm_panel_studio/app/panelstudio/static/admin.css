@@ -485,7 +485,7 @@ body.admin.offen:has(.flur-vorschau) .ord-knopf{display:none}
 .sv-ringe{display:flex;gap:.8rem;justify-content:space-around;flex-wrap:wrap}
 .sv-ringe .ring.r-ring{width:6.6rem}
 .sv-ringe.sv-gross .ring.r-ring{width:8.6rem}
-.sv-ring .innen b{font-size:1.5rem!important;display:inline-flex;align-items:baseline;gap:.1rem}
+.sv-ring .innen b{font-size:1.5rem!important;display:inline-flex;align-items:baseline;gap:.1rem;justify-self:center;justify-content:center}
 .sv-ringe.sv-gross .sv-ring .innen b{font-size:1.9rem!important}
 .sv-ring .innen b i{font-style:normal;font-size:.8rem;color:var(--leise)}
 .sv-ring .innen small{font-size:.72rem}

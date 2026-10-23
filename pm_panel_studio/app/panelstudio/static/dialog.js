@@ -89,32 +89,17 @@
       <video class="aufnahme" controls autoplay playsinline preload="auto"></video><div class="leer aufnahme-status">Aufnahme wird geladen …</div>`;
     dlg.querySelector(".zu").addEventListener("click", schliessen);
     const v = dlg.querySelector("video"), status = dlg.querySelector(".aufnahme-status");
-    // Erst wie der Medienbrowser von Home Assistant: der Browser holt die Datei über den signierten Pfad direkt bei
-    // Home Assistant. Klappt das nicht (HA nicht direkt erreichbar), über die App (api/video) als Rückfall.
-    const ueberApp = `api/video?id=${encodeURIComponent(id)}`;
-    let rueckfall = false;
+    // Über die App: sie lädt die Aufnahme vom Reolink-Hub (nie zwei Abrufe zugleich, der Hub erlaubt nur einen),
+    // wandelt H.265 bei Bedarf um und liefert sie mit Spulen aus. Fehler des Video-Elements gehen ins Protokoll.
+    status.textContent = "Aufnahme wird geladen und bei Bedarf umgewandelt …";
     v.addEventListener("playing", () => { status.hidden = true; });
     v.addEventListener("loadeddata", () => { status.hidden = true; });
-    // Fehler des Video-Elements der App melden (Protokoll), damit sich ein Ausfall eindeutig zuordnen lässt
-    const melden = (weg) => {
-      const e = v.error || {};
-      fetch("api/video_fehler", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ weg, code: e.code, text: e.message || "" }) }).catch(() => {});
-    };
     v.addEventListener("error", () => {
-      if (!rueckfall) {
-        melden("direkt"); rueckfall = true;
-        status.textContent = "Aufnahme wird über die App geladen und bei Bedarf umgewandelt …"; v.src = ueberApp; return;
-      }
-      melden("app");
+      const e = v.error || {};
+      fetch("api/video_fehler", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ weg: "app", code: e.code, text: e.message || "" }) }).catch(() => {});
       status.hidden = false; status.textContent = "Die Aufnahme lässt sich gerade nicht laden. Ein erneuter Versuch hilft meist.";
     });
-    PS.anfrage({ typ: "aufnahme_link", media_id: id }).then(({ pfad, ha }) => {
-      if (!v.isConnected) return;
-      // Admin-Ansicht (Ingress): gleiche Herkunft wie Home Assistant; Panel: interne Adresse oder Host mit Port 8123
-      const basis = location.pathname.includes("/api/hassio_ingress/") ? location.origin
-        : (ha || `${location.protocol}//${location.hostname}:8123`).replace(/\/$/, "");
-      v.src = basis + pfad;
-    }).catch(() => { rueckfall = true; v.src = ueberApp; });
+    v.src = `api/video?id=${encodeURIComponent(id)}`;
     $("#dialog-grund").classList.add("offen");
   };
   // Panel-Meldung wie an den Panels Büro und Bad: Symbol, Titel, Text, Zeit und Priorität, Bestätigen/Später bzw. OK.

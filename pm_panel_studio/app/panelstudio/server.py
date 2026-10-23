@@ -302,6 +302,15 @@ _video_sperre = asyncio.Lock()
 UMWANDELN_S = 240  # länger darf ffmpeg für eine Aufnahme nicht brauchen
 
 
+def mp4_aufbau(daten: bytes) -> str:
+    """Lage der wichtigsten MP4-Kästen (ftyp, moov, mdat) für das Protokoll."""
+    teile = []
+    for kasten in (b"ftyp", b"moov", b"mdat"):
+        i = daten.find(kasten)
+        teile.append(f"{kasten.decode()}@{i - 4}" if i >= 4 else f"{kasten.decode()} fehlt")
+    return ", ".join(teile)
+
+
 def video_codec(daten: bytes) -> str:
     """Videoformat aus dem Inhaltsverzeichnis der MP4-Datei (Sample-Description im ``moov``)."""
     if b"hvc1" in daten or b"hev1" in daten:
@@ -312,7 +321,8 @@ def video_codec(daten: bytes) -> str:
 
 
 async def _umwandeln(daten: bytes) -> bytes | None:
-    """H.265 in H.264 umwandeln (spielen alle Browser), höchstens 720p, Inhaltsverzeichnis vorn. Ohne ffmpeg None."""
+    """In H.264 umwandeln (spielen alle Browser), höchstens 720p, Inhaltsverzeichnis vorn; rettet auch abgebrochene
+    Dateien, solange ihr Inhaltsverzeichnis vorn steht. Ohne ffmpeg None."""
     ffmpeg = shutil.which("ffmpeg")
     if not ffmpeg:
         return None
@@ -347,16 +357,19 @@ async def _video_laden(hub: Hub, media_id: str) -> tuple[bytes, str]:
             return _video_cache[media_id]
         start = time.monotonic()
         pfad = await hub.aufnahme_pfad(media_id)
-        daten, ctype, weg = await hub.client.signiert_laden(pfad)
+        daten, ctype, bericht = await hub.client.signiert_laden(pfad)
+        codec = video_codec(daten)
+        _LOGGER.info("Aufnahme: %s | %s, %s, %.1f s", bericht, mp4_aufbau(daten), codec, time.monotonic() - start)
         if not daten or not (ctype.startswith("video/") or ctype == "application/octet-stream"):
             raise HAError(f"Aufnahme ohne Videodaten ({ctype}, {len(daten)} Bytes)")
-        codec = video_codec(daten)
-        _LOGGER.info("Aufnahme geladen (%s): %.1f MB, %s, %.1f s", weg, len(daten) / 1e6, codec, time.monotonic() - start)
-        if codec == "H.265":
+        unvollstaendig = "vollständig" not in bericht.rsplit(";", 1)[-1]
+        if codec == "H.265" or unvollstaendig:
             neu = await _umwandeln(daten)
             if neu:
                 _LOGGER.info("Aufnahme in H.264 umgewandelt: %.1f MB, %.1f s gesamt", len(neu) / 1e6, time.monotonic() - start)
                 daten = neu
+            elif unvollstaendig:
+                raise HAError("Der Reolink-Hub hat die Aufnahme nicht vollständig geliefert, und der Rest ist nicht abspielbar")
             else:
                 _LOGGER.warning("Aufnahme ist H.265 und ließ sich nicht umwandeln; Browser ohne H.265 spielen sie nicht")
         eintrag = (daten, "video/mp4")
