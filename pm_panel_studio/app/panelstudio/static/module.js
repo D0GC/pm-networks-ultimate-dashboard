@@ -147,48 +147,29 @@
     document.querySelectorAll("[data-licht-ziel]").forEach((x) => { if (x.dataset.lichtZiel.split(",").some((e) => ids.has(e)) && x.aktualisieren) x.aktualisieren(); });
   });
 
-  // Zustand eines Raums wie die Melder der Sicherheitsseite: Offenes und Bewegung zuerst, je Zeile Symbol, Name und
-  // Stand bzw. „vor …“; aktualisiert sich bei jeder Änderung
-  function zustandBox(ids, name) {
-    const box = E('<section class="r-box melder-kompakt"><h3><span>Zustand</span><small></small></h3><div class="mk-liste"></div></section>');
-    const liste = box.querySelector(".mk-liste");
-    const offenArt = (e) => ["door", "window", "opening"].includes(PS.a(e).device_class);
-    const zeigen = () => {
-      const an = ids.filter((e) => PS.s(e) === "on");
-      const offen = an.filter(offenArt);
-      box.querySelector("h3 small").textContent = offen.length ? `${offen.length} offen` : an.length ? "Bewegung" : "alles ruhig";
-      const folge = [...ids].sort((x, y) => (PS.s(y) === "on") - (PS.s(x) === "on") || (Date.parse(PS.st(y).lc) || 0) - (Date.parse(PS.st(x).lc) || 0));
-      liste.innerHTML = folge.map((e) => {
-        const auf = PS.s(e) === "on", tuer = offenArt(e);
-        const icon = tuer ? (auf ? "door-open" : "door-closed") : auf ? "motion-sensor" : "motion-sensor-off";
-        const klasse = auf ? (tuer ? "warn" : "an") : "";
-        return `<div class="mk-zeile ${klasse}" data-eid="${PS.esc(e)}">${PS.ic(icon)}<span>${PS.esc(PS.kurzname(e, name))}</span><small>${auf ? PS.esc(PS.text(e)) : PS.esc(PS.zeitRelativ(PS.st(e).lc))}</small></div>`;
-      }).join("");
-    };
-    liste.addEventListener("click", (ev) => { const z = ev.target.closest("[data-eid]"); if (z) PS.mehrInfos(z.dataset.eid); });
-    zeigen();
-    const hoerer = (geaendert) => { if (!box.isConnected) { PS.off("diff", hoerer); return; } if (ids.some((e) => geaendert.has(e))) zeigen(); };
-    PS.on("diff", hoerer);
-    return box;
-  }
   function raumKompakt(el, b) {
     const name = PS.bereichName(b), ids = imBereich(b);
     el.classList.add("raumseite");
     const g = E('<div class="raum-ansicht"><div class="r-spalte"></div><div class="r-spalte"></div><div class="r-spalte"></div></div>');
     const [links, mitte, rechts] = g.children;
-    // Schema Security: links Klima, Zustand (kompakte Melderliste), Modi und Luft; Mitte Licht und Geräte (füllen die
-    // Spalte); rechts Medien und Szenen. Leere Boxen entfallen, ohne rechten Inhalt werden es zwei Spalten.
+    // Links: Klima und Szenen
     ids.filter(dom("climate")).forEach((k) => { const c = PS.klimaSteuerung(k); c.classList.add("kompakt"); links.appendChild(c); });
-    const zustand = ids.filter((e) => (e.startsWith("binary_sensor.") && ["door", "window", "opening", "motion", "occupancy", "presence", "moisture", "smoke"].includes(PS.a(e).device_class)));
-    if (zustand.length) links.appendChild(zustandBox(zustand.sort(sortName(name)), name));
+    if (PS.lieblingsSzenen(b).length) links.appendChild(szenenBox(b, name));  // ohne Szenen keine leere Box
+    // Mitte: Licht und Luftqualität
     mitte.appendChild(lichtBox(ids, name));
+    const luft = PS.luftBox(b, ids);
+    if (luft) mitte.appendChild(luft);
+    // Rechts: Modi (zugeordnete Schalter), Medien, Zustand, Geräte
+    const modi = (raumSchalter()[b] || []).filter((e) => PS.z[e]);
+    if (modi.length) { const z = E('<section class="r-box"><h3><span>Modi</span></h3></section>'); z.appendChild(kachelRaster(modi, name)); z.lastElementChild.classList.add("mini"); rechts.appendChild(z); }
     const medien = ids.filter(dom("media_player")).filter((e) => ["playing", "paused", "on", "idle", "buffering"].includes(PS.s(e)));
     medien.slice(0, 1).forEach((m) => rechts.appendChild(PS.medienSteuerung(m, false)));
-    const modi = (raumSchalter()[b] || []).filter((e) => PS.z[e]);
-    if (modi.length) { const z = E('<section class="r-box"><h3><span>Modi</span></h3></section>'); z.appendChild(kachelRaster(modi, name)); z.lastElementChild.classList.add("mini"); links.appendChild(z); }
-    const luft = PS.luftBox(b, ids);  // zuletzt: füllt die Spalte und scrollt bei Bedarf in sich
-    if (luft) links.appendChild(luft);
-    if (PS.lieblingsSzenen(b).length) rechts.appendChild(szenenBox(b, name));
+    const zustand = ids.filter((e) => (e.startsWith("binary_sensor.") && ["door", "window", "opening", "motion", "occupancy", "presence", "moisture", "smoke"].includes(PS.a(e).device_class))
+);  // Luftwerte stehen in der Luft-Box
+    if (zustand.length) {
+      const a = PS.ordnung.auswahl("Zustand", zustand.sort(sortName(name)), 6);
+      const z = E('<section class="r-box"><h3><span>Zustand</span></h3></section>'); z.appendChild(PS.ordnung.begrenzt(kachelRaster(a.ids, name), a)); z.lastElementChild.classList.add("mini"); rechts.appendChild(z);
+    }
     // Geräte; Wake-on-LAN-Knöpfe (PC starten) und gesicherte Hauptschalter gehören dazu und stehen vorn
     const wol = (e) => PS.domain(e) === "button" && /(^|_)wol(_|$)|wake_on_lan/.test(e);
     // Der Schalter zum WoL-Knopf („Main PC“ zu „Main PC starten“) steht direkt daneben
@@ -201,9 +182,11 @@
       && !echo(e) && !Object.values(PS.einst.freigaben || {}).includes(e));  // Freigabe-Helfer nur über den Dialog des Schalters
     if (geraete.length) {
       const a = PS.ordnung.auswahl("Geräte", geraete.sort((x, y) => wol(y) - wol(x) || pc(y) - pc(x) || !!PS.freigabe(y) - !!PS.freigabe(x) || sortName(name)(x, y)), 6);
-      const z = E(`<section class="r-box"><h3><span>Geräte</span><small>${geraete.filter((e) => PS.istAn(e)).length} an</small></h3></section>`); z.appendChild(PS.ordnung.begrenzt(kachelRaster(a.ids, name), a)); mitte.appendChild(z);
+      const z = E('<section class="r-box"><h3><span>Geräte</span></h3></section>'); z.appendChild(PS.ordnung.begrenzt(kachelRaster(a.ids, name), a)); z.lastElementChild.classList.add("mini");
+      // Läuft rechts ein Medienplayer, ist dort kein Platz mehr: Geräte unter Licht und Luft in die Mitte
+      (medien.length ? mitte : rechts).appendChild(z);
     }
-    (rechts.children.length ? rechts : mitte).appendChild(knopf(`Alle Geräte im Raum`, "view-grid-outline", () => PS.unterseite(`${name} · alle Geräte`, (x) => raumAlles(x, b)), "r-alles"));
+    rechts.appendChild(knopf(`Alle Geräte im Raum`, "view-grid-outline", () => PS.unterseite(`${name} · alle Geräte`, (x) => raumAlles(x, b)), "r-alles"));
     el.appendChild(g);
   }
 

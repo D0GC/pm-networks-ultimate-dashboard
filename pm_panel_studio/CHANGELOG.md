@@ -1,5 +1,17 @@
 # Änderungen
 
+## 2026.10.87 – 2026-10-23
+
+- Raumseiten wieder in der früheren Anordnung: links Klima und Szenen, Mitte Licht und Luftqualität (wieder groß),
+  rechts Modi, Medien, Zustand und Geräte mit kleinen Kacheln. Läuft rechts ein Medienplayer, stehen die Geräte in
+  der Mitte, damit nichts gescrollt werden muss. Ohne Szenen keine leere Box; ohne Inhalt links teilen sich Mitte
+  und rechts die Breite.
+- Kein toter Raum mehr: Boxen behalten ihre natürliche Höhe. Nur wo eine Spalte sonst überlaufen würde, füllt ihre
+  letzte Box den Rest und scrollt in sich. Seiten mit eigener Aufteilung (Karte im Haushalt) bleiben unberührt.
+- Shisha wieder wie zuvor (zwei Spalten, die Zähler untereinander); das Dreispalten-Raster greift nur noch bei drei
+  Spalten.
+- Energie: Die Geräteliste reicht rechts über die volle Höhe, der Energiefluss steht unter Verbrauch und Verlauf.
+
 ## 2026.10.86 – 2026-10-23
 
 - Kameraaufnahmen: Die App fragt beim Hub jetzt immer mit `Range` an, wie ein Browser. Ohne Range bereitet der
