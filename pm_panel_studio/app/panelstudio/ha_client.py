@@ -147,7 +147,9 @@ class HAClient:
         ctype = "application/octet-stream"
         berichte: list[str] = []
         for versuch in range(1, versuche + 1):
-            direkt = bool(self.direkt_url)
+            # Zuerst über den Supervisor (erreicht HA sicher), im Wechsel direkt, solange der direkte Weg nicht
+            # schon einmal ohne jede Antwort getrennt wurde
+            direkt = bool(self.direkt_url) and versuch % 2 == 0
             url = f"{self.direkt_url.rstrip('/')}{pfad}" if direkt else f"{self.api_url}/{pfad.removeprefix('/api').lstrip('/')}"
             kopf = {"Accept-Encoding": "identity", "Accept": "*/*", "Range": f"bytes={len(daten)}-"}
             if not direkt:
@@ -172,8 +174,12 @@ class HAClient:
                 if direkt:
                     self.direkt_url = ""  # HA intern nicht erreichbar: künftig über den Supervisor
                 grund = f"keine Verbindung ({err})"
-            except (aiohttp.ClientPayloadError, aiohttp.ServerDisconnectedError, aiohttp.ClientError) as err:
-                grund = f"abgebrochen ({type(err).__name__})"
+            except aiohttp.ServerDisconnectedError as err:
+                grund = f"abgebrochen ({err!r})"
+                if direkt and len(daten) == vorher:
+                    self.direkt_url = ""  # HA trennt den direkten Weg ohne Antwort: künftig nur über den Supervisor
+            except (aiohttp.ClientPayloadError, aiohttp.ClientError) as err:
+                grund = f"abgebrochen ({type(err).__name__}: {str(err)[:160]})"
             except TimeoutError:
                 grund = "Zeitüberschreitung"
             weg = "direkt" if direkt else "Supervisor"
