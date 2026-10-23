@@ -740,9 +740,30 @@
     inhalt.classList.toggle("still", !!still);
     inhalt.classList.remove("raumseite", "energie-seite", "studio-seite");
     inhalt.innerHTML = ""; inhalt.scrollTop = 0;
-    seite.render(inhalt);
+    const fertig = seite.render(inhalt);
     PS.kachelnBinden(inhalt);
+    // Seitenraster wie auf der Sicherheitsseite (seitenraster.css); bei nachgeladenen Seiten noch einmal
+    PS.seitenRaster(inhalt);
+    if (fertig && fertig.then) fertig.then(() => { if (inhalt.isConnected) PS.seitenRaster(inhalt); }, () => {});
   }
+  // Seitenraster (Gestaltung der Sicherheitsseite für alle Unterseiten): Die letzte Box jeder Spalte füllt die Spalte
+  // bis zum unteren Rand und scrollt bei Bedarf in sich; so enden alle Spalten bündig und die Seite selbst scrollt nicht.
+  PS.seitenRaster = (el) => {
+    if (!el || !el.classList.contains("raumseite")) return;
+    // Rechte Spalte nur mit „Alle …“-Knopf: Knopf in die Mitte, zwei breitere Spalten statt einer leeren
+    el.querySelectorAll(".raum-ansicht").forEach((g) => {
+      const sp = [...g.children].filter((c) => c.classList.contains("r-spalte"));
+      if (sp.length !== 3 || g.classList.contains("energie")) return;
+      const rechts = sp[2], inhalt = [...rechts.children];
+      if (inhalt.length && inhalt.every((c) => c.classList.contains("r-alles"))) { inhalt.forEach((c) => sp[1].appendChild(c)); }
+      g.classList.toggle("ohne-rechts", !rechts.children.length);
+    });
+    el.querySelectorAll(".raum-ansicht > .r-spalte").forEach((sp) => {
+      const boxen = [...sp.querySelectorAll(":scope > .r-box")];
+      boxen.forEach((b, i) => b.classList.toggle("fuellt", i === boxen.length - 1));
+    });
+  };
+
   // ------------------------------------------------------------ Eigene Reihenfolge (am PC angeordnet, überall gültig)
   // Jede Liste mit mindestens zwei kenntlichen Einträgen ist sortierbar: Kacheln (data-eid), Räume (data-b), Thermostate
   // (data-klima), Boxen und Gruppen (über ihren Titel). Ihr Schlüssel aus Seite, umgebender Box und Position ist auf

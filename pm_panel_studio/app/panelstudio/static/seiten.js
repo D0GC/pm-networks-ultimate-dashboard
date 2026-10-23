@@ -689,7 +689,7 @@
     kopf.append(ring(gesamt ? ok / gesamt : 1, weg.length ? "var(--warn)" : "var(--gut)", String(ok), `von ${gesamt}`),
       E(`<div><div class="r-zahl klein">${weg.length ? `${weg.length} ${weg.length === 1 ? "Gerät antwortet" : "Geräte antworten"} nicht` : "Alles nominal"}</div><div class="r-unter">${weg.length ? "" : "Alle Geräte melden sich."}</div></div>`));
     b1.appendChild(kopf);
-    if (weg.length) b1.appendChild(E(`<div class="liste">${weg.slice(0, 5).map(({ d, e }) => `<div class="zeile" data-eid="${PS.esc(e)}">${PS.icon(e)}<span class="n">${PS.esc(PS.geraete[d] || PS.name(e))}<small>nicht erreichbar · ${PS.esc(PS.zeitRelativ(PS.st(e).lc))}</small></span></div>`).join("")}</div>`));
+    if (weg.length) b1.appendChild(E(`<div class="liste">${weg.slice(0, 5).map(({ d, e }) => `<div class="zeile" style="--c:var(--krit)" data-eid="${PS.esc(e)}">${PS.icon(e)}<span class="n">${PS.esc(PS.geraete[d] || PS.name(e))}<small>nicht erreichbar · ${PS.esc(PS.zeitRelativ(PS.st(e).lc))}</small></span></div>`).join("")}</div>`));
     b1.querySelectorAll("[data-eid]").forEach((z) => z.addEventListener("click", () => PS.mehrInfos(z.dataset.eid)));
     l.appendChild(b1);
     const upd = alle().filter((e) => e.startsWith("update.") && PS.s(e) === "on" && PS.sichtbar(e));
