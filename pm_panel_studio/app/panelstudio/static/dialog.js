@@ -95,8 +95,17 @@
     let rueckfall = false;
     v.addEventListener("playing", () => { status.hidden = true; });
     v.addEventListener("loadeddata", () => { status.hidden = true; });
+    // Fehler des Video-Elements der App melden (Protokoll), damit sich ein Ausfall eindeutig zuordnen lässt
+    const melden = (weg) => {
+      const e = v.error || {};
+      fetch("api/video_fehler", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ weg, code: e.code, text: e.message || "" }) }).catch(() => {});
+    };
     v.addEventListener("error", () => {
-      if (!rueckfall) { rueckfall = true; status.textContent = "Zweiter Weg über die App …"; v.src = ueberApp; return; }
+      if (!rueckfall) {
+        melden("direkt"); rueckfall = true;
+        status.textContent = "Aufnahme wird über die App geladen und bei Bedarf umgewandelt …"; v.src = ueberApp; return;
+      }
+      melden("app");
       status.hidden = false; status.textContent = "Die Aufnahme lässt sich gerade nicht laden. Ein erneuter Versuch hilft meist.";
     });
     PS.anfrage({ typ: "aufnahme_link", media_id: id }).then(({ pfad, ha }) => {

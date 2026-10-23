@@ -14,6 +14,9 @@ import logging
 import os
 import re
 import secrets
+import shutil
+import tempfile
+import time
 from pathlib import Path
 from typing import Any
 
@@ -293,45 +296,118 @@ async def hls(request: web.Request) -> web.StreamResponse:
     return ziel
 
 
-VIDEO_KOEPFE = ("Content-Type", "Content-Length", "Content-Range", "Accept-Ranges", "Last-Modified", "ETag")
+VIDEO_CACHE_MAX = 3  # Aufnahmen im Speicher (hohe Auflösung, je einige MB)
+_video_cache: dict[str, tuple[bytes, str]] = {}
+_video_sperre = asyncio.Lock()
+UMWANDELN_S = 240  # länger darf ffmpeg für eine Aufnahme nicht brauchen
 
 
-async def video(request: web.Request) -> web.StreamResponse:
-    """Kameraaufnahme abspielen: den signierten Pfad von Home Assistant auflösen und das Video direkt durchreichen,
-    wie der Medienbrowser von Home Assistant (Range-Anfragen zum Spulen gehen mit). Kein vorheriges Komplett-Laden:
-    das Video beginnt, sobald die ersten Daten da sind."""
+def video_codec(daten: bytes) -> str:
+    """Videoformat aus dem Inhaltsverzeichnis der MP4-Datei (Sample-Description im ``moov``)."""
+    if b"hvc1" in daten or b"hev1" in daten:
+        return "H.265"
+    if b"avc1" in daten or b"avc3" in daten:
+        return "H.264"
+    return "unbekannt"
+
+
+async def _umwandeln(daten: bytes) -> bytes | None:
+    """H.265 in H.264 umwandeln (spielen alle Browser), höchstens 720p, Inhaltsverzeichnis vorn. Ohne ffmpeg None."""
+    ffmpeg = shutil.which("ffmpeg")
+    if not ffmpeg:
+        return None
+    with tempfile.TemporaryDirectory(prefix="pmps-video-") as tmp:
+        ein, aus = Path(tmp) / "ein.mp4", Path(tmp) / "aus.mp4"
+        ein.write_bytes(daten)
+        proc = await asyncio.create_subprocess_exec(
+            ffmpeg, "-hide_banner", "-loglevel", "error", "-y", "-i", str(ein),
+            "-map", "0:v:0", "-map", "0:a:0?", "-c:v", "libx264", "-preset", "veryfast", "-crf", "26",
+            "-vf", "scale=-2:'min(720,ih)'", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "96k",
+            "-movflags", "+faststart", str(aus),
+            stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.PIPE,
+        )  # fmt: skip
+        try:
+            _, fehler = await asyncio.wait_for(proc.communicate(), UMWANDELN_S)
+        except TimeoutError:
+            proc.kill()
+            _LOGGER.warning("Aufnahme: Umwandlung nach %d s abgebrochen", UMWANDELN_S)
+            return None
+        if proc.returncode != 0 or not aus.exists():
+            _LOGGER.warning("Aufnahme: Umwandlung fehlgeschlagen: %s", fehler.decode(errors="replace")[-300:])
+            return None
+        return aus.read_bytes()
+
+
+async def _video_laden(hub: Hub, media_id: str) -> tuple[bytes, str]:
+    """Aufnahme vollständig von Home Assistant holen, bei H.265 umwandeln und zwischenspeichern. Reolink liefert die
+    Datei ohne Range-Unterstützung und oft mit dem Inhaltsverzeichnis am Ende; abspielen und spulen kann der Browser
+    sie so erst, wenn die App sie vollständig hat und selbst mit Range ausliefert."""
+    async with _video_sperre:
+        if media_id in _video_cache:
+            return _video_cache[media_id]
+        start = time.monotonic()
+        pfad = await hub.aufnahme_pfad(media_id)
+        daten, ctype, weg = await hub.client.signiert_laden(pfad)
+        if not daten or not (ctype.startswith("video/") or ctype == "application/octet-stream"):
+            raise HAError(f"Aufnahme ohne Videodaten ({ctype}, {len(daten)} Bytes)")
+        codec = video_codec(daten)
+        _LOGGER.info("Aufnahme geladen (%s): %.1f MB, %s, %.1f s", weg, len(daten) / 1e6, codec, time.monotonic() - start)
+        if codec == "H.265":
+            neu = await _umwandeln(daten)
+            if neu:
+                _LOGGER.info("Aufnahme in H.264 umgewandelt: %.1f MB, %.1f s gesamt", len(neu) / 1e6, time.monotonic() - start)
+                daten = neu
+            else:
+                _LOGGER.warning("Aufnahme ist H.265 und ließ sich nicht umwandeln; Browser ohne H.265 spielen sie nicht")
+        eintrag = (daten, "video/mp4")
+        _video_cache[media_id] = eintrag
+        while len(_video_cache) > VIDEO_CACHE_MAX:
+            _video_cache.pop(next(iter(_video_cache)))
+        return eintrag
+
+
+async def video(request: web.Request) -> web.Response:
+    """Kameraaufnahme abspielen: vollständig laden (bei H.265 umgewandelt), dann mit Range-Anfragen ausliefern."""
     hub = request.app[K_HUB]
     media_id = request.query.get("id", "")
     try:
-        pfad = await hub.aufnahme_pfad(media_id)
+        daten, ctype = await _video_laden(hub, media_id)
     except ValueError as err:
         raise web.HTTPBadRequest(text=str(err)) from err
     except HAError as err:
-        _LOGGER.warning("Aufnahme nicht auflösbar: %s", err)
-        raise web.HTTPBadGateway(text=str(err)) from err
-    # Wie ein Browser bei Videos: unkomprimiert anfragen (die Reolink-Ansicht reicht Kopfzeilen an den Hub weiter)
-    kopf = {"Accept-Encoding": "identity", "Accept": "*/*"}
-    if re.match(r"^bytes=\d*-\d*$", request.headers.get("Range", "")):
-        kopf["Range"] = request.headers["Range"]
-    try:
-        quelle = await hub.client.stream_oeffnen(pfad.removeprefix("/api"), headers=kopf)
-    except HAError as err:
         _LOGGER.warning("Aufnahme nicht abrufbar: %s", err)
         raise web.HTTPBadGateway(text=str(err)) from err
-    antwort_kopf = {k: v for k in VIDEO_KOEPFE if (v := quelle.headers.get(k))}
-    if antwort_kopf.get("Content-Type", "application/octet-stream") == "application/octet-stream":
-        antwort_kopf["Content-Type"] = "video/mp4"
-    antwort_kopf["Cache-Control"] = "no-store"
-    ziel = web.StreamResponse(status=quelle.status, headers=antwort_kopf)
+    gesamt = len(daten)
+    kopf = {"Accept-Ranges": "bytes", "Cache-Control": "no-store"}
+    rng = re.match(r"^bytes=(\d*)-(\d*)$", request.headers.get("Range", ""))
+    if not rng or (not rng.group(1) and not rng.group(2)):
+        return web.Response(body=daten, content_type=ctype, headers=kopf)
+    if rng.group(1):
+        von = int(rng.group(1))
+        bis = min(int(rng.group(2)), gesamt - 1) if rng.group(2) else gesamt - 1
+    else:  # Suffix: die letzten n Bytes
+        von, bis = max(0, gesamt - int(rng.group(2))), gesamt - 1
+    if von >= gesamt or von > bis:
+        raise web.HTTPRequestRangeNotSatisfiable(headers={"Content-Range": f"bytes */{gesamt}"})
+    return web.Response(
+        status=206,
+        body=daten[von : bis + 1],
+        content_type=ctype,
+        headers={**kopf, "Content-Range": f"bytes {von}-{bis}/{gesamt}"},
+    )
+
+
+async def video_fehler(request: web.Request) -> web.Response:
+    """Rückmeldung des Browsers, wenn eine Aufnahme nicht spielt (Fehlercode und Text des Video-Elements)."""
     try:
-        await ziel.prepare(request)
-        async for block in quelle.content.iter_chunked(256 * 1024):
-            await ziel.write(block)
-    except (ConnectionResetError, aiohttp.ClientError, asyncio.CancelledError):
-        pass
-    finally:
-        quelle.release()
-    return ziel
+        d = await request.json()
+    except (ValueError, aiohttp.ContentTypeError):
+        d = {}
+    _LOGGER.warning(
+        "Aufnahme spielt im Browser nicht (%s): Code %s, %s",
+        str(d.get("weg", "?"))[:20], str(d.get("code", "?"))[:5], str(d.get("text", ""))[:200],
+    )  # fmt: skip
+    return web.json_response({"ok": True})
 
 
 # ------------------------------------------------------------------ PM Klima Studio durchreichen
@@ -517,6 +593,7 @@ def _gemeinsam(app: web.Application) -> None:
     app.router.add_get("/api/kamera", kamera)
     app.router.add_get("/api/hls/{pfad:.+}", hls)
     app.router.add_get("/api/video", video)
+    app.router.add_post("/api/video_fehler", video_fehler)
     app.router.add_route("GET", STUDIO_PFAD + "/{rest:.*}", klima_studio)
     app.router.add_route("POST", STUDIO_PFAD + "/{rest:.*}", klima_studio)
     app.router.add_static("/static/", STATIC_DIR, show_index=False)

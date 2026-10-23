@@ -350,3 +350,11 @@ async def test_takt_ueberlebt_fehler_und_wechselt_in_ruhe(hub, monkeypatch):
     assert zaehler > 16
     assert hub.modus == "ruhe"
     task.cancel()
+
+
+def test_video_codec():
+    from panelstudio.server import video_codec
+
+    assert video_codec(b"....moov....stsd....hvc1....") == "H.265"
+    assert video_codec(b"....moov....stsd....avc1....") == "H.264"
+    assert video_codec(b"nichts") == "unbekannt"
