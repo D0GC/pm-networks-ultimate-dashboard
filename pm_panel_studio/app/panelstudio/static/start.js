@@ -757,11 +757,22 @@
       const rechts = sp[2], inhalt = [...rechts.children];  // auch Raumseiten (raum-ansicht ohne seite())
       if (inhalt.length && inhalt.every((c) => c.classList.contains("r-alles"))) { inhalt.forEach((c) => sp[1].appendChild(c)); }
       g.classList.toggle("ohne-rechts", !rechts.children.length);
+      // Linke Spalte leer (Raum ohne Klima und Szenen): Mitte und rechts teilen sich die Breite
+      g.classList.toggle("ohne-links", !sp[0].children.length && !!rechts.children.length);
     });
     el.querySelectorAll(".raum-ansicht > .r-spalte").forEach((sp) => {
       const boxen = [...sp.querySelectorAll(":scope > .r-box")];
-      boxen.forEach((b, i) => b.classList.toggle("fuellt", i === boxen.length - 1));
+      // Spalten mit eigener füllender Box (z. B. Karte im Haushalt) bleiben, wie die Seite sie gestaltet
+      const eigen = boxen.some((b) => !b.classList.contains("fuellt") && parseFloat(getComputedStyle(b).flexGrow) > 0);
+      boxen.forEach((b, i) => b.classList.toggle("fuellt", !eigen && i === boxen.length - 1));
     });
+    // Nur wo eine Spalte überlaufen würde, füllt ihre letzte Box den Rest und scrollt in sich („eng“); sonst behalten
+    // alle Boxen ihre natürliche Höhe (kein toter Raum). Nachgeladene Inhalte werden später noch einmal geprüft.
+    const pruefen = () => el.querySelectorAll(".raum-ansicht > .r-spalte").forEach((sp) => {
+      if (sp.scrollHeight > sp.clientHeight + 2) sp.classList.add("eng");
+    });
+    requestAnimationFrame(pruefen);
+    setTimeout(pruefen, 800); setTimeout(pruefen, 2500);
   };
 
   // ------------------------------------------------------------ Eigene Reihenfolge (am PC angeordnet, überall gültig)
