@@ -49,6 +49,19 @@ z. B. „deeper“, „slower“, „warmer“). Die beste Probe festlegen:
 
 Sie wird zu `referenz.wav` – das ist ab jetzt die Hausstimme.
 
+**Akzent in den Proben?** Parler hat Deutsch aus Hörbuchaufnahmen gelernt; manche Stimmen klingen dadurch regional
+gefärbt. Dann hilft der zweite Weg:
+
+```powershell
+.\hausstimme.ps1 vorlagen
+```
+
+Drei männliche Piper-Stimmen in klarem Hochdeutsch (thorsten, karlsson, pavoque) sprechen den Probetext etwas
+langsamer, jeweils in Originallage sowie zwei und vier Halbtöne tiefer. Die neun Proben kommen fortlaufend nummeriert
+dazu und werden genauso mit `waehlen NN` übernommen. Chatterbox übernimmt in Schritt 2 daraus Klangfarbe und
+Aussprache und spricht alles neu; die Absenkung klingt dort natürlich. Dieser Befehl nutzt die Trainingsumgebung –
+beim ersten Mal wird sie gebaut (einmalig 10–20 Minuten), Schritt 3 profitiert davon.
+
 ## 2 · Datensatz erzeugen
 
 Erst ein kurzer Versuch mit 20 Sätzen, dann alles:
