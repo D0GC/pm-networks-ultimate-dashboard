@@ -575,7 +575,9 @@ class Einstellungen:
                 gesehen: set[str] = set()
                 bloecke = []
                 for v in vals:
-                    m = re.match(r"^([a-z_]{2,32})(?::(\d{1,2}))?(?::(\d{1,2}))?$", str(v).strip())
+                    # id:Breite:Höhe im Querformat, optional :Breite:Höhe im Hochformat (1 halb, 2 voll, 0 wie im
+                    # Querformat; Höhe 0 = nach Inhalt)
+                    m = re.match(r"^([a-z_]{2,32})(?::(\d{1,2}))?(?::(\d{1,2}))?(?::(\d):(\d{1,2}))?$", str(v).strip())
                     if not m or m.group(1) not in ADMIN_BLOECKE or m.group(1) in gesehen:
                         continue
                     gesehen.add(m.group(1))
@@ -584,7 +586,11 @@ class Einstellungen:
                         breite, hoehe = int(m.group(2)), int(m.group(3))
                     elif m.group(2):
                         breite = int(m.group(2)) * 4  # Format von 2026.10.41: Breite in drei Spalten
-                    bloecke.append(f"{m.group(1)}:{max(2, min(12, breite))}:{max(2, min(24, hoehe))}")
+                    eintrag = f"{m.group(1)}:{max(2, min(12, breite))}:{max(2, min(24, hoehe))}"
+                    hb, hh = min(2, int(m.group(4) or 0)), min(24, int(m.group(5) or 0))
+                    if hb or hh:
+                        eintrag += f":{hb}:{hh if hh == 0 else max(2, hh)}"
+                    bloecke.append(eintrag)
                 self.admin_start = bloecke
             elif key in ("bereiche_reihenfolge", "bereiche_ausblenden", "start_raeume", "karten_aus"):
                 vals = val if isinstance(val, list) else []

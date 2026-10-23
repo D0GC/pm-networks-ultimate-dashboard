@@ -337,7 +337,7 @@ body.admin .sheet:has(.ha-rahmen.eigener-kopf) .sheet-kopf{display:none}
 /* Schmales Fenster oder Hochformat: Blöcke halb oder voll breit, Höhe nach Inhalt (mit Obergrenze) */
 .as-raster.frei{grid-auto-rows:auto}
 .as-raster.frei > .as-block > .r-box{height:auto;max-height:42rem}
-.as-raster.frei .as-griff,.as-raster.frei .as-masse{display:none}
+/* Hochformat: Griff bleibt; dort zieht er die eigene Breite (halb/voll) und Höhe dieses Formats */
 @media (max-width:1000px){
   body.admin{--rail:6.4rem}
   .admin-kopf{gap:1rem;padding:0 1.2rem}

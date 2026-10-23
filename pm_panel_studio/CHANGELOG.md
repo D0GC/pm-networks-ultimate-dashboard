@@ -1,5 +1,12 @@
 # Änderungen
 
+## 2026.10.77 – 2026-10-23
+
+- Admin-Startseite im Hochformat und in schmalen Fenstern: Im Anpassen-Modus gibt es auch dort den Größengriff.
+  Waagerecht ziehen wählt halbe oder volle Breite, senkrecht die Höhe in Zeilen; Doppelklick auf den Griff stellt
+  die Höhe wieder auf „nach Inhalt“. Die Größen gelten nur für dieses Format, die Anordnung im Querformat bleibt
+  unberührt (Eintrag `id:Breite:Höhe:Hoch-Breite:Hoch-Höhe`).
+
 ## 2026.10.76 – 2026-10-23
 
 - Haustür-Verlauf: Aus dem Verlauf nachgetragene Klingeln mit „angenommen“ gelten als am Panel angenommen, nicht

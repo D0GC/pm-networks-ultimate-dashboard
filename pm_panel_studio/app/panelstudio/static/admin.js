@@ -947,12 +947,18 @@
   const anordnung = () => {
     const roh = anpassen || (Array.isArray(PS.einst.admin_start) ? PS.einst.admin_start : STANDARD);
     return roh.map((x) => {
-      const [id, w, h] = String(x).split(":");
+      const [id, w, h, hb, hh] = String(x).split(":");
       const g = GROESSE[id] || [4, 6];
-      return { id, w: Math.max(2, Math.min(12, +w || g[0])), h: Math.max(2, Math.min(24, +h || g[1])) };
+      return { id, w: Math.max(2, Math.min(12, +w || g[0])), h: Math.max(2, Math.min(24, +h || g[1])),
+        hb: Math.max(0, Math.min(2, +hb || 0)), hh: Math.max(0, Math.min(24, +hh || 0)) };
     }).filter((x) => B[x.id]);
   };
-  const eintrag = (x) => `${x.id}:${x.w}:${x.h}`;
+  // id:Breite:Höhe (Querformat, 12 Spalten), optional :Breite:Höhe im Hochformat (1 halb, 2 voll; Höhe 0 = nach Inhalt)
+  const eintrag = (x) => `${x.id}:${x.w}:${x.h}${x.hb || x.hh ? `:${x.hb || 0}:${x.hh || 0}` : ""}`;
+  const blockDaten = (el) => ({ id: el.dataset.id, w: +el.dataset.w, h: +el.dataset.h, hb: +el.dataset.hb || 0, hh: +el.dataset.hh || 0 });
+  // Höhe im Hochformat: Zeilen wie im Querformat (3,4 rem plus Abstand)
+  const remPx = () => parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+  const hochZeile = () => 3.4 * remPx(), hochLuecke = () => 1.2 * remPx();
   function blockZeichnen(id) {
     const b = bloecke.get(id); if (!b) return;
     const inhalt = box(b.def.titel, " ");
@@ -973,9 +979,17 @@
     raster.style.setProperty("--spalten", spalten);
     raster.classList.toggle("frei", spalten !== 12);
     raster.querySelectorAll(".as-block").forEach((el) => {
-      const w = +el.dataset.w, h = +el.dataset.h;
-      el.style.gridColumn = `span ${spalten === 12 ? w : spalten === 2 ? (w >= 6 ? 2 : 1) : 1}`;
+      const w = +el.dataset.w, h = +el.dataset.h, hb = +el.dataset.hb || 0, hh = +el.dataset.hh || 0;
+      el.style.gridColumn = `span ${spalten === 12 ? w : spalten === 2 ? (hb || (w >= 6 ? 2 : 1)) : 1}`;
       if (spalten === 12) el.style.gridRow = `span ${h}`;
+      // Hochformat: eigene Höhe, sonst nach Inhalt (Mauerwerk misst nach)
+      const inhalt = el.querySelector(":scope > .r-box");
+      if (inhalt) {
+        const fest = spalten !== 12 && hh > 0;
+        inhalt.style.height = fest ? `${hh * hochZeile() + (hh - 1) * hochLuecke()}px` : "";
+        inhalt.style.maxHeight = fest ? "none" : "";
+      }
+      if (el._masse) el._masse();
     });
     raster.classList.toggle("mauer", spalten !== 12);
     if (spalten !== 12) mauern(raster);
@@ -1020,7 +1034,7 @@
     raster.innerHTML = ""; bloecke.clear();
     const liste = anordnung();
     liste.forEach((x, i) => {
-      const el = E(`<div class="as-block" data-id="${x.id}" data-w="${x.w}" data-h="${x.h}"></div>`);
+      const el = E(`<div class="as-block" data-id="${x.id}" data-w="${x.w}" data-h="${x.h}" data-hb="${x.hb}" data-hh="${x.hh}"></div>`);
       bloecke.set(x.id, { el, def: B[x.id] });
       raster.appendChild(el);
       blockZeichnen(x.id);
@@ -1061,11 +1075,22 @@
     const g = E(`<button type="button" class="as-griff" title="Größe ziehen" aria-label="Größe ändern">${PS.ic("resize-bottom-right")}</button>`);
     const masse = E('<span class="as-masse tabular" aria-live="polite"></span>');
     el.appendChild(masse);
-    const zeigen = () => { masse.textContent = `${el.dataset.w} × ${el.dataset.h}`; };
+    const zeigen = () => {
+      if (spalten === 12) { masse.textContent = `${el.dataset.w} × ${el.dataset.h}`; return; }
+      const hb = +el.dataset.hb || 0, hh = +el.dataset.hh || 0;
+      const voll = spalten === 1 || (hb ? hb === 2 : +el.dataset.w >= 6);
+      masse.textContent = `${voll ? "voll" : "halb"} · ${hh ? `${hh} Zeilen` : "Höhe nach Inhalt"}`;
+    };
+    el._masse = zeigen;
     zeigen();
+    // Doppelklick im Hochformat: Höhe wieder nach Inhalt
+    g.addEventListener("dblclick", () => {
+      if (spalten === 12) return;
+      el.dataset.hh = "0"; spannen(); speichernBlock(el);
+      PS.toast("Höhe folgt wieder dem Inhalt");
+    });
     g.addEventListener("pointerdown", (ev) => {
-      if (spalten === 1) { PS.toast("In einer Spalte sind alle Blöcke voll breit; die Höhe folgt dem Inhalt."); return; }
-      if (spalten === 2) { schmalZiehen(ev, el, id, g, zeigen); return; }
+      if (spalten !== 12) { schmalZiehen(ev, el, id, g, zeigen); return; }
       ev.preventDefault(); g.setPointerCapture(ev.pointerId); el.classList.add("zieht");
       const raster = $("#as-raster"), st = getComputedStyle(raster);
       const luecke = parseFloat(st.columnGap) || 0, zeile = parseFloat(st.gridAutoRows) || 40;
@@ -1080,8 +1105,7 @@
       };
       const ende = () => {
         g.removeEventListener("pointermove", bewegen); el.classList.remove("zieht");
-        const l = anpassen, j = l.findIndex((x) => x.startsWith(id + ":"));
-        if (j >= 0) l[j] = eintrag({ id, w: +el.dataset.w, h: +el.dataset.h });
+        speichernBlock(el);
       };
       g.addEventListener("pointermove", bewegen);
       g.addEventListener("pointerup", ende, { once: true });
@@ -1089,21 +1113,24 @@
     });
     return g;
   }
-  // Schmal oder hochkant (zwei Spalten): halbe oder volle Breite ziehen; die Höhe folgt dort dem Inhalt. Gespeichert
-  // wird eine passende Breite des breiten Rasters (halb: höchstens 4 von 12, voll: mindestens 6).
+  function speichernBlock(el) {
+    const l = anpassen, j = l ? l.findIndex((x) => x.startsWith(el.dataset.id + ":")) : -1;
+    if (j >= 0) l[j] = eintrag(blockDaten(el));
+  }
+  // Schmal oder hochkant: eigene Größe nur für dieses Format. Waagerecht halb oder voll breit (bei zwei Spalten),
+  // senkrecht die Höhe in Zeilen wie im Querformat. Die Anordnung im Querformat bleibt unberührt.
   function schmalZiehen(ev, el, id, g, zeigen) {
     ev.preventDefault(); g.setPointerCapture(ev.pointerId); el.classList.add("zieht");
-    const raster = $("#as-raster"), r0 = raster.getBoundingClientRect();
+    const raster = $("#as-raster"), r0 = raster.getBoundingClientRect(), oben = el.getBoundingClientRect().top;
     const bewegen = (e) => {
-      const voll = e.clientX - r0.left > r0.width * 0.62;
-      const w = +el.dataset.w;
-      el.dataset.w = String(voll ? (w >= 6 ? w : 12) : (w >= 6 ? 4 : w));
+      if (spalten === 2) el.dataset.hb = e.clientX - r0.left > r0.width * 0.62 ? "2" : "1";
+      const zeilen = Math.round((e.clientY - oben + hochLuecke()) / (hochZeile() + hochLuecke()));
+      el.dataset.hh = String(Math.max(2, Math.min(24, zeilen)));
       zeigen(); spannen();
     };
     const ende = () => {
       g.removeEventListener("pointermove", bewegen); el.classList.remove("zieht");
-      const l = anpassen, j = l.findIndex((x) => x.startsWith(id + ":"));
-      if (j >= 0) l[j] = eintrag({ id, w: +el.dataset.w, h: +el.dataset.h });
+      speichernBlock(el);
     };
     g.addEventListener("pointermove", bewegen);
     g.addEventListener("pointerup", ende, { once: true });
