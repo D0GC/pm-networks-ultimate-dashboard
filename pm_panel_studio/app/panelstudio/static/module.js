@@ -183,8 +183,7 @@
     if (geraete.length) {
       const a = PS.ordnung.auswahl("Geräte", geraete.sort((x, y) => wol(y) - wol(x) || pc(y) - pc(x) || !!PS.freigabe(y) - !!PS.freigabe(x) || sortName(name)(x, y)), 6);
       const z = E('<section class="r-box"><h3><span>Geräte</span></h3></section>'); z.appendChild(PS.ordnung.begrenzt(kachelRaster(a.ids, name), a)); z.lastElementChild.classList.add("mini");
-      // Läuft rechts ein Medienplayer, ist dort kein Platz mehr: Geräte unter Licht und Luft in die Mitte
-      (medien.length ? mitte : rechts).appendChild(z);
+      rechts.appendChild(z);
     }
     rechts.appendChild(knopf(`Alle Geräte im Raum`, "view-grid-outline", () => PS.unterseite(`${name} · alle Geräte`, (x) => raumAlles(x, b)), "r-alles"));
     el.appendChild(g);

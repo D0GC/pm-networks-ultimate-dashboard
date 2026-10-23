@@ -1,5 +1,12 @@
 # Änderungen
 
+## 2026.10.89 – 2026-10-23
+
+- Schalterkacheln auf allen Unterseiten flach im Querformat: Symbol links, Name und Zustand daneben, etwa halb so hoch
+  wie die quadratischen Kacheln der Startseite (Licht, Geräte, Modi, Zustand, Raumgruppen …). Szenen auf den
+  Raumseiten ebenso flach. Die Startseite bleibt unverändert.
+- Raumseiten: Geräte wieder ganz rechts, auch bei laufendem Medienplayer (passt jetzt dank der flacheren Kacheln).
+
 ## 2026.10.88 – 2026-10-23
 
 - Kameraaufnahmen: Abruf zuerst über den Supervisor mit `Range` (diese Kombination fehlte bisher), im Wechsel mit

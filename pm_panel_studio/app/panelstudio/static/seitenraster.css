@@ -80,3 +80,19 @@ body:not(.admin) .raum-ansicht.ohne-links{grid-template-columns:minmax(0,1fr) mi
 body:not(.admin) .raum-ansicht > .r-spalte.eng > :not(.fuellt){flex-shrink:0}
 /* Raumseiten: Medien-Cover flacher, damit Modi, Medien und Geräte in die Spalte passen */
 body:not(.admin) .raumseite .raum-ansicht:not(.sicherheit-seite) > .r-spalte .gross .medien-bild{height:clamp(4.5rem,11vh,8rem)}
+
+/* Schalterkacheln auf den Unterseiten im Querformat: Symbol links, Name und Zustand daneben, etwa halb so hoch wie
+   die quadratischen Kacheln der Startseite. Gilt für alle Kachelraster der Unterseiten (Licht, Geräte, Modi, Zustand …). */
+.raumseite .raster .kachel{display:grid;grid-template-columns:auto minmax(0,1fr);grid-template-rows:auto auto;column-gap:.75rem;row-gap:.1rem;
+  align-items:center;align-content:center;min-height:3.9rem;padding:.6rem .85rem}
+.raumseite .raster .kachel > .mdi{grid-row:1 / 3;font-size:1.7rem}
+.raumseite .raster .kachel b{font-size:1rem;-webkit-line-clamp:1}
+.raumseite .raster .kachel small{font-size:.8rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.raumseite .raster{gap:.55rem}
+.raumseite .raster.mini .kachel{min-height:3.6rem;padding:.55rem .8rem}
+.raumseite .raster.mini .kachel > .mdi{font-size:1.5rem}
+.raumseite .raster.mini .kachel b{font-size:.95rem}
+/* Szenen auf den Raumseiten ebenso flach */
+.raumseite .szenen{gap:.55rem}
+.raumseite .szene{min-height:3.6rem;padding:.55rem .85rem;justify-content:center}
+.raumseite .szene b{font-size:1rem}
