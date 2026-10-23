@@ -1,5 +1,16 @@
 # Änderungen
 
+## 2026.10.75 – 2026-10-23
+
+- Haustür-Verlauf vollständig: Die App trägt beim Start die Klingeln der letzten sieben Tage aus dem Verlauf von
+  Home Assistant nach (Klingelsensor, Türöffner, Ring-Aktivität „angenommen“, Nachrichten des Anrufbeantworters).
+  Bisher standen nur Klingeln seit dem ersten Start mit Klingelbuch darin.
+- Das Klingelbuch hört jetzt auf den Klingelsensor der Haustür (`binary_sensor.haustur_ding`), nicht nur auf das
+  Panel-Signal. Das Panel-Signal bleibt bei der Klingelöffnung bewusst stumm, solche Klingeln fehlten deshalb.
+- Neuer Ausgang „Ring to Open“: Geht die Tür binnen fünf Sekunden nach dem Klingeln auf (Automation
+  „Klingelöffnung“), steht das Klingeln mit eigenem Filter, grünem Türsymbol und „Tür beim Klingeln automatisch
+  geöffnet“ im Verlauf.
+
 ## 2026.10.74 – 2026-10-23
 
 - Dock und Chips wieder mittig: Die Grundregel der Symbol-Animationen richtete Symbole überall oben bzw. links aus

@@ -79,6 +79,12 @@ INTERCOM_DOMAIN = "pm_ring_intercom"
 # Betätigen der Haustür beendet den Türdienst (Warteansage, Anrufbeantworter)
 HAUSTUER_KNOEPFE = ("button.haustur_tur_offnen",)
 HAUSTUER_SCHLOESSER = ("lock.haustur_lock",)
+# Klingelsignal der Haustür für das Klingelbuch (ring-mqtt, unter 1 s). Das Panel-Signal (intercom_ausloeser) bleibt bei
+# der Klingelöffnung (Ring to Open) bewusst stumm; ohne diesen Sensor fehlten solche Klingeln im Verlauf.
+KLINGEL_SENSOREN = ("binary_sensor.haustur_ding",)
+# Letzte Ring-Aktivität mit „answered“ (angenommen ja/nein), zum Nachtragen aus dem Verlauf
+KLINGEL_AKTIVITAET = "sensor.haustur_letzte_aktivitat_2"
+NACHTRAGEN_TAGE = 7
 SDP_MAX = 20000
 BILD_ERLAUBT = ("/api/camera_proxy/", "/api/media_player_proxy/", "/api/image_proxy/", "/api/image/serve/")
 
@@ -247,6 +253,7 @@ class Hub:
         self._karten_neu(senden=False)
         self.spawn(self._szenen_laden())
         self.spawn(self._pforte_vorbereiten())
+        self.spawn(self._klingelbuch_nachtragen())
         for ws in list(self.clients):
             await self.init_senden(ws)
 
@@ -404,9 +411,13 @@ class Hub:
                 # kein Anrufbeantworter, kein Push
                 self.spawn(self.pforte.uebergeben("Haustür geöffnet"))
         an = neu and neu.get("state") == "on" and (alt or {}).get("state") != "on"
+        if an and eid in KLINGEL_SENSOREN:
+            self.klingelbuch.klingeln()
+            self.spawn(self.senden_alle({"typ": "klingeln"}))
         if an and eid in self.opts.intercom_ausloeser:
             self.ereignis_starten(eid, "Haustür", intercom=True)
-            self.klingelbuch.klingeln()
+            # gleiches Klingeln wie am Klingelsensor (kommt kurz davor): nicht doppelt zählen
+            self.klingelbuch.klingeln(zaehlen=not any(k in self.states for k in KLINGEL_SENSOREN))
             if self.gespraeche:  # spricht schon jemand am Panel, bleibt der Türdienst still
                 self._klingel_ausgang("panel")
             else:
@@ -422,6 +433,54 @@ class Hub:
         if eid in (self.opts.haustueroeffner, *HAUSTUER_KNOEPFE):
             return True
         return eid in HAUSTUER_SCHLOESSER and neu.get("state") in ("unlocking", "unlocked", "opening", "open")
+
+    async def _klingelbuch_nachtragen(self) -> None:
+        """Klingeln der letzten Tage aus dem Verlauf von Home Assistant ergänzen (vor dem Klingelbuch, Neustarts)."""
+        sensoren = [e for e in (*KLINGEL_SENSOREN, *self.opts.intercom_ausloeser) if e in self.states]
+        if not sensoren:
+            return
+        sensoren = [e for e in KLINGEL_SENSOREN if e in self.states] or sensoren
+        knoepfe = [e for e in dict.fromkeys((self.opts.haustueroeffner, *HAUSTUER_KNOEPFE)) if e and e in self.states]
+        jetzt = datetime.now(UTC)
+        try:
+            verlauf = await self.client.history_during_period(
+                [*sensoren, *knoepfe, *([KLINGEL_AKTIVITAET] if KLINGEL_AKTIVITAET in self.states else [])],
+                jetzt - timedelta(days=NACHTRAGEN_TAGE),
+                jetzt,
+                significant_changes_only=False,
+            )
+        except HAError as err:
+            _LOGGER.warning("Klingelverlauf nicht geladen: %s", err)
+            return
+
+        def zeit(z: dict[str, Any]) -> float | None:
+            return z.get("lc") or z.get("lu")
+
+        klingeln: list[float] = []
+        for e in sensoren:
+            zeilen = verlauf.get(e) or []
+            # Wechsel auf „an“; der erste Eintrag ist nur der Stand zu Beginn des Zeitraums
+            klingeln += [
+                t for i, z in enumerate(zeilen) if i and z.get("s") == "on" and zeilen[i - 1].get("s") != "on" and (t := zeit(z))
+            ]
+        tueren: list[float] = []
+        for e in knoepfe:
+            zeilen = verlauf.get(e) or []
+            # Knopf: jeder Druck ist ein neuer Zeitstempel; der erste Eintrag ist nur der Stand zu Beginn
+            tueren += [t for i, z in enumerate(zeilen) if i and z.get("s") not in ("unknown", "unavailable") and (t := zeit(z))]
+        angenommen: dict[float, bool] = {}
+        for z in verlauf.get(KLINGEL_AKTIVITAET) or []:
+            a = z.get("a") or {}
+            with contextlib.suppress(TypeError, ValueError):
+                if "answered" in a and a.get("created_at"):
+                    angenommen[datetime.fromisoformat(str(a["created_at"])).timestamp()] = bool(a["answered"])
+        nachrichten = []
+        for n in self.pforte.aufnahmen(200):
+            with contextlib.suppress(TypeError, ValueError):
+                nachrichten.append({**n, "t": datetime.fromisoformat(str(n["zeit"])).timestamp()})
+        if n := self.klingelbuch.nachtragen(klingeln, tueren, angenommen, nachrichten):
+            _LOGGER.info("Klingelbuch: %d Klingeln aus dem Verlauf nachgetragen", n)
+            await self.senden_alle({"typ": "klingeln"})
 
     def _klingel_ausgang(self, art: str, **daten: Any) -> None:
         if self.klingelbuch.ausgang(art, **daten):
