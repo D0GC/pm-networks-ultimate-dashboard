@@ -230,6 +230,10 @@ async def test_aufnahmen_und_video(ingress):
     a = await _warte_auf(ws, "antwort", lambda m: m["id"] == 32)
     datei = a["ergebnis"]["aufnahmen"][0]
     assert datei["titel"].endswith("Person")
+    # Direkter Weg wie im Medienbrowser: signierter Pfad für den Browser
+    await ws.send_json({"typ": "aufnahme_link", "id": 34, "media_id": datei["id"]})
+    a = await _warte_auf(ws, "antwort", lambda m: m["id"] == 34)
+    assert a["ergebnis"]["pfad"].startswith("/api/reolink/video/") and "authSig=" in a["ergebnis"]["pfad"]
     await ws.send_json({"typ": "aufnahmen", "id": 33, "tag": "media-source://media_source/local"})
     a = await _warte_auf(ws, "antwort", lambda m: m["id"] == 33)
     assert not a["ok"]

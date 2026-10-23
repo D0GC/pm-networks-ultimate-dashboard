@@ -1,5 +1,12 @@
 # Änderungen
 
+## 2026.10.83 – 2026-10-23
+
+- Kameraaufnahmen: Das Panel spielt sie jetzt wie der Medienbrowser von Home Assistant. Die App löst den signierten
+  Pfad auf, der Browser holt die Datei selbst direkt bei Home Assistant (Admin-Ansicht über dieselbe Adresse, Panels
+  über die interne Adresse von HA bzw. Port 8123). Nur wenn das nicht klappt, läuft das Video über die App; dabei fragt
+  sie wie ein Browser unkomprimiert an. Während des Ladens steht „Aufnahme wird geladen …“ unter dem Video.
+
 ## 2026.10.82 – 2026-10-23
 
 - Kameraaufnahmen spielen wieder: Die App nimmt die hohe Auflösung, die beim Reolink-Hub auf der Platte liegt (wie der

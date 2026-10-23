@@ -309,7 +309,10 @@ async def video(request: web.Request) -> web.StreamResponse:
     except HAError as err:
         _LOGGER.warning("Aufnahme nicht auflösbar: %s", err)
         raise web.HTTPBadGateway(text=str(err)) from err
-    kopf = {"Range": request.headers["Range"]} if re.match(r"^bytes=\d*-\d*$", request.headers.get("Range", "")) else {}
+    # Wie ein Browser bei Videos: unkomprimiert anfragen (die Reolink-Ansicht reicht Kopfzeilen an den Hub weiter)
+    kopf = {"Accept-Encoding": "identity", "Accept": "*/*"}
+    if re.match(r"^bytes=\d*-\d*$", request.headers.get("Range", "")):
+        kopf["Range"] = request.headers["Range"]
     try:
         quelle = await hub.client.stream_oeffnen(pfad.removeprefix("/api"), headers=kopf)
     except HAError as err:
