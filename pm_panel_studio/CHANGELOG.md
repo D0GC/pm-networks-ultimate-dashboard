@@ -1,5 +1,17 @@
 # Änderungen
 
+## 2026.10.84 – 2026-10-23
+
+- Kameraaufnahmen, dritter Anlauf mit klarer Ursache aus dem Protokoll:
+  - Die App holt die Datei jetzt wie ein Browser: direkt bei Home Assistant im internen Netz, nur mit der Signatur im
+    Pfad, ohne eigene Anmeldung. Über den Supervisor-Proxy reichte die Reolink-Ansicht die Anmeldung an den Hub weiter,
+    der daran mit „Timeout on reading data from socket“ hängen blieb.
+  - Aufnahmen in H.265 (spielt Chrome unter Windows meist nicht) wandelt die App mit ffmpeg in H.264 um, höchstens
+    720p, Inhaltsverzeichnis vorn; danach aus dem Zwischenspeicher mit Spulen.
+  - Das Protokoll nennt je Aufnahme Weg, Größe, Format und Dauer; spielt der Browser eine Aufnahme nicht, meldet er
+    Fehlercode und Text an die App.
+- Das App-Image enthält jetzt ffmpeg (das erste Update dauert dadurch etwas länger).
+
 ## 2026.10.83 – 2026-10-23
 
 - Kameraaufnahmen: Das Panel spielt sie jetzt wie der Medienbrowser von Home Assistant. Die App löst den signierten

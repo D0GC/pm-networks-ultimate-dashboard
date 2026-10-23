@@ -54,6 +54,9 @@ class HAClient:
         self.api_url = (api_url or os.environ.get("PMPS_HA_API") or DEFAULT_API).rstrip("/")
         self.ws_url = ws_url or os.environ.get("PMPS_HA_WS") or DEFAULT_WS
         self._token = token if token is not None else os.environ.get("SUPERVISOR_TOKEN", "")
+        # Home Assistant direkt im internen Netz (ohne Supervisor-Proxy), für signierte Pfade (authSig) ohne eigene
+        # Anmeldung, so wie ein Browser sie abruft. Nur im Betrieb als App; in Tests und Vorschau nicht.
+        self.direkt_url = os.environ.get("PMPS_HA_DIREKT") or ("http://homeassistant:8123" if self.api_url == DEFAULT_API else "")
         self._timeout = timeout
         self._ws: aiohttp.ClientWebSocketResponse | None = None
         self._reader: asyncio.Task | None = None
@@ -131,6 +134,29 @@ class HAClient:
             raise HAError(f"GET {path}: {err}") from err
         except TimeoutError as err:
             raise HAError(f"GET {path}: Zeitüberschreitung") from err
+
+    async def signiert_laden(self, pfad: str, timeout: float = 180) -> tuple[bytes, str, str]:
+        """Signierten HA-Pfad (``/api/…?authSig=…``) vollständig laden wie ein Browser: direkt bei Home Assistant, ohne
+        Authorization-Kopf (die Reolink-Ansicht reicht Kopfzeilen an den Hub weiter, der an einer fremden Anmeldung
+        hängen bleibt). Ohne direkten Weg über den Supervisor. Rückgabe ``(daten, content_type, weg)``."""
+        if self.direkt_url:
+            try:
+                async with self._session.get(
+                    f"{self.direkt_url.rstrip('/')}{pfad}",
+                    headers={"Accept-Encoding": "identity", "Accept": "*/*"},
+                    timeout=aiohttp.ClientTimeout(total=timeout, sock_connect=10),
+                ) as resp:
+                    if resp.status >= 400:
+                        raise HAError(f"GET {pfad.split('?')[0]} (direkt): HTTP {resp.status}", str(resp.status))
+                    return await resp.read(), resp.content_type or "application/octet-stream", "direkt"
+            except aiohttp.ClientConnectorError:
+                pass  # HA intern nicht erreichbar: über den Supervisor
+            except aiohttp.ClientError as err:
+                raise HAError(f"GET {pfad.split('?')[0]} (direkt): {err}") from err
+            except TimeoutError as err:
+                raise HAError(f"GET {pfad.split('?')[0]} (direkt): Zeitüberschreitung") from err
+        daten, ctype = await self.rest_raw(pfad.removeprefix("/api"), timeout=timeout)
+        return daten, ctype, "supervisor"
 
     async def stream_oeffnen(self, path: str, headers: dict[str, str] | None = None) -> aiohttp.ClientResponse:
         """GET ohne Gesamt-Zeitlimit für Datenströme (MJPEG, Video). Der Aufrufer gibt die Antwort mit ``release()`` frei."""

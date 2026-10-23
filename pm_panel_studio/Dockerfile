@@ -9,6 +9,9 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1
 
+# ffmpeg: Kameraaufnahmen in H.265 für Browser ohne H.265 in H.264 umwandeln
+RUN apk add --no-cache ffmpeg
+
 COPY requirements.txt /tmp/requirements.txt
 # aiortc (WebRTC für den Türdienst) braucht google-crc32c; für musl gibt es kein fertiges Paket, die reine
 # Python-Fassung genügt (nur für SCTP-Datenkanäle, die der Türdienst nicht nutzt)
