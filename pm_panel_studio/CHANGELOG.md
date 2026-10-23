@@ -1,5 +1,14 @@
 # Änderungen
 
+## 2026.10.86 – 2026-10-23
+
+- Kameraaufnahmen: Die App fragt beim Hub jetzt immer mit `Range` an, wie ein Browser. Ohne Range bereitet der
+  Reolink-Hub die ganze Datei vor und Home Assistant gibt nach 5 s auf („Timeout on reading data from socket“, auch
+  bei einem Abruf direkt in Home Assistant nachgestellt); mit `bytes=0-` sendet er sofort. Bricht die Übertragung ab,
+  setzt die App an der erreichten Stelle fort (bis zu sechs Teilstücke).
+- Admin-Startseite, Hinweise: Timer (Kohle, Duschmodus, Termin-Countdown …) zählen jede Sekunde mit rollenden Ziffern
+  herunter, der Ring läuft mit. Ring etwas größer, lange Restzeiten kleiner gesetzt, damit sie hineinpassen.
+
 ## 2026.10.85 – 2026-10-23
 
 - Ringe: Zahl wirklich mittig. Der Innenbereich eines Rings ist ein Raster; war die Beschriftung breiter als die

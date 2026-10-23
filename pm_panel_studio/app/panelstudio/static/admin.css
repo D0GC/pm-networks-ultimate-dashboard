@@ -552,3 +552,7 @@ body.admin.offen:has(.flur-vorschau) .ord-knopf{display:none}
 .as-fuss{display:flex;justify-content:flex-end;margin-top:2rem;padding-top:1.2rem;border-top:1px solid var(--linie)}
 body.anpassen .as-fuss{position:sticky;bottom:0;z-index:6;margin-inline:-1rem;padding:1rem;border-top:1px solid var(--linie-stark);
   background:var(--glas-fest,#1b1744);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);border-radius:var(--r-aussen) var(--r-aussen) 0 0}
+/* Hinweise: Ring etwas größer, lange Werte (Restzeit „12:18“) kleiner, damit sie in den Ring passen */
+.as-karte{grid-template-columns:4rem minmax(0,1fr)}
+.as-karte .ring{width:4rem;height:4rem}
+.as-karte .ring .innen b.lang{font-size:.8rem!important;letter-spacing:-.02em}

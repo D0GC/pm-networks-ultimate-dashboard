@@ -362,7 +362,7 @@ async def _video_laden(hub: Hub, media_id: str) -> tuple[bytes, str]:
         _LOGGER.info("Aufnahme: %s | %s, %s, %.1f s", bericht, mp4_aufbau(daten), codec, time.monotonic() - start)
         if not daten or not (ctype.startswith("video/") or ctype == "application/octet-stream"):
             raise HAError(f"Aufnahme ohne Videodaten ({ctype}, {len(daten)} Bytes)")
-        unvollstaendig = "vollständig" not in bericht.rsplit(";", 1)[-1]
+        unvollstaendig = bericht.endswith("unvollständig")
         if codec == "H.265" or unvollstaendig:
             neu = await _umwandeln(daten)
             if neu:
