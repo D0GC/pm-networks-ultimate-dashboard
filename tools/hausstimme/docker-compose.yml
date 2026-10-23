@@ -1,0 +1,39 @@
+# PM Hausstimme: eigene Piper-Stimme ohne Aufnahmen. Drei Schritte, je eine Umgebung (die Bibliotheken vertragen sich
+# nicht in einer): proben (Stimme entwerfen), datensatz (Sätze sprechen lassen und prüfen), training (Piper nachtrainieren).
+# Alles liegt im Ordner dieser Datei; Zwischenstände bleiben erhalten, jeder Schritt lässt sich fortsetzen.
+x-gpu: &gpu
+  deploy:
+    resources:
+      reservations:
+        devices:
+          - driver: nvidia
+            count: all
+            capabilities: [gpu]
+
+services:
+  proben:
+    build: ./bilder/proben
+    <<: *gpu
+    volumes: [./:/arbeit]
+    working_dir: /arbeit
+    environment:
+      - HF_HOME=/arbeit/.cache/huggingface
+
+  datensatz:
+    build: ./bilder/datensatz
+    <<: *gpu
+    volumes: [./:/arbeit]
+    working_dir: /arbeit
+    environment:
+      - HF_HOME=/arbeit/.cache/huggingface
+
+  training:
+    build: ./bilder/training
+    <<: *gpu
+    shm_size: 8gb
+    volumes: [./:/arbeit]
+    working_dir: /arbeit
+    environment:  # aus PowerShell übernehmen, z. B. $env:BATCH=12
+      - ZUSATZ_EPOCHEN
+      - BATCH
+      - QUALITAET
