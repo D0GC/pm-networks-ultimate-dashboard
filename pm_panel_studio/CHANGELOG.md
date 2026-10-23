@@ -1,5 +1,14 @@
 # Änderungen
 
+## 2026.10.81 – 2026-10-23
+
+- Energie: Verlauf und Energiefluss haben Vorrang. Die obere Reihe nimmt höchstens 44 % der Höhe ein; der Verlauf
+  füllt seine Box, die Geräteliste scrollt in sich, Wasser und Gas bleiben klein. Der Energiefluss bekommt den Rest.
+  Bisher wuchs die obere Reihe mit langen Gerätelisten und drückte den Energiefluss zusammen.
+- Raumseiten nach dem Schema Security: links Klima, Zustand als kompakte Melderliste (Offenes und Bewegung zuerst,
+  sonst „vor …“), Modi und Luftqualität; Mitte Licht und Geräte (mit „n an“), rechts Medien und Szenen. Leere Boxen
+  wie „Keine Szenen“ entfallen; ohne Medien und Szenen werden es zwei breitere Spalten.
+
 ## 2026.10.80 – 2026-10-23
 
 - Admin-Startseite: „Inhalt anordnen“ und „Anpassen“ stehen in einer Fußzeile ganz unten statt neben der Begrüßung.
