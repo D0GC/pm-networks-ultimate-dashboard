@@ -86,10 +86,26 @@
     dlg.querySelectorAll("img").forEach(PS.kameraStoppen);
     PS.kameraLiveStoppen(dlg);
     dlg.innerHTML = `<div class="kopf">${PS.ic("filmstrip", "gr")}<h2>${PS.esc(titel)}<small>${PS.esc(unter)}</small></h2><button class="zu" aria-label="Schließen">${PS.ic("close")}</button></div>
-      <video class="aufnahme" controls autoplay playsinline preload="auto" src="api/video?id=${encodeURIComponent(id)}"></video>`;
+      <video class="aufnahme" controls autoplay playsinline preload="auto"></video><div class="leer aufnahme-status">Aufnahme wird geladen …</div>`;
     dlg.querySelector(".zu").addEventListener("click", schliessen);
-    const v = dlg.querySelector("video");
-    v.addEventListener("error", () => v.insertAdjacentHTML("afterend", '<div class="leer">Die Aufnahme lässt sich gerade nicht laden. Ein erneuter Versuch hilft meist.</div>'), { once: true });
+    const v = dlg.querySelector("video"), status = dlg.querySelector(".aufnahme-status");
+    // Erst wie der Medienbrowser von Home Assistant: der Browser holt die Datei über den signierten Pfad direkt bei
+    // Home Assistant. Klappt das nicht (HA nicht direkt erreichbar), über die App (api/video) als Rückfall.
+    const ueberApp = `api/video?id=${encodeURIComponent(id)}`;
+    let rueckfall = false;
+    v.addEventListener("playing", () => { status.hidden = true; });
+    v.addEventListener("loadeddata", () => { status.hidden = true; });
+    v.addEventListener("error", () => {
+      if (!rueckfall) { rueckfall = true; status.textContent = "Zweiter Weg über die App …"; v.src = ueberApp; return; }
+      status.hidden = false; status.textContent = "Die Aufnahme lässt sich gerade nicht laden. Ein erneuter Versuch hilft meist.";
+    });
+    PS.anfrage({ typ: "aufnahme_link", media_id: id }).then(({ pfad, ha }) => {
+      if (!v.isConnected) return;
+      // Admin-Ansicht (Ingress): gleiche Herkunft wie Home Assistant; Panel: interne Adresse oder Host mit Port 8123
+      const basis = location.pathname.includes("/api/hassio_ingress/") ? location.origin
+        : (ha || `${location.protocol}//${location.hostname}:8123`).replace(/\/$/, "");
+      v.src = basis + pfad;
+    }).catch(() => { rueckfall = true; v.src = ueberApp; });
     $("#dialog-grund").classList.add("offen");
   };
   // Panel-Meldung wie an den Panels Büro und Bad: Symbol, Titel, Text, Zeit und Priorität, Bestätigen/Später bzw. OK.

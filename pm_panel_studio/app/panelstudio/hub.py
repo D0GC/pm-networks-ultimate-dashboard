@@ -1191,6 +1191,11 @@ class Hub:
             return url.removeprefix("/")
         if typ == "aufnahmen":
             return await self.aufnahmen(str(msg.get("tag") or ""))
+        if typ == "aufnahme_link":
+            # Wie der Medienbrowser von Home Assistant: signierter Pfad (authSig, 24 h gültig), den der Browser selbst
+            # bei Home Assistant abruft; dazu die interne Adresse von HA, falls eingetragen
+            pfad = await self.aufnahme_pfad(str(msg.get("media_id") or ""))
+            return {"pfad": pfad, "ha": str(self.ha_config.get("internal_url") or "")}
         if typ == "popup_schliessen":
             if self.popups.entfernen(str(msg.get("popup", ""))):
                 self._popups_senden()
