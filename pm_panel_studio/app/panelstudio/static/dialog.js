@@ -89,7 +89,7 @@
       <video class="aufnahme" controls autoplay playsinline preload="auto" src="api/video?id=${encodeURIComponent(id)}"></video>`;
     dlg.querySelector(".zu").addEventListener("click", schliessen);
     const v = dlg.querySelector("video");
-    v.addEventListener("error", () => v.insertAdjacentHTML("afterend", '<div class="leer">Die Aufnahme lässt sich nicht laden. Die Kamera schläft möglicherweise; ein zweiter Versuch hilft meist.</div>'), { once: true });
+    v.addEventListener("error", () => v.insertAdjacentHTML("afterend", '<div class="leer">Die Aufnahme lässt sich gerade nicht laden. Ein erneuter Versuch hilft meist.</div>'), { once: true });
     $("#dialog-grund").classList.add("offen");
   };
   // Panel-Meldung wie an den Panels Büro und Bad: Symbol, Titel, Text, Zeit und Priorität, Bestätigen/Später bzw. OK.

@@ -759,6 +759,7 @@
     box.classList.add("kamera", "live"); box.classList.remove("laeuft");
     box.innerHTML = `<img alt=""><video muted autoplay playsinline></video><span class="status">Kamera wird geweckt …</span>`;
     const img = box.querySelector("img"), video = box.querySelector("video"), status = box.querySelector(".status");
+    PS.vollbildKnopf(box);
     img.src = PS.bildUrl(`/api/camera_proxy/${eid}`);
     let hls = null, aus = false;
     const ersatz = () => { if (aus) return; if (hls) { hls.destroy(); hls = null; } status.textContent = "Einzelbilder"; PS.kameraStarten(img, eid); };
@@ -775,6 +776,25 @@
     // Wacht die Kamera nicht binnen 25 s auf, bleibt es bei Einzelbildern
     setTimeout(() => { if (!aus && !box.classList.contains("laeuft")) ersatz(); }, 25000);
     box._stop = () => { aus = true; if (hls) hls.destroy(); video.removeAttribute("src"); try { video.load(); } catch { /* egal */ } PS.kameraStoppen(img); };
+  };
+  // Vollbild für Kamerabilder: Knopf oben links; nutzt die Vollbild-Schnittstelle des Browsers, sonst (Kiosk ohne
+  // Freigabe) eine Ansicht über den ganzen Bildschirm. Erneutes Tippen, Escape oder Zurück beenden es.
+  PS.vollbildKnopf = (box) => {
+    if (box.querySelector(":scope > .kamera-vollbild")) return;
+    const k = document.createElement("button");
+    k.type = "button"; k.className = "kamera-vollbild"; k.setAttribute("aria-label", "Vollbild");
+    const zeichnen = () => { const an = document.fullscreenElement === box || box.classList.contains("vollbild-an"); k.innerHTML = PS.ic(an ? "fullscreen-exit" : "fullscreen"); k.setAttribute("aria-pressed", String(an)); };
+    k.addEventListener("click", async (ev) => {
+      ev.stopPropagation();
+      if (document.fullscreenElement === box) { await document.exitFullscreen().catch(() => {}); return; }
+      if (box.classList.contains("vollbild-an")) { box.classList.remove("vollbild-an"); zeichnen(); return; }
+      try { await box.requestFullscreen({ navigationUI: "hide" }); } catch { box.classList.add("vollbild-an"); }
+      zeichnen();
+    });
+    box.addEventListener("fullscreenchange", zeichnen);
+    document.addEventListener("keydown", (ev) => { if (ev.key === "Escape" && box.classList.contains("vollbild-an")) { box.classList.remove("vollbild-an"); zeichnen(); } });
+    zeichnen();
+    box.appendChild(k);
   };
   PS.kameraLiveStoppen = (root) => { if (root) root.querySelectorAll(".kamera.live").forEach((b) => { if (b._stop) { b._stop(); b._stop = null; } }); };
   // Kacheln: nur ein Standbild, alle 30 s erneuert (weckt Akkukameras nicht dauernd)
