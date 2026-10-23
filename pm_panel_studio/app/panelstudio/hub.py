@@ -799,8 +799,9 @@ class Hub:
         return res if isinstance(res, dict) else {}
 
     async def aufnahmen(self, tag: str) -> dict[str, Any]:
-        """Kameraaufnahmen der Reolink-Integration (Medienquelle). Ohne ``tag``: Kameras mit ihren Aufnahmetagen
-        (niedrige Auflösung, lädt am Panel schneller); mit ``tag``: die Aufnahmen dieses Tages."""
+        """Kameraaufnahmen der Reolink-Integration (Medienquelle). Ohne ``tag``: Kameras mit ihren Aufnahmetagen in hoher
+        Auflösung (``|main``: liegt beim Hub auf der Platte und spielt sofort; die niedrige Auflösung holt der Hub erst
+        von der Kamera und scheitert oft mit einer Zeitüberschreitung); mit ``tag``: die Aufnahmen dieses Tages."""
         if tag:
             if not tag.startswith(AUFNAHME_TAG):
                 raise ValueError("Tag ungültig")
@@ -816,7 +817,7 @@ class Hub:
         for cam in (await self._durchsuchen(AUFNAHME_WURZEL)).get("children") or []:
             res = await self._durchsuchen(str(cam.get("media_content_id")))
             aufl = res.get("children") or []
-            sub = next((c for c in aufl if str(c.get("media_content_id", "")).endswith("|sub")), aufl[0] if aufl else None)
+            sub = next((c for c in aufl if str(c.get("media_content_id", "")).endswith("|main")), aufl[0] if aufl else None)
             tage = (await self._durchsuchen(str(sub.get("media_content_id")))).get("children") or [] if sub else []
             kameras.append(
                 {

@@ -1,5 +1,15 @@
 # Änderungen
 
+## 2026.10.82 – 2026-10-23
+
+- Kameraaufnahmen spielen wieder: Die App nimmt die hohe Auflösung, die beim Reolink-Hub auf der Platte liegt (wie der
+  Medienbrowser von Home Assistant). Die niedrige Auflösung holte der Hub erst von der Kamera und scheiterte mit
+  „Timeout on reading data from socket“ (HTTP 400). Das Video wird außerdem direkt durchgereicht statt vorher
+  vollständig geladen; es beginnt sofort, Spulen geht über Range-Anfragen weiter.
+- Vollbild für Kamerabilder: Knopf oben links in jedem Livebild (Kamera-Dialog, Meldungen mit Kamera). Nutzt das
+  Vollbild des Browsers, sonst eine Ansicht über den ganzen Bildschirm; erneutes Tippen oder Escape beendet es.
+  Aufnahmen haben das Vollbild in ihrer Wiedergabeleiste.
+
 ## 2026.10.81 – 2026-10-23
 
 - Energie: Verlauf und Energiefluss haben Vorrang. Die obere Reihe nimmt höchstens 44 % der Höhe ein; der Verlauf

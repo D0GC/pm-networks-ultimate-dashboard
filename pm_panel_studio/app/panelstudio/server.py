@@ -293,58 +293,42 @@ async def hls(request: web.Request) -> web.StreamResponse:
     return ziel
 
 
-VIDEO_CACHE_MAX = 4  # Aufnahmen im Speicher (je 1–3 MB in niedriger Auflösung)
-_video_cache: dict[str, tuple[bytes, str]] = {}
-_video_sperre = asyncio.Lock()
+VIDEO_KOEPFE = ("Content-Type", "Content-Length", "Content-Range", "Accept-Ranges", "Last-Modified", "ETag")
 
 
-async def _video_laden(hub: Hub, media_id: str) -> tuple[bytes, str]:
-    """Aufnahme vollständig von Home Assistant holen und zwischenspeichern. Reolink liefert die Datei ohne Länge und
-    ohne Range-Unterstützung (oft mit dem Index am Ende); der Browser kann sie so erst abspielen und spulen, wenn
-    die App sie vollständig hat und selbst mit Range ausliefert."""
-    async with _video_sperre:
-        if media_id in _video_cache:
-            return _video_cache[media_id]
-        pfad = await hub.aufnahme_pfad(media_id)
-        daten, ctype = await hub.client.rest_raw(pfad.removeprefix("/api"), timeout=150)
-        if not daten or not (ctype.startswith("video/") or ctype == "application/octet-stream"):
-            raise HAError(f"Aufnahme ohne Videodaten ({ctype}, {len(daten)} Bytes)")
-        eintrag = (daten, "video/mp4" if ctype == "application/octet-stream" else ctype)
-        _video_cache[media_id] = eintrag
-        while len(_video_cache) > VIDEO_CACHE_MAX:
-            _video_cache.pop(next(iter(_video_cache)))
-        return eintrag
-
-
-async def video(request: web.Request) -> web.Response:
-    """Kameraaufnahme abspielen: vollständig laden, dann mit Range-Anfragen (Spulen) ausliefern."""
+async def video(request: web.Request) -> web.StreamResponse:
+    """Kameraaufnahme abspielen: den signierten Pfad von Home Assistant auflösen und das Video direkt durchreichen,
+    wie der Medienbrowser von Home Assistant (Range-Anfragen zum Spulen gehen mit). Kein vorheriges Komplett-Laden:
+    das Video beginnt, sobald die ersten Daten da sind."""
     hub = request.app[K_HUB]
     media_id = request.query.get("id", "")
     try:
-        daten, ctype = await _video_laden(hub, media_id)
+        pfad = await hub.aufnahme_pfad(media_id)
     except ValueError as err:
         raise web.HTTPBadRequest(text=str(err)) from err
     except HAError as err:
+        _LOGGER.warning("Aufnahme nicht auflösbar: %s", err)
+        raise web.HTTPBadGateway(text=str(err)) from err
+    kopf = {"Range": request.headers["Range"]} if re.match(r"^bytes=\d*-\d*$", request.headers.get("Range", "")) else {}
+    try:
+        quelle = await hub.client.stream_oeffnen(pfad.removeprefix("/api"), headers=kopf)
+    except HAError as err:
         _LOGGER.warning("Aufnahme nicht abrufbar: %s", err)
         raise web.HTTPBadGateway(text=str(err)) from err
-    gesamt = len(daten)
-    kopf = {"Accept-Ranges": "bytes", "Cache-Control": "no-store"}
-    rng = re.match(r"^bytes=(\d*)-(\d*)$", request.headers.get("Range", ""))
-    if not rng or (not rng.group(1) and not rng.group(2)):
-        return web.Response(body=daten, content_type=ctype, headers=kopf)
-    if rng.group(1):
-        von = int(rng.group(1))
-        bis = min(int(rng.group(2)), gesamt - 1) if rng.group(2) else gesamt - 1
-    else:  # Suffix: die letzten n Bytes
-        von, bis = max(0, gesamt - int(rng.group(2))), gesamt - 1
-    if von >= gesamt or von > bis:
-        raise web.HTTPRequestRangeNotSatisfiable(headers={"Content-Range": f"bytes */{gesamt}"})
-    return web.Response(
-        status=206,
-        body=daten[von : bis + 1],
-        content_type=ctype,
-        headers={**kopf, "Content-Range": f"bytes {von}-{bis}/{gesamt}"},
-    )
+    antwort_kopf = {k: v for k in VIDEO_KOEPFE if (v := quelle.headers.get(k))}
+    if antwort_kopf.get("Content-Type", "application/octet-stream") == "application/octet-stream":
+        antwort_kopf["Content-Type"] = "video/mp4"
+    antwort_kopf["Cache-Control"] = "no-store"
+    ziel = web.StreamResponse(status=quelle.status, headers=antwort_kopf)
+    try:
+        await ziel.prepare(request)
+        async for block in quelle.content.iter_chunked(256 * 1024):
+            await ziel.write(block)
+    except (ConnectionResetError, aiohttp.ClientError, asyncio.CancelledError):
+        pass
+    finally:
+        quelle.release()
+    return ziel
 
 
 # ------------------------------------------------------------------ PM Klima Studio durchreichen

@@ -1185,6 +1185,8 @@ class FakeHA:
                 "media-source://reolink": [{**kind(REOLINK_CAM, "Wohnungstuer"), "thumbnail": "/api/camera_proxy/camera.x"}],
                 REOLINK_CAM: [kind(REOLINK_SUB, "Low resolution"), kind(REOLINK_SUB.replace("|sub", "|main"), "High resolution")],
                 REOLINK_SUB: [kind(REOLINK_TAG[:-1] + "1", "2026/10/1"), kind(REOLINK_TAG, "2026/10/2")],
+                # hohe Auflösung (die App nimmt sie: liegt beim Hub und spielt sofort)
+                REOLINK_SUB.replace("|sub", "|main"): [kind(REOLINK_TAG[:-1] + "1", "2026/10/1"), kind(REOLINK_TAG, "2026/10/2")],
                 REOLINK_TAG: [
                     kind(REOLINK_DATEI, "11:16:11 0:00:50 Person", "video"),
                     kind(REOLINK_DATEI + "x", "11:42:56 0:00:11 Motion", "video"),
