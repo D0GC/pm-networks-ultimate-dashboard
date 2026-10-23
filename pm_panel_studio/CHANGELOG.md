@@ -1,5 +1,10 @@
 # Änderungen
 
+## 2026.10.80 – 2026-10-23
+
+- Admin-Startseite: „Inhalt anordnen“ und „Anpassen“ stehen in einer Fußzeile ganz unten statt neben der Begrüßung.
+  Beim Anpassen bleibt die Fußzeile mit Format, Standard, Abbrechen und Speichern am unteren Bildrand stehen.
+
 ## 2026.10.79 – 2026-10-23
 
 - Alle Unterseiten im Raster der Sicherheitsseite (neu `seitenraster.css`): drei Spalten 31 % · Mitte · 30 %, die

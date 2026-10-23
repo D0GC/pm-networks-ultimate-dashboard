@@ -548,3 +548,7 @@ body.admin.offen:has(.flur-vorschau) .ord-knopf{display:none}
 /* Anpassen: welches Format gerade bearbeitet wird */
 .as-format{display:inline-flex;align-items:center;gap:.4rem;padding:.45rem .8rem;border-radius:99px;background:var(--flaeche-tief);color:var(--lavender);font-size:.9rem;font-weight:600}
 .as-format .mdi{font-size:1.1rem}
+/* Fußzeile der Startseite: Anordnen und Anpassen ganz unten; beim Anpassen bleibt sie am unteren Rand stehen */
+.as-fuss{display:flex;justify-content:flex-end;margin-top:2rem;padding-top:1.2rem;border-top:1px solid var(--linie)}
+body.anpassen .as-fuss{position:sticky;bottom:0;z-index:6;margin-inline:-1rem;padding:1rem;border-top:1px solid var(--linie-stark);
+  background:var(--glas-fest,#1b1744);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);border-radius:var(--r-aussen) var(--r-aussen) 0 0}

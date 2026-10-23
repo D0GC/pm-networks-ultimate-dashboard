@@ -71,10 +71,10 @@
   bandEinrichten(band);
   kopf.querySelector(".ak-rechts").append($("#glocke"));
   const seite = E(`<section class="admin-start" id="admin-start" aria-label="Startseite">
-    <div class="as-kopf"><div><h1 id="as-gruss"></h1><p id="as-lage"></p></div>
-      <div class="reihe" id="as-werkzeug"></div></div>
+    <div class="as-kopf"><div><h1 id="as-gruss"></h1><p id="as-lage"></p></div></div>
     <div class="as-raster" id="as-raster"></div>
     <div class="as-vorrat" id="as-vorrat" hidden></div>
+    <footer class="as-fuss"><div class="reihe" id="as-werkzeug"></div></footer>
   </section>`);
   start.prepend(kopf);
   start.appendChild(seite);
