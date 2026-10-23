@@ -545,3 +545,6 @@ body.admin.offen:has(.flur-vorschau) .ord-knopf{display:none}
 .sv-gk-tasten .knopf,.sv-gk-mehr .knopf{padding:.45rem .75rem;font-size:.9rem}
 .sv-gk-tasten .knopf.aktiv{background:var(--purple);color:#fff}
 .sv-gk-mehr[hidden]{display:none}
+/* Anpassen: welches Format gerade bearbeitet wird */
+.as-format{display:inline-flex;align-items:center;gap:.4rem;padding:.45rem .8rem;border-radius:99px;background:var(--flaeche-tief);color:var(--lavender);font-size:.9rem;font-weight:600}
+.as-format .mdi{font-size:1.1rem}

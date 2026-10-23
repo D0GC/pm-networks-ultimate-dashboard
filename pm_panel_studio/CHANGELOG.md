@@ -1,5 +1,12 @@
 # Änderungen
 
+## 2026.10.78 – 2026-10-23
+
+- Admin-Startseite: Hochformat und Querformat sind zwei eigene Seiten mit eigener Reihenfolge, eigenen Blöcken und
+  eigenen Größen. „Anpassen“ bearbeitet das Format, in dem das Fenster gerade steht (angezeigt neben den Knöpfen);
+  gespeichert wird nur dieses. Ohne eigene Hochformat-Seite wird sie wie bisher aus dem Querformat abgeleitet. Beim
+  Drehen oder Verkleinern des Fensters wechselt die Seite sofort.
+
 ## 2026.10.77 – 2026-10-23
 
 - Admin-Startseite im Hochformat und in schmalen Fenstern: Im Anpassen-Modus gibt es auch dort den Größengriff.

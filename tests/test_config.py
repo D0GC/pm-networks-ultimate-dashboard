@@ -261,3 +261,17 @@ def test_proxmox_token_bleibt_privat():
     assert "proxmox_token" not in d and "geheim" not in str(d)
     assert d["proxmox"] is True and d["proxmox_ui"] == "https://192.168.5.10:8006"
     assert Options.from_dict({}).public()["proxmox"] is False
+
+
+def test_admin_startseite_hochformat():
+    e = Einstellungen()
+    assert e.admin_start_hoch == []
+    assert (
+        e.aktualisieren(
+            {"admin_start_hoch": ["raeume:2:8", "klima:1:0", "raeume:1:3", "gibtsnicht:1:0", "pakete:5:99", "energie:1:1"]}
+        )
+        == []
+    )
+    assert e.admin_start_hoch == ["raeume:2:8", "klima:1:0", "pakete:2:24", "energie:1:2"]
+    # Querformat bleibt davon unberührt
+    assert e.admin_start[0] == "aufmerksamkeit:12:2"
