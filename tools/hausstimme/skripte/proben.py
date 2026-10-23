@@ -22,14 +22,16 @@ PROBETEXT = (
 )
 # Parler versteht englische Beschreibungen am besten; „very clear audio“ und „close-sounding“ halten das Ergebnis sauber
 BESCHREIBUNGEN = [
-    "A man with a deep, low-pitched and resonant voice speaks German slowly and calmly, with a composed, dignified "
-    "and authoritative tone. The recording is very clear and close-sounding, with no background noise.",
-    "A mature male speaker with a very deep, warm and powerful voice delivers his words in German at a slow, "
-    "measured pace with quiet gravitas. Very clear audio, close-sounding, no reverberation.",
-    "A calm, deep male voice speaks German with a steady, unhurried rhythm and a refined, butler-like composure. "
-    "Low pitch, rich and full tone. The audio is very clear and studio quality.",
-    "A man speaks German in a low, sonorous and confident voice, slowly and with gentle authority, like the "
-    "artificial intelligence of a grand house. Very clear, close-sounding recording without noise.",
+    "A man with a deep, low-pitched and resonant voice speaks standard High German without any regional accent, "
+    "slowly and calmly, with a composed, dignified and authoritative tone. The recording is very clear and "
+    "close-sounding, with no background noise.",
+    "A mature male speaker with a very deep, warm and powerful voice delivers his words in clear standard German, "
+    "without dialect, at a slow, measured pace with quiet gravitas. Very clear audio, close-sounding, no reverberation.",
+    "A calm, deep male voice speaks accent-free standard German with a steady, unhurried rhythm and a refined, "
+    "butler-like composure. Low pitch, rich and full tone. The audio is very clear and studio quality.",
+    "A man speaks clear standard German, without regional accent, in a low, sonorous and confident voice, slowly and "
+    "with gentle authority, like the artificial intelligence of a grand house. Very clear, close-sounding recording "
+    "without noise.",
 ]
 ARBEIT = Path("/arbeit")
 
