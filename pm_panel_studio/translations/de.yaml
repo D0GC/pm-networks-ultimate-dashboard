@@ -1,0 +1,95 @@
+configuration:
+  hinweise_entitaet:
+    name: Hinweis-Sensor
+    description: Sensor mit dem Attribut zeilen wie bei den Panels Bad und Büro (Standard sensor.panel_bad_hinweise). Leer = keine Hinweiskarten.
+  pakete_entitaet:
+    name: Paket-Sensor
+    description: Sensor, dessen Zustand die aktiven Sendungen zählt (Attribute sendungen, zugestellt_heute), Standard sensor.pakete. Leer = keine Paketkarte.
+  bewegung:
+    name: Bewegungsmelder Flur
+    description: Bewegung weckt das Panel aus dem Ruhezustand.
+  personen:
+    name: Personen
+    description: Personen mit Anwesenheit auf der Startseite.
+  wetter_entitaet:
+    name: Wetter
+    description: weather-Entität für aktuelle Lage und Vorschau.
+  aussentemperatur:
+    name: Außentemperatur
+    description: Sensor für die große Temperaturanzeige. Leer = Temperatur der Wetter-Entität.
+  alarm_entitaet:
+    name: Alarmanlage
+    description: alarm_control_panel für die Statuszeile.
+  ereignis_ausloeser:
+    name: Ereignis-Auslöser
+    description: Wechselt eine dieser Entitäten auf „an“, zeigt das Panel die Kamera im Vollbild (z. B. Person oder Klingel an der Tür).
+  ereignis_kamera:
+    name: Ereignis-Kamera
+    description: Kamera für das Overlay.
+  tueroeffner:
+    name: Türöffner
+    description: button- oder lock-Entität für „Tür öffnen“. Auslösen nur nach 2 Sekunden Halten.
+  haustueroeffner:
+    name: Haustür-Öffner
+    description: button-Entität des Haustür-Öffners für die Gruppe Zugang (Standard button.haustur_tur_offnen). Auslösen nur nach 2 Sekunden Halten.
+  intercom_ausloeser:
+    name: Klingel Haustür (Intercom)
+    description: Wechselt eine dieser Entitäten auf „an“, zeigt das Panel das Overlay „Haustür“ mit Gegensprechen über PM Ring Intercom und dem Haustür-Öffner (Standard binary_sensor.haustur_klingelt_panel, folgt dem ring-mqtt-Sensor „ding“).
+  klima_praefix:
+    name: Präfix PM Klima
+    description: Nur Thermostate mit diesem Präfix werden gezeigt (Standard climate.pm_). Thermostate ohne Bereich werden über den Namen einem Bereich zugeordnet.
+  klima_studio_url:
+    name: Adresse PM Klima Studio
+    description: Interne Adresse der App PM Klima Studio (Standard http://bdf1cc64-pm-klima-studio:8099).
+  klima_studio_schluessel:
+    name: Schlüssel PM Klima Studio
+    description: Mindestens 16 Zeichen, derselbe Wert wie panel_schluessel in PM Klima Studio. Dann zeigt das Panel Klima Studio als eigene Seite.
+  telefon_server:
+    name: "Telefon: FRITZ!Box"
+    description: "Adresse der FRITZ!Box (z. B. 192.168.178.1). Leer = Telefon aus."
+  telefon_benutzer:
+    name: "Telefon: Benutzername"
+    description: "Benutzername des IP-Telefons, das in der FRITZ!Box unter Telefonie → Telefoniegeräte angelegt wurde."
+  telefon_passwort:
+    name: "Telefon: Kennwort"
+    description: "Kennwort dieses IP-Telefons."
+  telefon_externe_adresse:
+    name: "Telefon: Adresse von Home Assistant"
+    description: "Nur nötig, wenn die automatische Erkennung scheitert: LAN-Adresse des Home-Assistant-Hosts."
+  fritz_benutzer:
+    name: "FRITZ!Box: Benutzer (Telefonbuch)"
+    description: "FRITZ!Box-Benutzer mit dem Recht „Sprachnachrichten, Faxnachrichten, FRITZ!App Fon und Anrufliste“. Leer = ohne Kontakte und Anrufliste."
+  fritz_passwort:
+    name: "FRITZ!Box: Kennwort (Telefonbuch)"
+    description: "Kennwort dieses Benutzers."
+  unifi_adresse:
+    name: "UniFi: Adresse des Gateways"
+    description: "Für die Seite „Netzwerk“: Adresse des UniFi-Gateways (UniFi OS), z. B. https://192.168.1.1."
+  unifi_api_schluessel:
+    name: "UniFi: API-Schlüssel"
+    description: "In UniFi Network unter Einstellungen → Control Plane → Integrationen erzeugen. Alternativ Benutzer und Kennwort eines lokalen Kontos."
+  unifi_benutzer:
+    name: "UniFi: Benutzer (statt API-Schlüssel)"
+    description: "Lokales Konto mit Leserechten (nur nötig ohne API-Schlüssel)."
+  unifi_kennwort:
+    name: "UniFi: Kennwort"
+    description: "Kennwort dieses Kontos."
+  unifi_site:
+    name: "UniFi: Site"
+    description: "Kennung der Site, meist default."
+  proxmox_adresse:
+    name: "Proxmox: Adresse"
+    description: "Adresse von Proxmox VE mit Port, z. B. https://192.168.1.10:8006."
+  proxmox_token:
+    name: "Proxmox: API-Token (nur lesend)"
+    description: "Format benutzer@realm!name=geheimnis. In Proxmox unter Rechenzentrum → Berechtigungen → API-Tokens anlegen; Rolle PVEAuditor genügt, für IP-Adressen von VMs zusätzlich VM.Monitor (Proxmox 8) bzw. VM.GuestAgent.Audit (Proxmox 9), Gast-Agent nötig. Leer = nur Daten aus Home Assistant."
+  log_level:
+    name: Protokollstufe
+    description: debug, info, warning oder error.
+network:
+  5062/udp: Telefon (SIP)
+  40000/udp: Telefon (Ton)
+  40001/udp: Telefon (Ton)
+  40002/udp: Telefon (Ton)
+  40003/udp: Telefon (Ton)
+  8098/tcp: Wandpanel im lokalen Netz

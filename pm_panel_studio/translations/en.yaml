@@ -1,0 +1,95 @@
+configuration:
+  hinweise_entitaet:
+    name: Hint sensor
+    description: Sensor with the attribute zeilen as used by the bathroom and office panels. Empty = no hint cards.
+  pakete_entitaet:
+    name: Parcel sensor
+    description: Sensor whose state counts the active shipments (attributes sendungen, zugestellt_heute), default sensor.pakete. Empty = no parcel card.
+  bewegung:
+    name: Hallway motion sensors
+    description: Motion wakes the panel from rest mode.
+  personen:
+    name: Persons
+    description: Persons shown with presence on the start screen.
+  wetter_entitaet:
+    name: Weather
+    description: weather entity for current conditions and forecast.
+  aussentemperatur:
+    name: Outdoor temperature
+    description: Sensor for the large temperature. Empty = temperature of the weather entity.
+  alarm_entitaet:
+    name: Alarm panel
+    description: alarm_control_panel for the status line.
+  ereignis_ausloeser:
+    name: Event triggers
+    description: When one of these turns on, the panel shows the camera full screen.
+  ereignis_kamera:
+    name: Event camera
+    description: Camera for the overlay.
+  tueroeffner:
+    name: Door opener
+    description: button or lock entity for "open door". Fires only after holding for 2 seconds.
+  haustueroeffner:
+    name: Front door opener
+    description: button entity of the building door opener for the access group (default button.haustur_tur_offnen). Fires only after holding for 2 seconds.
+  intercom_ausloeser:
+    name: Front door ring (intercom)
+    description: When one of these turns on, the panel shows the "Haustür" overlay with two-way audio via PM Ring Intercom and the front door opener (default binary_sensor.haustur_klingelt_panel).
+  klima_praefix:
+    name: PM Klima prefix
+    description: Only thermostats with this prefix are shown (default climate.pm_). Thermostats without an area are matched to an area by name.
+  klima_studio_url:
+    name: PM Klima Studio address
+    description: Internal address of the PM Klima Studio app (default http://bdf1cc64-pm-klima-studio:8099).
+  klima_studio_schluessel:
+    name: PM Klima Studio key
+    description: At least 16 characters, the same value as panel_schluessel in PM Klima Studio. The panel then shows Klima Studio as its own page.
+  telefon_server:
+    name: "Phone: FRITZ!Box"
+    description: "FRITZ!Box address (e.g. 192.168.178.1). Empty = phone off."
+  telefon_benutzer:
+    name: "Phone: user name"
+    description: "User name of the IP phone created in the FRITZ!Box."
+  telefon_passwort:
+    name: "Phone: password"
+    description: "Password of that IP phone."
+  telefon_externe_adresse:
+    name: "Phone: Home Assistant address"
+    description: "Only if auto-detection fails: LAN address of the Home Assistant host."
+  fritz_benutzer:
+    name: "FRITZ!Box: user (phonebook)"
+    description: "FRITZ!Box user with the voice/call list permission. Empty = no contacts or call list."
+  fritz_passwort:
+    name: "FRITZ!Box: password (phonebook)"
+    description: "Password of that user."
+  unifi_adresse:
+    name: "UniFi: gateway address"
+    description: "For the network page: address of the UniFi gateway (UniFi OS), e.g. https://192.168.1.1."
+  unifi_api_schluessel:
+    name: "UniFi: API key"
+    description: "Create in UniFi Network under Settings → Control Plane → Integrations. Alternatively user and password of a local account."
+  unifi_benutzer:
+    name: "UniFi: user (instead of API key)"
+    description: "Local account with read access (only without API key)."
+  unifi_kennwort:
+    name: "UniFi: password"
+    description: "Password of that account."
+  unifi_site:
+    name: "UniFi: site"
+    description: "Site id, usually default."
+  proxmox_adresse:
+    name: "Proxmox: address"
+    description: "Address of Proxmox VE with port, e.g. https://192.168.1.10:8006."
+  proxmox_token:
+    name: "Proxmox: API token (read only)"
+    description: "Format user@realm!name=secret. Create in Proxmox under Datacenter → Permissions → API Tokens; role PVEAuditor is enough, for VM IP addresses add VM.Monitor (Proxmox 8) or VM.GuestAgent.Audit (Proxmox 9), guest agent required. Empty = Home Assistant data only."
+  log_level:
+    name: Log level
+    description: debug, info, warning or error.
+network:
+  5062/udp: Phone (SIP)
+  40000/udp: Phone (audio)
+  40001/udp: Phone (audio)
+  40002/udp: Phone (audio)
+  40003/udp: Phone (audio)
+  8098/tcp: Wall panel on the local network

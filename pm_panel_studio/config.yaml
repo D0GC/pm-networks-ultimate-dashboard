@@ -1,0 +1,122 @@
+name: PM Panel Studio
+version: "2026.11.1"
+image: "ghcr.io/d0gc/{arch}-pm-panel-studio"
+slug: pm_panel_studio
+description: >-
+  Wandpanel-Oberfläche für den Flur: rotierende Hinweiskarten mit Ringtimern, Ruhe- und Wachzustand,
+  Kamera bei Ereignissen und alle Funktionen des Dashboards als Module.
+url: "https://github.com/D0GC/pm-networks-ultimate-dashboard"
+arch:
+  - aarch64
+  - amd64
+init: false
+startup: application
+boot: auto
+ingress: true
+ingress_port: 8099
+panel_icon: mdi:view-dashboard-variant
+panel_title: PM Dashboard
+panel_admin: true
+ports:
+  8098/tcp: 8098
+  5062/udp: 5062
+  40000/udp: 40000
+  40001/udp: 40001
+  40002/udp: 40002
+  40003/udp: 40003
+ports_description:
+  8098/tcp: Wandpanel (Zugang mit Zugangsschlüssel)
+  5062/udp: Telefon (SIP, Anmeldung an der FRITZ!Box)
+  40000/udp: Telefon (Gesprächston)
+  40001/udp: Telefon (Gesprächston)
+  40002/udp: Telefon (Gesprächston)
+  40003/udp: Telefon (Gesprächston)
+homeassistant: "2026.9.0"
+homeassistant_api: true
+hassio_api: false
+# Ordner für den Dateimanager der Admin-Ansicht (nur Administratoren) und die Aufnahmen des Anrufbeantworters
+map:
+  - type: media
+    read_only: false
+  - type: homeassistant_config
+    read_only: false
+  - type: share
+    read_only: false
+  - type: all_addon_configs
+    read_only: false
+  - type: ssl
+    read_only: false
+  - type: backup
+    read_only: false
+timeout: 20
+watchdog: "http://[HOST]:[PORT:8099]/api/health"
+options:
+  hinweise_entitaet: sensor.panel_bad_hinweise
+  pakete_entitaet: sensor.pakete
+  bewegung:
+    - binary_sensor.bewegungsmelder_flur_1_bewegung
+    - binary_sensor.bewegungsmelder_flur_2_bewegung
+  personen:
+    - person.bewohner_a
+    - person.bewohner_b
+  wetter_entitaet: weather.dwd_zuhause
+  aussentemperatur: sensor.aussentemperatur
+  alarm_entitaet: alarm_control_panel.alarmo
+  ereignis_ausloeser:
+    - binary_sensor.wohnungstuer_person
+  ereignis_kamera: camera.wohnungstuer_standardauflosung
+  tueroeffner: button.haustur_tur_offnen
+  haustueroeffner: button.haustur_tur_offnen
+  intercom_ausloeser:
+    - binary_sensor.haustur_klingelt_panel
+  klima_praefix: climate.pm_
+  klima_studio_url: http://bdf1cc64-pm-klima-studio:8099
+  klima_studio_schluessel: ""
+  telefon_server: ""
+  telefon_benutzer: ""
+  telefon_passwort: ""
+  telefon_externe_adresse: ""
+  fritz_benutzer: ""
+  fritz_passwort: ""
+  unifi_adresse: https://192.168.1.1
+  unifi_api_schluessel: ""
+  unifi_benutzer: ""
+  unifi_kennwort: ""
+  unifi_site: default
+  proxmox_adresse: https://192.168.1.10:8006
+  proxmox_token: ""
+  log_level: info
+schema:
+  hinweise_entitaet: str?
+  pakete_entitaet: str?
+  bewegung:
+    - str?
+  personen:
+    - str?
+  wetter_entitaet: str?
+  aussentemperatur: str?
+  alarm_entitaet: str?
+  ereignis_ausloeser:
+    - str?
+  ereignis_kamera: str?
+  tueroeffner: str?
+  haustueroeffner: str?
+  intercom_ausloeser:
+    - str?
+  klima_praefix: str?
+  klima_studio_url: url?
+  klima_studio_schluessel: password?
+  telefon_server: str?
+  telefon_benutzer: str?
+  telefon_passwort: password?
+  telefon_externe_adresse: str?
+  fritz_benutzer: str?
+  fritz_passwort: password?
+  unifi_adresse: str?
+  unifi_api_schluessel: password?
+  unifi_benutzer: str?
+  unifi_kennwort: password?
+  unifi_site: str?
+  proxmox_adresse: str?
+  proxmox_token: password?
+  log_level: list(debug|info|warning|error)
