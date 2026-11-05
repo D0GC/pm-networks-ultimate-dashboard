@@ -5,7 +5,7 @@ slug: pm_panel_studio
 description: >-
   Wandpanel-Oberfläche für Home Assistant: rotierende Hinweiskarten mit Ringtimern, Ruhe- und Wachzustand,
   Kamera bei Ereignissen, Türklingel mit Türdienst und alle Funktionen des Dashboards als Module.
-url: "https://github.com/D0GC/pm-networks-ultimate-dashboard"
+url: "https://pm-networks.com/produkte/panel-studio/"
 arch:
   - aarch64
   - amd64

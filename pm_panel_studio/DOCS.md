@@ -1,5 +1,7 @@
 # PM Panel Studio
 
+Produktseite, Neuigkeiten und Kontakt: <https://pm-networks.com/produkte/panel-studio/>
+
 Wandpanel-Oberfläche für Home Assistant (ausgelegt auf Tablets im Querformat, z. B. 1920 × 1280). Die App hält die Verbindung zu Home Assistant, berechnet
 Karten und Zustände selbst und schickt dem Panel nur fertige Änderungen.
 

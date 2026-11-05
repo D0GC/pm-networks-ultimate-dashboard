@@ -1,3 +1,18 @@
+<p align="center">
+  <a href="https://pm-networks.com/produkte/panel-studio/"><img src="docs/images/banner.png" alt="PM Panel Studio – das Wandpanel für Home Assistant, mit Admin-Ansicht am PC" width="100%"></a>
+</p>
+
+<p align="center">
+  <a href="https://pm-networks.com"><img src="https://img.shields.io/badge/Website-pm--networks.com-784295?style=flat-square" alt="Website pm-networks.com"></a>
+  <a href="pm_panel_studio/CHANGELOG.md"><img src="https://img.shields.io/badge/Home%20Assistant-App-443171?style=flat-square&logo=homeassistant&logoColor=white" alt="Home Assistant App"></a>
+  <img src="https://img.shields.io/badge/Architektur-aarch64%20%7C%20amd64-262252?style=flat-square" alt="Architekturen aarch64 und amd64">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/Lizenz-propriet%C3%A4r-191537?style=flat-square" alt="Lizenz proprietär"></a>
+</p>
+
+<p align="center">
+  <a href="https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https%3A%2F%2Fgithub.com%2FD0GC%2Fpm-networks-ultimate-dashboard"><img src="https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg" alt="Repository zu Home Assistant hinzufügen"></a>
+</p>
+
 # PM Panel Studio
 
 > © 2026 PM Networks. Alle Rechte vorbehalten. Proprietäre Software, siehe [`LICENSE`](LICENSE).
@@ -6,6 +21,10 @@
 
 Wandpanel-Oberfläche für Home Assistant: rotierende Hinweiskarten mit Ringtimern, Räume mit Licht, Klima und Medien,
 Sicherheit mit Kamera und Türsprechstelle, Energie, Haushalt und eine Admin-Ansicht für den PC.
+
+> **Produktseite, Neuigkeiten und Kontakt:** [pm-networks.com/produkte/panel-studio](https://pm-networks.com/produkte/panel-studio/)
+
+![PM Panel Studio: Admin-Ansicht am PC und Wandpanel](docs/images/titelbild.webp)
 
 ## Installation
 
@@ -55,3 +74,5 @@ Die Bilder zeigen Testdaten; Namen und Orte sind erfunden.
 | ![Klima](docs/screenshots/05-klima.jpg) | ![Sicherheit](docs/screenshots/06-sicherheit.jpg) |
 | ![Energie](docs/screenshots/07-energie.jpg) | ![Shisha](docs/screenshots/08-shisha.jpg) |
 | ![Haushalt](docs/screenshots/09-haushalt.jpg) | ![Admin-Ansicht](docs/screenshots/10-admin.jpg) |
+
+<p align="center"><a href="https://pm-networks.com"><b>pm-networks.com</b></a> · <sub>© 2026 PM Networks</sub></p>
